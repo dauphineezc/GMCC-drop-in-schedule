@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weekly Schedule</title>
+  <meta name="color-scheme" content="light only" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --row-h: 64px; } /* 1 hour = 64px */
+    html,body { height: 100%; }
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+    .scrollbar::-webkit-scrollbar{ width:8px; height:8px; } .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
+    .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
+    .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
+    .day-col { position: relative; }
+    .event-card { position:absolute; left:0; right:0; border-left-width:4px; border-radius:0.5rem; padding:0.5rem; }
+    .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
+    .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; transform:translate(-6px,-3px); }
+    @media print {
+      .no-print { display:none !important; }
+      .print-block { display:block !important; }
+      .event-card { box-shadow:none !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+  <main class="mx-auto max-w-7xl p-4">
+    <!-- Tabs -->
+    <div class="mb-4 border-b border-gray-200">
+      <nav id="tabs" class="-mb-px flex flex-wrap gap-6" aria-label="Calendars"></nav>
+    </div>
+
+    <!-- Controls -->
+    <div class="no-print flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div class="flex items-center gap-2">
+        <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
+        <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
+        <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Next week">▶</button>
+      </div>
+      <div id="rangeLabel" class="font-semibold"></div>
+      <div class="text-sm text-gray-500">Times shown in <span id="tzLabel"></span></div>
+    </div>
+
+    <!-- Desktop grid -->
+    <section class="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+      <div id="gridScroller" class="scrollbar overflow-auto" style="height: 80vh;">
+        <div class="relative">
+          <div id="gridHeader" class="grid sticky top-0 bg-white z-20 shadow-sm"
+               style="grid-template-columns: 4rem repeat(7, minmax(140px, 1fr));"></div>
+          <div id="gridBody" class="grid relative"
+               style="grid-template-columns: 4rem repeat(7, minmax(140px, 1fr));"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mobile list -->
+    <section id="listView" class="md:hidden bg-white rounded-lg shadow p-4 space-y-5 overflow-y-auto" style="height: 80vh;"></section>
+  </main>
+
+  <script>
+  /*** --------- Demo data (replace with your loader later) --------- ***/
+  const PALETTE = {
+    blue:   ["bg-blue-100","text-blue-800","border-blue-500"],
+    green:  ["bg-green-100","text-green-800","border-green-500"],
+    purple: ["bg-purple-100","text-purple-800","border-purple-500"],
+    yellow: ["bg-yellow-100","text-yellow-800","border-yellow-500"],
+    indigo: ["bg-indigo-100","text-indigo-800","border-indigo-500"],
+    orange: ["bg-orange-100","text-orange-800","border-orange-500"],
+    red:    ["bg-red-100","text-red-800","border-red-500"],
+    teal:   ["bg-teal-100","text-teal-800","border-teal-500"],
+    gray:   ["bg-gray-200","text-gray-800","border-gray-500"],
+    pink:   ["bg-pink-100","text-pink-800","border-pink-500"],
+    cyan:   ["bg-cyan-100","text-cyan-800","border-cyan-500"]
+  };
+
+  // Repeating weekly schedule using dayIndex (0=Mon..6=Sun) and 24h integers
+  const CALS = {
+    aquatics: {
+      label: "Aquatics",
+      events: [
+        ev("Lap Swim",0,5,8,"blue"),
+        ev("Rec Swim",0,5,8,"green"),
+        ev("Water Aerobics",2,9,10,"purple"),
+        ev("Open Swim",4,14,18,"yellow"),
+        ev("Swim Team Practice",1,16,18,"indigo")
+      ]
+    },
+    courtSports: {
+      label: "Court Sports",
+      events: [
+        ev("Pickleball",1,9,11,"orange"),
+        ev("Basketball",3,17,20,"red"),
+        ev("Volleyball",4,18,21,"teal")
+      ]
+    },
+    community: {
+      label: "Community",
+      events: [
+        ev("Yoga Class",0,8,9,"pink"),
+        ev("Senior Coffee Hour",2,10,11,"gray"),
+        ev("Teen Game Night",4,19,22,"cyan")
+      ]
+    }
+  };
+
+  function ev(name, dayIndex, start, end, colorKey){
+    const [bg, text, border] = PALETTE[colorKey];
+    return { id: `${name}-${dayIndex}-${start}`,
+      name, dayIndex, start, end, color:{bg,text,border}
+    };
+  }
+
+  /*** --------- State, URL, and utilities --------- ***/
+  const params = new URLSearchParams(location.search);
+  const START_OF_WEEK = getMonday(new Date()); // Monday week
+  let weekStart = params.get("w") ? new Date(params.get("w")) : START_OF_WEEK;
+  if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
+
+  const CAL_KEYS = Object.keys(CALS);
+  let currentCal = CAL_KEYS.includes(params.get("cal")) ? params.get("cal") : CAL_KEYS[0];
+
+  const els = {
+    tabs: document.getElementById("tabs"),
+    gridHeader: document.getElementById("gridHeader"),
+    gridBody: document.getElementById("gridBody"),
+    list: document.getElementById("listView"),
+    rangeLabel: document.getElementById("rangeLabel"),
+    tzLabel: document.getElementById("tzLabel"),
+    prevBtn: document.getElementById("prevBtn"),
+    nextBtn: document.getElementById("nextBtn"),
+    todayBtn: document.getElementById("todayBtn"),
+    scroller: document.getElementById("gridScroller")
+  };
+
+  els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Controls
+  els.prevBtn.onclick = () => changeWeek(-7);
+  els.nextBtn.onclick = () => changeWeek(+7);
+  els.todayBtn.onclick = () => { weekStart = getMonday(new Date()); syncUrl(); render(); };
+
+  function changeWeek(deltaDays){
+    weekStart = addDays(weekStart, deltaDays);
+    syncUrl();
+    render();
+  }
+
+  function syncUrl(){
+    const p = new URLSearchParams();
+    p.set("cal", currentCal);
+    p.set("w", ymd(weekStart));
+    history.replaceState(null, "", `?${p.toString()}`);
+  }
+
+  // dates
+  function getMonday(d){ const x = new Date(d); const day = (x.getDay()+6)%7; x.setHours(0,0,0,0); return addDays(x, -day); }
+  function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+  function ymd(d){ return d.toISOString().slice(0,10); }
+  function labelDate(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+  function formatTime(hour){
+    const h12 = (hour % 12) || 12;
+    const ap = hour < 12 ? "AM" : "PM";
+    return `${h12}:00 ${ap}`;
+  }
+
+  /*** --------- Rendering --------- ***/
+  // Tabs
+  function renderTabs(){
+    els.tabs.innerHTML = "";
+    for (const key of CAL_KEYS){
+      const btn = document.createElement("button");
+      btn.className = "tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300";
+      btn.textContent = CALS[key].label;
+      if (key === currentCal) btn.classList.add("active");
+      btn.onclick = () => { currentCal = key; document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); syncUrl(); renderBody(); };
+      els.tabs.appendChild(btn);
+    }
+  }
+
+  function render(){
+    renderTabs();
+    renderHeader();
+    renderBody();
+  }
+
+  function renderHeader(){
+    // Time column + 7 day headers
+    els.gridHeader.innerHTML = "";
+    const timeCell = document.createElement("div");
+    timeCell.className = "p-2 border-r border-b border-gray-200 text-xs text-center font-semibold text-gray-500 flex items-center justify-center";
+    timeCell.textContent = "EDT"; // label; your site can detect TZ separately
+    els.gridHeader.appendChild(timeCell);
+
+    const days = [];
+    for (let i=0;i<7;i++){
+      const d = addDays(weekStart,i); days.push(d);
+      const h = document.createElement("div");
+      h.className = "p-2 border-b border-gray-200 text-center";
+      const isToday = ymd(d) === ymd(new Date());
+      h.innerHTML = `<p class="text-xs font-medium ${isToday?"text-blue-600":"text-gray-500"}">${["MON","TUE","WED","THU","FRI","SAT","SUN"][i]}</p>
+                     <p class="text-xs ${isToday?"font-semibold text-blue-600":""}">${labelDate(d)}</p>`;
+      els.gridHeader.appendChild(h);
+    }
+    // Week range label
+    const end = addDays(weekStart,6);
+    els.rangeLabel.textContent = `${labelDate(weekStart)} – ${labelDate(end)}`;
+  }
+
+  function renderBody(){
+    renderGrid();
+    renderList();
+  }
+
+  // GRID (desktop)
+  function renderGrid(){
+    const startHour = 5, endHour = 22;
+    els.gridBody.innerHTML = "";
+    // time rail + empty cells
+    for (let hour=startHour; hour<=endHour; hour++){
+      const t = document.createElement("div");
+      t.className = "p-2 border-r border-gray-200 text-right text-xs text-gray-400 h-16 flex items-start justify-end -mt-2.5";
+      if (hour < endHour){
+        const h12 = (hour % 12)||12;
+        t.textContent = `${h12} ${hour<12?"AM":"PM"}`;
+      }
+      els.gridBody.appendChild(t);
+      for (let day=0; day<7; day++){
+        const cell = document.createElement("div");
+        cell.className = "border-r border-b border-gray-200 h-16 day-col";
+        cell.dataset.day = day;
+        els.gridBody.appendChild(cell);
+      }
+    }
+
+    // Place events using true overlap columns
+    const events = CALS[currentCal].events;
+    const groupsByDay = Array.from({length:7},()=>[]);
+    events.forEach(e => groupsByDay[e.dayIndex].push(e));
+
+    for (let day=0; day<7; day++){
+      const dayEvents = groupsByDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
+      const clusters = clusterOverlaps(dayEvents);
+      for (const cluster of clusters){
+        assignColumns(cluster); // adds .col and .colCount
+        for (const ev of cluster){
+          placeEvent(ev);
+        }
+      }
+    }
+    positionNowLine(startHour, endHour);
+  }
+
+  // Cluster events where any time overlaps (interval graph)
+  function clusterOverlaps(events){
+    const clusters = [];
+    let curr = [];
+    let currMaxEnd = -Infinity;
+    for (const e of events){
+      if (!curr.length || e.start < currMaxEnd){
+        curr.push(e); currMaxEnd = Math.max(currMaxEnd, e.end);
+      } else {
+        clusters.push(curr); curr = [e]; currMaxEnd = e.end;
+      }
+    }
+    if (curr.length) clusters.push(curr);
+    return clusters;
+  }
+  // Greedy column assignment per cluster
+  function assignColumns(cluster){
+    const cols = []; // each entry holds the end time of last event in that column
+    for (const e of cluster){
+      let placed = false;
+      for (let c=0; c<cols.length; c++){
+        if (e.start >= cols[c]){ // no overlap with last in column
+          e.col = c; cols[c] = e.end; placed = true; break;
+        }
+      }
+      if (!placed){ e.col = cols.length; cols.push(e.end); }
+      e.colCount = cols.length;
+    }
+  }
+
+  function placeEvent(ev){
+    const startHour = 5;
+    const top = (ev.start - startHour) * parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
+    const height = (ev.end - ev.start) * parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
+    const widthPct = 100 / ev.colCount;
+    const leftPct  = ev.col * widthPct;
+
+    // find the day column container for absolute positioning
+    const dayCols = [...els.gridBody.querySelectorAll(".day-col")].filter(n => +n.dataset.day === ev.dayIndex);
+    // The column appears once per hour row; we want the first one (topmost in that day)
+    const dayColTop = dayCols[0];
+    const card = document.createElement("div");
+    card.className = `event-card shadow-sm ${ev.color.bg} ${ev.color.text} ${ev.color.border}`;
+    card.style.top = `${top}px`;
+    card.style.height = `${height}px`;
+    card.style.left = `calc(${leftPct}% + 4px)`;
+    card.style.width = `calc(${widthPct}% - 8px)`;
+    card.innerHTML = `<p class="font-semibold text-sm leading-tight">${ev.name}</p>
+                      <p class="text-xs opacity-90">${formatTime(ev.start)} – ${formatTime(ev.end)}</p>`;
+    // append at the end of gridBody so absolute coordinates are relative to the grid container
+    dayColTop.parentElement.appendChild(card);
+  }
+
+  function positionNowLine(startHour, endHour){
+    // remove prior
+    document.querySelectorAll(".now-line").forEach(n=>n.remove());
+    const now = new Date();
+    const dow = (now.getDay()+6)%7; // Mon=0
+    const h = now.getHours(), m = now.getMinutes();
+    if (h < startHour || h >= endHour) return;
+
+    const minutesPast = (h - startHour)*60 + m;
+    const top = minutesPast * (parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"))/60);
+
+    // create line sized to the day's column
+    const line = document.createElement("div");
+    line.className = "now-line";
+    line.style.top = `${top}px`;
+    // use CSS grid column positioning
+    line.style.gridColumn = `${dow+2} / span 1`;
+    line.innerHTML = `<span class="now-dot"></span>`;
+    els.gridBody.appendChild(line);
+  }
+  setInterval(()=>{ renderHeader(); renderGrid(); }, 60000); // tick minute
+
+  // LIST (mobile)
+  function renderList(){
+    els.list.innerHTML = "";
+    const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const byDay = Array.from({length:7},()=>[]);
+    for (const e of CALS[currentCal].events) byDay[e.dayIndex].push(e);
+    for (let i=0;i<7;i++){
+      const d = addDays(weekStart,i);
+      const header = document.createElement("div");
+      const isToday = ymd(d) === ymd(new Date());
+      header.className = "pt-2 pb-2 border-b";
+      header.innerHTML = `<h2 class="text-lg font-bold ${isToday?"text-blue-700":""}">${days[i]}</h2>
+                          <div class="text-xs text-gray-500">${labelDate(d)}</div>`;
+      els.list.appendChild(header);
+      if (!byDay[i].length){
+        const none = document.createElement("div");
+        none.className = "text-sm text-gray-400 pt-2";
+        none.textContent = "No events";
+        els.list.appendChild(none);
+      } else {
+        byDay[i].sort((a,b)=>a.start-b.start).forEach(e=>{
+          const item = document.createElement("div");
+          item.className = `mt-2 p-3 rounded-lg ${e.color.bg} ${e.color.text}`;
+          item.innerHTML = `<p class="font-semibold">${e.name}</p>
+                            <p class="text-sm opacity-90">${formatTime(e.start)} – ${formatTime(e.end)}</p>`;
+          els.list.appendChild(item);
+        });
+      }
+    }
+  }
+
+  // first paint
+  render();
+  syncUrl();
+  </script>
+</body>
+</html>
