@@ -24,6 +24,32 @@
       .print-block { display:block !important; }
       .event-card { box-shadow:none !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     }
+    
+    /* Responsive adjustments for very small screens */
+    @media (max-width: 768px) {
+      .event-card { 
+        padding: 0.25rem 0.5rem; 
+        font-size: 0.75rem; 
+        max-width: 100%; 
+        overflow: hidden; 
+      }
+      .event-card p:first-child { 
+        font-size: 0.875rem; 
+        line-height: 1.2; 
+      }
+    }
+    
+    /* Extra small screen adjustments */
+    @media (max-width: 640px) {
+      .event-card { 
+        padding: 0.125rem 0.25rem; 
+        font-size: 0.625rem; 
+      }
+      .event-card p:first-child { 
+        font-size: 0.75rem; 
+        line-height: 1.1; 
+      }
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">
@@ -50,9 +76,9 @@
       <div id="gridScroller" class="scrollbar overflow-auto" style="height: 80vh;">
         <div class="relative">
           <div id="gridHeader" class="grid sticky top-0 bg-white z-20 shadow-sm"
-               style="grid-template-columns: 4rem repeat(7, minmax(140px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
           <div id="gridBody" class="grid relative"
-               style="grid-template-columns: 4rem repeat(7, minmax(140px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
         </div>
       </div>
     </section>
@@ -282,15 +308,17 @@
       const eventIndex = overlappingEvents.findIndex(e => e.name === event.name);
       
       if (totalOverlaps > 1) {
-        // Multiple overlapping events - divide width equally
-        const width = `calc(${100 / totalOverlaps}% - 4px)`;
-        const left = `calc(${eventIndex * (100 / totalOverlaps)}% + 2px)`;
-        card.style.width = width;
+        // Multiple overlapping events - ensure equal left and right edge gaps
+        const gap = 4; // 4px gap between events and edges
+        const eventWidth = `calc(${100 / totalOverlaps}% - ${gap}px)`;
+        const left = `calc(${eventIndex * (100 / totalOverlaps)}% + ${gap - (eventIndex * gap)}px)`;
+        card.style.width = eventWidth;
         card.style.left = left;
       } else {
-        // Single event - use full width with small margins
-        card.style.width = 'calc(100% - 8px)';
-        card.style.left = '4px';
+        // Single event - use full width with consistent margins
+        const margin = 4; // Fixed margin for single events
+        card.style.width = `calc(100% - ${margin * 2}px)`;
+        card.style.left = `${margin}px`;
       }
       
       card.innerHTML = `
@@ -335,6 +363,15 @@
   }
 
   setInterval(()=>{ renderHeader(); renderGrid(); }, 60000); // tick minute
+
+  // Add resize listener for responsive event positioning
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      renderGrid();
+    }, 100);
+  });
 
   // LIST (mobile)
   function renderList(){
