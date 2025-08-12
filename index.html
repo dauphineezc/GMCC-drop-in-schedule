@@ -281,8 +281,8 @@
     const overlay = dayOverlays[ev.dayIndex];
     if (!overlay) return;
 
-    const EDGE_INSET = 8;   // space from left/right edges of the day column
-    const GAP_BETWEEN = 8;  // space between simultaneous events
+    const EDGE_INSET = 5;   // space from left/right edges of the day column
+    const GAP_BETWEEN = 5;  // space between simultaneous events
 
     const colW = overlay.clientWidth;               // content width (no borders)
     const totalGaps   = (ev.colCount - 1) * GAP_BETWEEN;
