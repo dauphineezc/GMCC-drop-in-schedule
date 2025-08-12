@@ -15,9 +15,10 @@
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
-    .event-card { position: absolute; box-sizing: border-box; border-left-width: 4px; border-radius: 0.5rem; }
+    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem 0.75rem; }
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
-    .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; }
+    .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
+    .tz-hide { display:none !important; } /* ← hides the “Times shown in …” line */
     @media print {
       .no-print { display:none !important; }
       .print-block { display:block !important; }
@@ -28,13 +29,16 @@
 <body class="bg-gray-50 text-gray-800 antialiased">
   <main class="mx-auto max-w-7xl p-4">
 
-    <!-- Controls -->
-    <div class="no-print flex flex-wrap items-center justify-between gap-3 mb-3">
+    <!-- Controls (date range centered across the full width) -->
+    <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
       <div class="flex items-center gap-2">
         <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
         <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
         <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Next week">▶</button>
       </div>
+      <div id="rangeLabel" class="font-semibold text-center"></div>
+      <!-- Hidden timezone line (kept in DOM but not shown) -->
+      <div class="text-sm text-gray-500 tz-hide">Times shown in <span id="tzLabel"></span></div>
     </div>
 
     <!-- Tabs -->
@@ -59,6 +63,7 @@
   </main>
 
   <script>
+  /*** --------- Demo data (replace with your loader later) --------- ***/
   const PALETTE = {
     blue:   ["bg-blue-100","text-blue-800","border-blue-500"],
     green:  ["bg-green-100","text-green-800","border-green-500"],
@@ -135,6 +140,7 @@
   // overlays for each day (0..6)
   let dayOverlays = [];
 
+  // (still set the textContent even though we hide the line)
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Controls
@@ -213,6 +219,7 @@
     renderList();
   }
 
+  // GRID (desktop) with per-day overlays
   function renderGrid(){
     const startHour = 5, endHour = 22;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
@@ -303,30 +310,30 @@
     }
   }
 
-  function placeEvent(ev) {
+  // UPDATED: even edge padding + between-event gap
+  function placeEvent(ev){
     const startHour = 5;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
-    const top = (ev.start - startHour) * rowH;
-    const height = (ev.end - ev.start) * rowH;
-  
+    const top    = (ev.start - startHour) * rowH;
+    const height = (ev.end   - ev.start)  * rowH;
+
     const overlay = dayOverlays[ev.dayIndex];
     if (!overlay) return;
-  
-    // Padding and gap settings
-    const EDGE_INSET = 8;   // space from the left/right edge of the day column
-    const GAP_BETWEEN = 8;  // space between overlapping events
-  
+
+    const EDGE_INSET = 8;   // space from left/right edges of the day column
+    const GAP_BETWEEN = 8;  // space between simultaneous events
+
     const colW = overlay.getBoundingClientRect().width;
-    const totalGaps = (ev.colCount - 1) * GAP_BETWEEN;
+    const totalGaps   = (ev.colCount - 1) * GAP_BETWEEN;
     const totalInsets = 2 * EDGE_INSET;
-    const width = (colW - totalGaps - totalInsets) / ev.colCount;
-    const left = EDGE_INSET + ev.col * (width + GAP_BETWEEN);
-  
+    const width  = (colW - totalGaps - totalInsets) / ev.colCount;
+    const left   = EDGE_INSET + ev.col * (width + GAP_BETWEEN);
+
     const card = document.createElement("div");
     card.className = `event-card shadow-sm ${ev.color.bg} ${ev.color.text} ${ev.color.border}`;
-    card.style.top = `${top}px`;
-    card.style.left = `${Math.round(left)}px`;
-    card.style.width = `${Math.round(width)}px`;
+    card.style.top    = `${top}px`;
+    card.style.left   = `${Math.round(left)}px`;
+    card.style.width  = `${Math.round(width)}px`;
     card.style.height = `${height}px`;
     card.style.pointerEvents = 'auto';
     card.innerHTML = `
@@ -359,9 +366,6 @@
 
     const dot = document.createElement("div");
     dot.className = "now-dot";
-    dot.style.left = "0px";
-    dot.style.top = "50%";
-    dot.style.transform = "translate(-50%, -50%)";
 
     line.appendChild(dot);
     overlay.appendChild(line);
