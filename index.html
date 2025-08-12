@@ -15,10 +15,10 @@
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
-    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem; }
+    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem 0.75rem; }
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
-    .tz-hide { display:none !important; } /* ← hides the “Times shown in …” line */
+    .tz-hide { display:none !important; } /* hide “Times shown in …” */
     @media print {
       .no-print { display:none !important; }
       .print-block { display:block !important; }
@@ -37,7 +37,6 @@
         <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Next week">▶</button>
       </div>
       <div id="rangeLabel" class="font-semibold text-center"></div>
-      <!-- Hidden timezone line (kept in DOM but not shown) -->
       <div class="text-sm text-gray-500 tz-hide">Times shown in <span id="tzLabel"></span></div>
     </div>
 
@@ -63,7 +62,7 @@
   </main>
 
   <script>
-  /*** --------- Demo data (replace with your loader later) --------- ***/
+  /*** --------- Demo data --------- ***/
   const PALETTE = {
     blue:   ["bg-blue-100","text-blue-800","border-blue-500"],
     green:  ["bg-green-100","text-green-800","border-green-500"],
@@ -78,7 +77,6 @@
     cyan:   ["bg-cyan-100","text-cyan-800","border-cyan-500"]
   };
 
-  // Repeating weekly schedule using dayIndex (0=Mon..6=Sun) and 24h integers
   const CALS = {
     aquatics: {
       label: "Aquatics",
@@ -110,14 +108,12 @@
 
   function ev(name, dayIndex, start, end, colorKey){
     const [bg, text, border] = PALETTE[colorKey];
-    return { id: `${name}-${dayIndex}-${start}`,
-      name, dayIndex, start, end, color:{bg,text,border}
-    };
+    return { id: `${name}-${dayIndex}-${start}`, name, dayIndex, start, end, color:{bg,text,border} };
   }
 
-  /*** --------- State, URL, and utilities --------- ***/
+  /*** --------- State & refs --------- ***/
   const params = new URLSearchParams(location.search);
-  const START_OF_WEEK = getMonday(new Date()); // Monday week
+  const START_OF_WEEK = getMonday(new Date());
   let weekStart = params.get("w") ? new Date(params.get("w")) : START_OF_WEEK;
   if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
 
@@ -137,10 +133,7 @@
     scroller: document.getElementById("gridScroller")
   };
 
-  // overlays for each day (0..6)
-  let dayOverlays = [];
-
-  // (still set the textContent even though we hide the line)
+  let dayOverlays = []; // per-day absolute layers
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Controls
@@ -148,32 +141,17 @@
   els.nextBtn.onclick = () => changeWeek(+7);
   els.todayBtn.onclick = () => { weekStart = getMonday(new Date()); syncUrl(); render(); };
 
-  function changeWeek(deltaDays){
-    weekStart = addDays(weekStart, deltaDays);
-    syncUrl();
-    render();
-  }
-
-  function syncUrl(){
-    const p = new URLSearchParams();
-    p.set("cal", currentCal);
-    p.set("w", ymd(weekStart));
-    history.replaceState(null, "", `?${p.toString()}`);
-  }
+  function changeWeek(deltaDays){ weekStart = addDays(weekStart, deltaDays); syncUrl(); render(); }
+  function syncUrl(){ const p = new URLSearchParams(); p.set("cal", currentCal); p.set("w", ymd(weekStart)); history.replaceState(null, "", `?${p.toString()}`); }
 
   // dates
   function getMonday(d){ const x = new Date(d); const day = (x.getDay()+6)%7; x.setHours(0,0,0,0); return addDays(x, -day); }
   function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
   function ymd(d){ return d.toISOString().slice(0,10); }
   function labelDate(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
-  function formatTime(hour){
-    const h12 = (hour % 12) || 12;
-    const ap = hour < 12 ? "AM" : "PM";
-    return `${h12}:00 ${ap}`;
-  }
+  function formatTime(hour){ const h12 = (hour % 12) || 12; const ap = hour < 12 ? "AM" : "PM"; return `${h12}:00 ${ap}`; }
 
   /*** --------- Rendering --------- ***/
-  // Tabs
   function renderTabs(){
     els.tabs.innerHTML = "";
     for (const key of CAL_KEYS){
@@ -186,14 +164,9 @@
     }
   }
 
-  function render(){
-    renderTabs();
-    renderHeader();
-    renderBody();
-  }
+  function render(){ renderTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
-    // Time column + 7 day headers
     els.gridHeader.innerHTML = "";
     const timeCell = document.createElement("div");
     timeCell.className = "p-2 border-r border-b border-gray-200 text-xs text-center font-semibold text-gray-500 flex items-center justify-center";
@@ -209,15 +182,11 @@
                      <p class="text-xs ${isToday?"font-semibold text-blue-600":""}">${labelDate(d)}</p>`;
       els.gridHeader.appendChild(h);
     }
-    // Week range label
     const end = addDays(weekStart,6);
     els.rangeLabel.textContent = `${labelDate(weekStart)} – ${labelDate(end)}`;
   }
 
-  function renderBody(){
-    renderGrid();
-    renderList();
-  }
+  function renderBody(){ renderGrid(); renderList(); }
 
   // GRID (desktop) with per-day overlays
   function renderGrid(){
@@ -244,7 +213,7 @@
       }
     }
 
-    // build 7 absolute overlays aligned to each day column (use the first hour row)
+    // build 7 absolute overlays aligned to each day column (exclude borders for perfect symmetry)
     const firstRowCells = [...els.gridBody.querySelectorAll('.day-col')].slice(0,7);
     const gridBox = els.gridBody.getBoundingClientRect();
     const totalHeight = (endHour - startHour) * rowH;
@@ -252,11 +221,15 @@
     for (let day=0; day<7; day++){
       const refCell = firstRowCells[day];
       const box = refCell.getBoundingClientRect();
+      const cs = getComputedStyle(refCell);
+      const bl = parseFloat(cs.borderLeftWidth)  || 0;
+      const br = parseFloat(cs.borderRightWidth) || 0;
+
       const overlay = document.createElement('div');
       overlay.className = 'absolute';
       overlay.style.top = '0px';
-      overlay.style.left = `${box.left - gridBox.left}px`;
-      overlay.style.width = `${box.width}px`;
+      overlay.style.left = `${(box.left - gridBox.left) + bl}px`;              // start inside the left border
+      overlay.style.width = `${box.width - bl - br}px`;                         // stop before the right border
       overlay.style.height = `${totalHeight}px`;
       overlay.style.pointerEvents = 'none';
       els.gridBody.appendChild(overlay);
@@ -271,46 +244,35 @@
     for (let day=0; day<7; day++){
       const dayEvents = groupsByDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
       const clusters = clusterOverlaps(dayEvents);
-      for (const cluster of clusters){
-        assignColumns(cluster); // adds .col and .colCount
-        for (const ev of cluster) placeEvent(ev);
-      }
+      for (const cluster of clusters){ assignColumns(cluster); cluster.forEach(placeEvent); }
     }
 
     positionNowLine(startHour, endHour);
   }
 
-  // Cluster events where any time overlaps (interval graph)
   function clusterOverlaps(events){
-    const clusters = [];
-    let curr = [];
-    let currMaxEnd = -Infinity;
+    const clusters = []; let curr = []; let currMaxEnd = -Infinity;
     for (const e of events){
-      if (!curr.length || e.start < currMaxEnd){
-        curr.push(e); currMaxEnd = Math.max(currMaxEnd, e.end);
-      } else {
-        clusters.push(curr); curr = [e]; currMaxEnd = e.end;
-      }
+      if (!curr.length || e.start < currMaxEnd){ curr.push(e); currMaxEnd = Math.max(currMaxEnd, e.end); }
+      else { clusters.push(curr); curr = [e]; currMaxEnd = e.end; }
     }
     if (curr.length) clusters.push(curr);
     return clusters;
   }
-  // Greedy column assignment per cluster
+
   function assignColumns(cluster){
-    const cols = []; // each entry holds the end time of last event in that column
+    const cols = [];
     for (const e of cluster){
       let placed = false;
       for (let c=0; c<cols.length; c++){
-        if (e.start >= cols[c]){ // no overlap with last in column
-          e.col = c; cols[c] = e.end; placed = true; break;
-        }
+        if (e.start >= cols[c]){ e.col = c; cols[c] = e.end; placed = true; break; }
       }
       if (!placed){ e.col = cols.length; cols.push(e.end); }
       e.colCount = cols.length;
     }
   }
 
-  // UPDATED: even edge padding + between-event gap
+  // Even edge padding + precise gap between overlapping events (no rounding bias)
   function placeEvent(ev){
     const startHour = 5;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
@@ -332,8 +294,8 @@
     const card = document.createElement("div");
     card.className = `event-card shadow-sm ${ev.color.bg} ${ev.color.text} ${ev.color.border}`;
     card.style.top    = `${top}px`;
-    card.style.left   = `${Math.round(left)}px`;
-    card.style.width  = `${Math.round(width)}px`;
+    card.style.left   = `${left}px`;         // allow sub-pixel precision
+    card.style.width  = `${width}px`;        // allow sub-pixel precision
     card.style.height = `${height}px`;
     card.style.pointerEvents = 'auto';
     card.innerHTML = `
@@ -389,8 +351,7 @@
       els.list.appendChild(header);
       if (!byDay[i].length){
         const none = document.createElement("div");
-        none.className = "text-sm text-gray-400 pt-2";
-        none.textContent = "No events";
+        none.className = "text-sm text-gray-400 pt-2"; none.textContent = "No events";
         els.list.appendChild(none);
       } else {
         byDay[i].sort((a,b)=>a.start-b.start).forEach(e=>{
