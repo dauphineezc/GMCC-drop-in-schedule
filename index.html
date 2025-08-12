@@ -15,7 +15,7 @@
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
-    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem 0.75rem; }
+    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem 0.75rem; z-index:10; }
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
     .tz-hide { display:none !important; } /* hide “Times shown in …” */
@@ -235,73 +235,75 @@
       dayOverlays[day] = overlay;
     }
 
-    // Place events using true overlap columns
+    // Place events using CSS Grid positioning for overlapping events
     const events = CALS[currentCal].events;
     const groupsByDay = Array.from({length:7},()=>[]);
     events.forEach(e => groupsByDay[e.dayIndex].push(e));
 
     for (let day=0; day<7; day++){
       const dayEvents = groupsByDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
-      const clusters = clusterOverlaps(dayEvents);
-      for (const cluster of clusters){ assignColumns(cluster); cluster.forEach(placeEvent); }
+      placeEventsInDay(day, dayEvents);
     }
 
     positionNowLine(startHour, endHour);
   }
 
-  function clusterOverlaps(events){
-    const clusters = []; let curr = []; let currMaxEnd = -Infinity;
-    for (const e of events){
-      if (!curr.length || e.start < currMaxEnd){ curr.push(e); currMaxEnd = Math.max(currMaxEnd, e.end); }
-      else { clusters.push(curr); curr = [e]; currMaxEnd = e.end; }
-    }
-    if (curr.length) clusters.push(curr);
-    return clusters;
-  }
-
-  function assignColumns(cluster){
-    const cols = [];
-    for (const e of cluster){
-      let placed = false;
-      for (let c=0; c<cols.length; c++){
-        if (e.start >= cols[c]){ e.col = c; cols[c] = e.end; placed = true; break; }
-      }
-      if (!placed){ e.col = cols.length; cols.push(e.end); }
-      e.colCount = cols.length;
-    }
-  }
-
-  // Even edge padding + precise gap between overlapping events (same widths)
-  function placeEvent(ev){
+  function placeEventsInDay(dayIndex, dayEvents) {
+    if (dayEvents.length === 0) return;
+    
     const startHour = 5;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
-    const top    = (ev.start - startHour) * rowH;
-    const height = (ev.end   - ev.start)  * rowH;
-
-    const overlay = dayOverlays[ev.dayIndex];
-    if (!overlay) return;
-
-    const EDGE_INSET = 5;   // space from left/right edges of the day column
-    const GAP_BETWEEN = 5;  // space between simultaneous events
-
-    const colW = overlay.clientWidth;               // content width (no borders)
-    const totalGaps   = (ev.colCount - 1) * GAP_BETWEEN;
-    const totalInsets = 2 * EDGE_INSET;
-    const width  = (colW - totalGaps - totalInsets) / ev.colCount;
-    const left   = EDGE_INSET + ev.col * (width + GAP_BETWEEN);
-
-    const card = document.createElement("div");
-    card.className = `event-card shadow-sm ${ev.color.bg} ${ev.color.text} ${ev.color.border}`;
-    card.style.top    = `${top}px`;
-    card.style.left   = `${left}px`;   // sub-pixel precision allowed
-    card.style.width  = `${width}px`;
-    card.style.height = `${height}px`;
-    card.style.pointerEvents = 'auto';
-    card.innerHTML = `
-      <p class="font-semibold text-sm leading-tight">${ev.name}</p>
-      <p class="text-xs opacity-90">${formatTime(ev.start)} – ${formatTime(ev.end)}</p>
-    `;
-    overlay.appendChild(card);
+    
+    // Create a layout map to track overlapping events
+    const layout = {};
+    dayEvents.forEach(event => {
+      for (let hour = event.start; hour < event.end; hour++) {
+        const key = `${dayIndex}_${hour}`;
+        if (!layout[key]) layout[key] = [];
+        layout[key].push(event);
+      }
+    });
+    
+    // Place each event
+    dayEvents.forEach(event => {
+      const top = (event.start - startHour) * rowH;
+      const height = (event.end - event.start) * rowH;
+      
+      const card = document.createElement("div");
+      card.className = `event-card shadow-sm ${event.color.bg} ${event.color.text} ${event.color.border}`;
+      card.style.top = `${top}px`;
+      card.style.height = `${height}px`;
+      card.style.pointerEvents = 'auto';
+      
+      // Check for overlapping events at the start time
+      const overlapKey = `${dayIndex}_${event.start}`;
+      const overlappingEvents = layout[overlapKey] || [];
+      const totalOverlaps = overlappingEvents.length;
+      const eventIndex = overlappingEvents.findIndex(e => e.name === event.name);
+      
+      if (totalOverlaps > 1) {
+        // Multiple overlapping events - divide width equally
+        const width = `calc(${100 / totalOverlaps}% - 4px)`;
+        const left = `calc(${eventIndex * (100 / totalOverlaps)}% + 2px)`;
+        card.style.width = width;
+        card.style.left = left;
+      } else {
+        // Single event - use full width with small margins
+        card.style.width = 'calc(100% - 8px)';
+        card.style.left = '4px';
+      }
+      
+      card.innerHTML = `
+        <p class="font-semibold text-sm leading-tight">${event.name}</p>
+        <p class="text-xs opacity-90">${formatTime(event.start)} – ${formatTime(event.end)}</p>
+      `;
+      
+      // Add to the day overlay
+      const overlay = dayOverlays[dayIndex];
+      if (overlay) {
+        overlay.appendChild(card);
+      }
+    });
   }
 
   function positionNowLine(startHour, endHour){
