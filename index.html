@@ -15,7 +15,7 @@
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
-    .event-card { position: absolute; box-sizing: border-box; border-left-width: 4px; border-radius: 0.5rem; padding: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem; }
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; }
     @media print {
@@ -29,7 +29,7 @@
   <main class="mx-auto max-w-7xl p-4">
 
     <!-- Controls -->
-    <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
+    <div class="no-print flex flex-wrap items-center justify-between gap-3 mb-3">
       <div class="flex items-center gap-2">
         <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
         <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
@@ -224,15 +224,6 @@
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
 
     els.gridBody.innerHTML = "";
-    // spacer row
-    const spacer = document.createElement("div");
-    spacer.className = "border-r border-gray-200 h-4"; // height controls space
-    els.gridBody.appendChild(spacer);
-    for (let day = 0; day < 7; day++) {
-      const spaceCell = document.createElement("div");
-      spaceCell.className = "border-r border-b border-gray-200 h-4 day-col";
-      els.gridBody.appendChild(spaceCell);
-    }
     dayOverlays = [];
 
     // time rail + empty cells
