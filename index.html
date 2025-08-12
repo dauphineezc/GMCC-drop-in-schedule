@@ -188,7 +188,7 @@
 
   function renderBody(){ renderGrid(); renderList(); }
 
-  // GRID (desktop) with per-day overlays
+  // GRID (desktop) with per-day overlays that fill each day cell
   function renderGrid(){
     const startHour = 5, endHour = 22;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
@@ -213,26 +213,21 @@
       }
     }
 
-    // build 7 absolute overlays aligned to each day column (exclude borders for perfect symmetry)
+    // build 7 overlays INSIDE each day cell (fill the cell; no border math)
     const firstRowCells = [...els.gridBody.querySelectorAll('.day-col')].slice(0,7);
-    const gridBox = els.gridBody.getBoundingClientRect();
     const totalHeight = (endHour - startHour) * rowH;
 
     for (let day=0; day<7; day++){
       const refCell = firstRowCells[day];
-      const box = refCell.getBoundingClientRect();
-      const cs = getComputedStyle(refCell);
-      const bl = parseFloat(cs.borderLeftWidth)  || 0;
-      const br = parseFloat(cs.borderRightWidth) || 0;
-
       const overlay = document.createElement('div');
-      overlay.className = 'absolute';
-      overlay.style.top = '0px';
-      overlay.style.left = `${(box.left - gridBox.left) + bl}px`;              // start inside the left border
-      overlay.style.width = `${box.width - bl - br}px`;                         // stop before the right border
+      overlay.style.position = 'absolute';
+      overlay.style.top = '0';
+      overlay.style.bottom = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
       overlay.style.height = `${totalHeight}px`;
       overlay.style.pointerEvents = 'none';
-      els.gridBody.appendChild(overlay);
+      refCell.appendChild(overlay);
       dayOverlays[day] = overlay;
     }
 
@@ -272,7 +267,7 @@
     }
   }
 
-  // Even edge padding + precise gap between overlapping events (no rounding bias)
+  // Even edge padding + precise gap between overlapping events
   function placeEvent(ev){
     const startHour = 5;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
@@ -285,7 +280,8 @@
     const EDGE_INSET = 8;   // space from left/right edges of the day column
     const GAP_BETWEEN = 8;  // space between simultaneous events
 
-    const colW = overlay.getBoundingClientRect().width;
+    // use the overlay's content box (no borders calculation needed)
+    const colW = overlay.clientWidth;
     const totalGaps   = (ev.colCount - 1) * GAP_BETWEEN;
     const totalInsets = 2 * EDGE_INSET;
     const width  = (colW - totalGaps - totalInsets) / ev.colCount;
@@ -294,8 +290,8 @@
     const card = document.createElement("div");
     card.className = `event-card shadow-sm ${ev.color.bg} ${ev.color.text} ${ev.color.border}`;
     card.style.top    = `${top}px`;
-    card.style.left   = `${left}px`;         // allow sub-pixel precision
-    card.style.width  = `${width}px`;        // allow sub-pixel precision
+    card.style.left   = `${left}px`;   // sub-pixel precision
+    card.style.width  = `${width}px`;  // sub-pixel precision
     card.style.height = `${height}px`;
     card.style.pointerEvents = 'auto';
     card.innerHTML = `
