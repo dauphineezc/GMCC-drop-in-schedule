@@ -203,7 +203,7 @@
 
   async function loadCSVData() {
     try {
-      const response = await fetch('FRTest2.csv');
+      const response = await fetch('FRTest2_v2.csv');
       const csvText = await response.text();
       return parseCSV(csvText);
     } catch (error) {
