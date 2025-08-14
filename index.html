@@ -9,51 +9,78 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root { --row-h: 64px; } /* 1 hour = 64px */
+  
     html,body { height: 100%; }
-    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji"; }
-    .scrollbar::-webkit-scrollbar{ width:8px; height:8px; } .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
-    .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;} .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+  
+    /* scrollbars */
+    .scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
+    .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
+    .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;}
+    .scrollbar::-webkit-scrollbar-thumb:hover{ background:#888; }
+  
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
-    .event-card { position:absolute; box-sizing:border-box; border-left-width:4px; border-radius:0.5rem; padding:0.5rem 0.75rem; z-index:10; }
+  
+    /* EVENT CARDS — slightly smaller default to avoid wrapping when side-by-side */
+    .event-card {
+      position:absolute; box-sizing:border-box;
+      border-left-width:4px; border-radius:0.5rem;
+      padding:0.5rem 0.75rem; z-index:10;
+      word-break: break-word; overflow-wrap: break-word;
+      font-size: .8125rem; /* 13px base inside cards */
+      line-height: 1.2;
+    }
+    .event-card .title     { font-weight:600; font-size: .875rem; line-height: 1.15; text-transform: uppercase; }
+    .event-card .subtext   { font-size: .75rem;  opacity:.9; line-height:1.15; }
+    .event-card .location  { font-size: .75rem;  opacity:.75; line-height:1.15; }
+    /* When cards share a column (narrow width), reduce title size */
+    .event-card.narrow .title { font-size: .8125rem; } /* 13px */
+  
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
-    .now-dot { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
+    .now-dot  { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
+  
     .tz-hide { display:none !important; } /* hide “Times shown in …” */
+  
+    /* CONTROLS/TABS */
+    .no-print button { font-size: 1rem; }           /* Today / ◀ / ▶ */
+    #rangeLabel      { font-size: 1.5rem; }         /* “Aug 10 – Aug 16” */
+    #tabs .tab-btn   { font-size: 1.125rem; }             /* tab labels */
+  
+    /* WEEKDAY HEADER */
+    #gridHeader .dow  { font-size: .9rem;   font-weight:600; }
+    #gridHeader .dmy  { font-size: .9rem; }
+  
     @media print {
       .no-print { display:none !important; }
       .print-block { display:block !important; }
       .event-card { box-shadow:none !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     }
-    
-    /* Responsive adjustments for very small screens */
+  
+    /* Extra wrapping tolerance for very narrow cards */
+    .event-card p { word-break: break-word; overflow-wrap: break-word; hyphens: auto; }
+  
+    /* Responsive tweaks */
     @media (max-width: 768px) {
-      .event-card { 
-        padding: 0.25rem 0.5rem; 
-        font-size: 0.75rem; 
-        max-width: 100%; 
-        overflow: hidden; 
-      }
-      .event-card p:first-child { 
-        font-size: 0.875rem; 
-        line-height: 1.2; 
-      }
+      .event-card { padding: 0.25rem 0.5rem; font-size: .75rem; }
+      .event-card .title { font-size: .8125rem; }
     }
-    
-    /* Extra small screen adjustments */
     @media (max-width: 640px) {
-      .event-card { 
-        padding: 0.125rem 0.25rem; 
-        font-size: 0.625rem; 
-      }
-      .event-card p:first-child { 
-        font-size: 0.75rem; 
-        line-height: 1.1; 
-      }
+      .event-card { padding: 0.125rem 0.25rem; font-size: .6875rem; }
+      .event-card .title { font-size: .75rem; }
+    }
+  
+    /* Wide screen gutter */
+    @media (min-width: 1200px) {
+      main { padding-left: 2rem; padding-right: 2rem; }
     }
   </style>
+  
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">
-  <main class="mx-auto max-w-7xl p-4">
+  <main class="mx-auto max-w-none p-4 px-6">
 
     <!-- Controls (date range centered across the full width) -->
     <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
@@ -61,6 +88,7 @@
         <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
         <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
         <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Next week">▶</button>
+
       </div>
       <div id="rangeLabel" class="font-semibold text-center"></div>
       <div class="text-sm text-gray-500 tz-hide">Times shown in <span id="tzLabel"></span></div>
@@ -76,9 +104,9 @@
       <div id="gridScroller" class="scrollbar overflow-auto" style="height: 80vh;">
         <div class="relative">
           <div id="gridHeader" class="grid sticky top-0 bg-white z-20 shadow-sm"
-               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(160px, 1fr));"></div>
           <div id="gridBody" class="grid relative"
-               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(160px, 1fr));"></div>
         </div>
       </div>
     </section>
@@ -88,7 +116,7 @@
   </main>
 
   <script>
-  /*** --------- Demo data --------- ***/
+  /*** --------- CSV Data Management --------- ***/
   const PALETTE = {
     blue:   ["bg-blue-100","text-blue-800","border-blue-500"],
     green:  ["bg-green-100","text-green-800","border-green-500"],
@@ -103,47 +131,191 @@
     cyan:   ["bg-cyan-100","text-cyan-800","border-cyan-500"]
   };
 
-  const CALS = {
-    aquatics: {
-      label: "Aquatics",
-      events: [
-        ev("Lap Swim",0,5,8,"blue"),
-        ev("Rec Swim",0,5,8,"green"),
-        ev("Water Aerobics",2,9,10,"purple"),
-        ev("Open Swim",4,14,18,"yellow"),
-        ev("Swim Team Practice",1,16,18,"indigo")
-      ]
-    },
-    courtSports: {
-      label: "Court Sports",
-      events: [
-        ev("Pickleball",1,9,11,"orange"),
-        ev("Basketball",3,17,20,"red"),
-        ev("Volleyball",4,18,21,"teal")
-      ]
-    },
-    community: {
-      label: "Community",
-      events: [
-        ev("Yoga Class",0,8,9,"pink"),
-        ev("Senior Coffee Hour",2,10,11,"gray"),
-        ev("Teen Game Night",4,19,22,"cyan")
-      ]
-    }
+  // Global variables to store calendar data loaded from CSV
+  let ALL_EVENTS = {}; // Store all events from CSV
+  let CALS = {}; // Current filtered events for display
+
+  // Color assignment for different activity types
+  const ACTIVITY_COLORS = {
+    'LAP SWIM': 'blue',
+    'REC SWIM': 'green', 
+    'AQUA FIT': 'purple',
+    'AQUA FIT BLAST': 'purple',
+    'SILVER SNEAKERS SPLASH': 'indigo',
+    'OPEN BASKETBALL': 'orange',
+    'VOLLEYBALL': 'red',
+    'PICKLEBALL': 'teal',
+    'MAHJONG': 'pink',
+    'YOGA': 'cyan',
+    'DEFAULT': 'gray'
   };
 
-  function ev(name, dayIndex, start, end, colorKey){
+  function getColorForActivity(activityName) {
+    const upperName = activityName.toUpperCase();
+    for (const [key, color] of Object.entries(ACTIVITY_COLORS)) {
+      if (upperName.includes(key)) {
+        return color;
+      }
+    }
+    return ACTIVITY_COLORS.DEFAULT;
+  }
+
+  function parseTime(timeStr) {
+    // Parse time strings like "12:45 PM" or "5:30 AM"
+    const [time, period] = timeStr.trim().split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let hour24 = hours;
+    
+    if (period === 'PM' && hours !== 12) {
+      hour24 += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hour24 = 0;
+    }
+    
+    return hour24 + (minutes / 60);
+  }
+
+  function categorizeActivity(activityName, location) {
+    const activity = activityName.toUpperCase();
+    const loc = location.toUpperCase();
+    
+    if (activity.includes('SWIM') || activity.includes('AQUA') || loc.includes('POOL')) {
+      return 'aquatics';
+    } else if (activity.includes('BASKETBALL') || activity.includes('VOLLEYBALL') || activity.includes('PICKLEBALL') || loc.includes('COURT')) {
+      return 'courtSports';
+    } else {
+      return 'community';
+    }
+  }
+
+  function ev(name, location, dayIndex, start, end, colorKey){
     const [bg, text, border] = PALETTE[colorKey];
-    return { id: `${name}-${dayIndex}-${start}`, name, dayIndex, start, end, color:{bg,text,border} };
+    return { 
+      id: `${name}-${dayIndex}-${start}`, 
+      name, 
+      location,
+      dayIndex, 
+      start, 
+      end, 
+      color: {bg, text, border} 
+    };
+  }
+
+  async function loadCSVData() {
+    try {
+      const response = await fetch('FRTest2.csv');
+      const csvText = await response.text();
+      return parseCSV(csvText);
+    } catch (error) {
+      console.error('Error loading CSV:', error);
+      // Return demo data as fallback
+      return {
+        aquatics: {
+          label: "Aquatics",
+          events: [
+            ev("Lap Swim", "Pool", 0, 5, 8, "blue"),
+            ev("Rec Swim", "Pool", 0, 5, 8, "green")
+          ]
+        },
+        courtSports: {
+          label: "Court Sports", 
+          events: [
+            ev("Basketball", "Court 1", 1, 9, 11, "orange")
+          ]
+        },
+        community: {
+          label: "Community",
+          events: [
+            ev("Yoga Class", "Studio", 0, 8, 9, "pink")
+          ]
+        }
+      };
+    }
+  }
+
+  function parseDate(dateStr) {
+    // Parse date string like "08/14/2025" and return day of week index (0=Monday, 6=Sunday)
+    const [month, day, year] = dateStr.split('/').map(Number);
+    const date = new Date(year, month - 1, day);
+    // Convert JavaScript day (0=Sunday) to our format (0=Monday)
+    const jsDay = date.getDay();
+    const dayIndex = (jsDay + 6) % 7; // Convert to Monday=0 format
+
+    return dayIndex;
+  }
+
+  function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const events = {
+      aquatics: { label: "Aquatics", events: [] },
+      courtSports: { label: "Court Sports", events: [] },
+      community: { label: "Community", events: [] }
+    };
+
+    lines.forEach(line => {
+      if (!line.trim()) return;
+      
+      const parts = line.split(',').map(part => part.trim());
+      if (parts.length < 7) return;
+      
+      // csv format: facility, location, empty, date, start_time, end_time, activity, facility_dup, category
+      const [, location, , dateStr, startTime, endTime, activity] = parts;
+      
+      try {
+        const startHour = parseTime(startTime);
+        const endHour = parseTime(endTime);
+        const [month, day, year] = dateStr.split('/').map(Number);
+        const eventDate = new Date(year, month - 1, day);
+        const dayIndex = parseDate(dateStr);
+        const category = categorizeActivity(activity, location);
+        const colorKey = getColorForActivity(activity);
+        
+        const event = ev(activity, location, dayIndex, startHour, endHour, colorKey);
+        event.date = eventDate; // Store the actual date for filtering
+        events[category].events.push(event);
+      } catch (error) {
+        console.error('Error parsing line:', line, error);
+      }
+    });
+
+    return events;
+  }
+
+  // Function to filter events for the current week
+  function getEventsForWeek(allEvents, weekStartDate) {
+    const weekEndDate = addDays(weekStartDate, 6);
+    const filteredEvents = {
+      aquatics: { label: "Aquatics", events: [] },
+      courtSports: { label: "Court Sports", events: [] },
+      community: { label: "Community", events: [] }
+    };
+
+    for (const [category, categoryData] of Object.entries(allEvents)) {
+      categoryData.events.forEach(event => {
+        if (event.date >= weekStartDate && event.date <= weekEndDate) {
+          // Recalculate dayIndex relative to the current week
+          const daysDiff = Math.floor((event.date - weekStartDate) / (1000 * 60 * 60 * 24));
+          const newEvent = { ...event, dayIndex: daysDiff };
+          filteredEvents[category].events.push(newEvent);
+        }
+      });
+    }
+
+    return filteredEvents;
   }
 
   /*** --------- State & refs --------- ***/
   const params = new URLSearchParams(location.search);
-  const START_OF_WEEK = getMonday(new Date());
+  const START_OF_WEEK = new Date(2025, 7, 11, 0, 0, 0, 0); // Monday at midnight
   let weekStart = params.get("w") ? new Date(params.get("w")) : START_OF_WEEK;
   if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
+  
+  // Force weekStart to our desired week if no valid URL parameter
+  if (!params.get("w")) {
+    weekStart = START_OF_WEEK;
+  }
 
-  const CAL_KEYS = Object.keys(CALS);
+  let CAL_KEYS = ['aquatics', 'courtSports', 'community'];
   let currentCal = CAL_KEYS.includes(params.get("cal")) ? params.get("cal") : CAL_KEYS[0];
 
   const els = {
@@ -156,18 +328,30 @@
     prevBtn: document.getElementById("prevBtn"),
     nextBtn: document.getElementById("nextBtn"),
     todayBtn: document.getElementById("todayBtn"),
-    scroller: document.getElementById("gridScroller")
+    scroller: document.getElementById("gridScroller"),
+
   };
 
-  let dayOverlays = []; // per-day absolute layers
+  let dayOverlays = [];
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Controls
   els.prevBtn.onclick = () => changeWeek(-7);
   els.nextBtn.onclick = () => changeWeek(+7);
-  els.todayBtn.onclick = () => { weekStart = getMonday(new Date()); syncUrl(); render(); };
+  els.todayBtn.onclick = () => { 
+    weekStart = getMonday(new Date()); 
+    updateCurrentWeekEvents();
+    syncUrl(); 
+    render(); 
+  };
 
-  function changeWeek(deltaDays){ weekStart = addDays(weekStart, deltaDays); syncUrl(); render(); }
+
+  function changeWeek(deltaDays){ 
+    weekStart = addDays(weekStart, deltaDays); 
+    updateCurrentWeekEvents();
+    syncUrl(); 
+    render(); 
+  }
   function syncUrl(){ const p = new URLSearchParams(); p.set("cal", currentCal); p.set("w", ymd(weekStart)); history.replaceState(null, "", `?${p.toString()}`); }
 
   // dates
@@ -175,7 +359,14 @@
   function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
   function ymd(d){ return d.toISOString().slice(0,10); }
   function labelDate(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
-  function formatTime(hour){ const h12 = (hour % 12) || 12; const ap = hour < 12 ? "AM" : "PM"; return `${h12}:00 ${ap}`; }
+  function formatTime(hour) {
+    const h = Math.floor(hour);
+    const m = Math.round((hour - h) * 60);
+    const h12 = (h % 12) || 12;
+    const ap = h < 12 ? "AM" : "PM";
+    const minutes = m === 0 ? "00" : m.toString().padStart(2, '0');
+    return `${h12}:${minutes} ${ap}`;
+  }
 
   /*** --------- Rendering --------- ***/
   function renderTabs(){
@@ -204,8 +395,8 @@
       const h = document.createElement("div");
       h.className = "p-2 border-b border-gray-200 text-center";
       const isToday = ymd(d) === ymd(new Date());
-      h.innerHTML = `<p class="text-xs font-medium ${isToday?"text-blue-600":"text-gray-500"}">${["MON","TUE","WED","THU","FRI","SAT","SUN"][i]}</p>
-                     <p class="text-xs ${isToday?"font-semibold text-blue-600":""}">${labelDate(d)}</p>`;
+      h.innerHTML = `<p class="dow ${isToday?"text-blue-600":"text-gray-500"}"> ${["MON","TUE","WED","THU","FRI","SAT","SUN"][i]} </p>
+                     <p class="dmy ${isToday?"font-semibold text-blue-600":"text-gray-700"}"> ${labelDate(d)} </p>`;
       els.gridHeader.appendChild(h);
     }
     const end = addDays(weekStart,6);
@@ -214,7 +405,7 @@
 
   function renderBody(){ renderGrid(); renderList(); }
 
-  // GRID (desktop) with per-day overlays positioned ABOVE the grid cells
+  // GRID (desktop) with per-day overlays positioned above the grid cells
   function renderGrid(){
     const startHour = 5, endHour = 22;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
@@ -280,58 +471,113 @@
     const startHour = 5;
     const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row-h"));
     
-    // Create a layout map to track overlapping events
-    const layout = {};
-    dayEvents.forEach(event => {
-      for (let hour = event.start; hour < event.end; hour++) {
-        const key = `${dayIndex}_${hour}`;
-        if (!layout[key]) layout[key] = [];
-        layout[key].push(event);
-      }
+    // Find overlapping groups using a more sophisticated algorithm
+    const overlappingGroups = findOverlappingGroups(dayEvents);
+    
+    overlappingGroups.forEach(group => {
+      const groupSize = group.length;
+      
+      group.forEach((event, index) => {
+        const top = (event.start - startHour) * rowH;
+        const height = (event.end - event.start) * rowH;
+        
+        const card = document.createElement("div");
+        card.className = `event-card shadow-sm ${event.color.bg} ${event.color.text} ${event.color.border}`;
+        card.style.top = `${top}px`;
+        card.style.height = `${height}px`;
+        card.style.pointerEvents = 'auto';
+        
+        if (groupSize > 1) {
+          const gap = 4;
+          const eventWidth = `calc(${100 / groupSize}% - ${gap}px)`;
+          const left = `calc(${index * (100 / groupSize)}% + ${gap - (index * gap)}px)`;
+          card.style.width = eventWidth;
+          card.style.left = left;
+          card.classList.add('narrow');       // <-- add this
+        } else {
+          const margin = 4;
+          card.style.width = `calc(100% - ${margin * 2}px)`;
+          card.style.left = `${margin}px`;
+        }
+        
+        // Font sizes are now handled by CSS classes (title, subtext, location)
+        
+        // Standardize and abbreviate activity names
+        let displayName = event.name;
+        
+        // First, ensure proper capitalization (title case)
+        displayName = displayName.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+        
+        // Then abbreviate if space is limited
+        if (groupSize > 1 && displayName.length > 12) {
+          const abbreviations = {
+            'Open Basketball': 'Basketball',
+            'Volleyball': 'Volleyball',
+            'Lap Swim': 'Lap Swim',
+            'Rec Swim': 'Rec Swim',
+            'Aqua Fit Blast': 'Aqua Blast',
+            'Silver Sneakers Splash': 'Silver Splash',
+            'Mahjong': 'Mahjong'
+          };
+          displayName = abbreviations[displayName] || displayName;
+        }
+
+        card.innerHTML = `
+          <p class="title leading-tight">${displayName}</p>
+          <p class="subtext leading-tight">${formatTime(event.start)} – ${formatTime(event.end)}</p>
+            ${event.location ? `<p class="location leading-tight">${event.location}</p>` : ''}
+        `;
+        
+        // Add to the day overlay
+        const overlay = dayOverlays[dayIndex];
+        if (overlay) {
+          overlay.appendChild(card);
+        }
+      });
+    });
+  }
+
+  function findOverlappingGroups(events) {
+    if (events.length === 0) return [];
+    
+    // Sort events by start time
+    const sortedEvents = [...events].sort((a, b) => a.start - b.start);
+    const groups = [];
+    const visited = new Set();
+    
+    sortedEvents.forEach(event => {
+      if (visited.has(event.id)) return;
+      
+      // Find all events that overlap with this event
+      const group = [event];
+      visited.add(event.id);
+      
+      // Check for overlaps with other unvisited events
+      sortedEvents.forEach(otherEvent => {
+        if (visited.has(otherEvent.id)) return;
+        
+        // Check if any event in the current group overlaps with otherEvent
+        const overlapsWithGroup = group.some(groupEvent => 
+          eventsOverlap(groupEvent, otherEvent)
+        );
+        
+        if (overlapsWithGroup) {
+          group.push(otherEvent);
+          visited.add(otherEvent.id);
+        }
+      });
+      
+      groups.push(group);
     });
     
-    // Place each event
-    dayEvents.forEach(event => {
-      const top = (event.start - startHour) * rowH;
-      const height = (event.end - event.start) * rowH;
-      
-      const card = document.createElement("div");
-      card.className = `event-card shadow-sm ${event.color.bg} ${event.color.text} ${event.color.border}`;
-      card.style.top = `${top}px`;
-      card.style.height = `${height}px`;
-      card.style.pointerEvents = 'auto';
-      
-      // Check for overlapping events at the start time
-      const overlapKey = `${dayIndex}_${event.start}`;
-      const overlappingEvents = layout[overlapKey] || [];
-      const totalOverlaps = overlappingEvents.length;
-      const eventIndex = overlappingEvents.findIndex(e => e.name === event.name);
-      
-      if (totalOverlaps > 1) {
-        // Multiple overlapping events - ensure equal left and right edge gaps
-        const gap = 4; // 4px gap between events and edges
-        const eventWidth = `calc(${100 / totalOverlaps}% - ${gap}px)`;
-        const left = `calc(${eventIndex * (100 / totalOverlaps)}% + ${gap - (eventIndex * gap)}px)`;
-        card.style.width = eventWidth;
-        card.style.left = left;
-      } else {
-        // Single event - use full width with consistent margins
-        const margin = 4; // Fixed margin for single events
-        card.style.width = `calc(100% - ${margin * 2}px)`;
-        card.style.left = `${margin}px`;
-      }
-      
-      card.innerHTML = `
-        <p class="font-semibold text-sm leading-tight">${event.name}</p>
-        <p class="text-xs opacity-90">${formatTime(event.start)} – ${formatTime(event.end)}</p>
-      `;
-      
-      // Add to the day overlay
-      const overlay = dayOverlays[dayIndex];
-      if (overlay) {
-        overlay.appendChild(card);
-      }
-    });
+    return groups;
+  }
+
+  function eventsOverlap(event1, event2) {
+    // Two events overlap if one starts before the other ends
+    return event1.start < event2.end && event2.start < event1.end;
   }
 
   function positionNowLine(startHour, endHour){
@@ -396,16 +642,37 @@
           const item = document.createElement("div");
           item.className = `mt-2 p-3 rounded-lg ${e.color.bg} ${e.color.text}`;
           item.innerHTML = `<p class="font-semibold">${e.name}</p>
-                            <p class="text-sm opacity-90">${formatTime(e.start)} – ${formatTime(e.end)}</p>`;
+                            <p class="text-sm opacity-90">${formatTime(e.start)} – ${formatTime(e.end)}</p>
+                            ${e.location ? `<p class="text-sm opacity-75">${e.location}</p>` : ''}`;
           els.list.appendChild(item);
         });
       }
     }
   }
 
-  // first paint
-  render();
-  syncUrl();
+  // Initialize app with CSV data
+  async function initializeApp() {
+    // Clear any existing URL parameters to start fresh
+    if (location.search) {
+      history.replaceState(null, "", location.pathname);
+    }
+    weekStart = START_OF_WEEK; // Force to our desired week
+    
+    ALL_EVENTS = await loadCSVData();
+    updateCurrentWeekEvents();
+    CAL_KEYS = Object.keys(CALS);
+    currentCal = CAL_KEYS.includes(params.get("cal")) ? params.get("cal") : CAL_KEYS[0];
+    render();
+    syncUrl();
+  }
+
+  // Update CALS with events for the current week
+  function updateCurrentWeekEvents() {
+    CALS = getEventsForWeek(ALL_EVENTS, weekStart);
+  }
+
+  // Start the app
+  initializeApp();
   </script>
 </body>
 </html>
