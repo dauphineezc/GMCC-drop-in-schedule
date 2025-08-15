@@ -135,6 +135,45 @@ async function findGridRoot(page) {
   return null;
 }
 
+async function openFacilityPanel(context, page) {
+  // Go to the panel launcher route
+  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
+
+  // If a “Resume Session” prompt appears, clear it (reuse your helper)
+  await clickIfResumePrompt(page);
+  for (const f of page.frames()) await clickIfResumePrompt(f);
+
+  // Start waiting for a popup **before** we click anything
+  const waitPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+
+  // Try a few likely launchers; if your left-toolbar click is reliable, keep just that one
+  const candidates = [
+    page.getByRole('button', { name: /data\s*grid/i }),
+    page.getByRole('link',   { name: /facility reservation interface/i }),
+    page.locator('a:has-text("Facility DataGrid")'),
+    page.locator('button:has-text("DataGrid")'),
+  ];
+  for (const loc of candidates) {
+    const el = loc.first();
+    if (await el.isVisible({ timeout: 800 }).catch(() => false)) {
+      await el.click().catch(() => {});
+      break;
+    }
+  }
+
+  // If RecTrac opened a legacy window, switch to it
+  const popup = await waitPopup;
+  if (popup) {
+    await popup.waitForLoadState('domcontentloaded');
+    await clickIfResumePrompt(popup);
+    return popup;           // ← use this page from now on
+  }
+
+  // No popup? We’ll keep working in the current page (or an iframe within it)
+  return page;
+}
+
+
 /* ---------- main ---------- */
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -146,17 +185,14 @@ async function findGridRoot(page) {
     // 1) Login
     await fullyLogin(page);
 
-    // 2) Open the panel, then the actual DataGrid tool
-    await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
-    await clickIfResumePrompt(page);
-    for (const f of page.frames()) await clickIfResumePrompt(f);
-    await waitOutSpinner(page);
-    await openFacilityDataGrid(page);
-
-    // 3) Find the grid root
-    const root = await findGridRoot(page);
+    // 2) open the panel and capture popup if one appears
+    const workPage = await openFacilityPanel(context, page);
+    
+    // If RecTrac embeds the legacy UI in an iframe instead of a popup,
+    // your existing findGridRoot(...) should be called with workPage
+    const root = await findGridRoot(workPage);
     if (!root) {
-      await saveFailureArtifacts(page, 'no-grid');
+      await saveFailureArtifacts(workPage, 'no-grid');
       throw new Error('Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)');
     }
 
