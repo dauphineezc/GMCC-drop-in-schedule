@@ -1,0 +1,49 @@
+name: Export RecTrac CSV
+
+on:
+  schedule:
+    - cron: '0 10 * * *'      # daily at 10:00 UTC (~6:00 AM ET); change if you like
+  workflow_dispatch:          # allows manual run from the Actions tab
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps (Playwright included)
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scraper to produce gmcc-week.csv
+        run: npm run export
+        env:
+          RECTRAC_LOGIN_URL: ${{ secrets.RECTRAC_LOGIN_URL }}
+          RECTRAC_FACILITY_GRID_URL: ${{ secrets.RECTRAC_FACILITY_GRID_URL }}
+          RECTRAC_USER: ${{ secrets.RECTRAC_USER }}
+          RECTRAC_PASS: ${{ secrets.RECTRAC_PASS }}
+
+      - name: Upload gmcc-week.csv to S3 (public-read)
+        run: |
+          pipx install awscli
+          aws s3 cp gmcc-week.csv s3://${{ secrets.S3_BUCKET }}/gmcc-week.csv --acl public-read --region ${{ secrets.AWS_REGION }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Save CSV as workflow artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmcc-week
+          path: gmcc-week.csv
