@@ -21,33 +21,90 @@ async function saveFailureArtifacts(page, label) {
     await page.screenshot({ path: `playwright-${label}.png`, fullPage: true });
     fs.writeFileSync(`playwright-${label}.html`, await page.content(), 'utf8');
     fs.writeFileSync(`playwright-${label}.url.txt`, page.url(), 'utf8');
-  } catch { /* ignore */ }
+  } catch {}
 }
 
 async function clickIfResumePrompt(pageOrFrame) {
   // Handles the "Login Prompts" → "Continue" dialog if present.
   const prompt = pageOrFrame.locator('text=Login Prompts');
-  if (await prompt.first().isVisible({ timeout: 1500 }).catch(() => false)) {
+  if (await prompt.first().isVisible({ timeout: 500 }).catch(() => false)) {
     const btn = pageOrFrame.getByRole('button', { name: /continue/i });
-    await btn.click({ timeout: 5000 });
-    await pageOrFrame.waitForLoadState('networkidle', { timeout: 10000 }).catch(()=>{});
-    await pageOrFrame.waitForTimeout(500);
+    await btn.click({ timeout: 8000 }).catch(()=>{});
+    await pageOrFrame.waitForLoadState('networkidle', { timeout: 15000 }).catch(()=>{});
+    await pageOrFrame.waitForTimeout(600);
   }
 }
 
-async function findGridRoot(page, headerTextCandidates = [
-  'Facility Reservation Interface',
-  'Facility DataGrid',
-  'Facilities'
-]) {
-  // Look in page, else crawl iframes.
-  const tryRoot = async (root) => {
-    for (const t of headerTextCandidates) {
-      if (await root.locator(`text=${t}`).first().isVisible({ timeout: 1500 }).catch(()=>false)) return root;
+async function waitOutSpinner(pageOrFrame) {
+  // Wait for "Please Wait..." overlay (if shown) to disappear.
+  const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
+  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
+    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
+  }
+}
+
+async function fullyLogin(page) {
+  const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
+  const passSel = 'input[name="password"], #password, input[type="password"]';
+  const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
+
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+
+  // Login loop: up to 90s, do whichever step is needed right now.
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    // Handle resume prompts on page or any frame
+    await clickIfResumePrompt(page);
+    for (const f of page.frames()) await clickIfResumePrompt(f);
+    await waitOutSpinner(page);
+
+    // If we are no longer on the login route, break (logged in or session restored)
+    if (!page.url().includes('#/login')) break;
+
+    // If login form is visible, fill it and submit
+    const userField = page.locator(userSel).first();
+    const passField = page.locator(passSel).first();
+    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(()=>false);
+
+    if (hasLogin) {
+      await userField.fill(USERNAME);
+      await passField.fill(PASSWORD);
+      await Promise.all([
+        page.waitForLoadState('networkidle').catch(()=>{}),
+        page.click(submitSel).catch(()=>{})
+      ]);
+      // after submit, loop will run again to handle spinner/prompt
+      continue;
     }
-    // As a fallback, try to detect the filter input for "Fac Short Description"
-    if (await root.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first()
-      .isVisible({ timeout: 1500 }).catch(()=>false)) return root;
+
+    // Nothing actionable yet → small wait, then try again
+    await page.waitForTimeout(800);
+  }
+
+  if (page.url().includes('#/login')) {
+    await saveFailureArtifacts(page, 'login-stuck');
+    throw new Error('Login did not complete.');
+  }
+}
+
+async function findGridRoot(page) {
+  const headerTextCandidates = [
+    'Facility Reservation Interface',
+    'Facility DataGrid',
+    'Facilities'
+  ];
+
+  const tryRoot = async (root) => {
+    await waitOutSpinner(root);
+    await clickIfResumePrompt(root);
+
+    for (const t of headerTextCandidates) {
+      const ok = await root.locator(`text=${t}`).first().isVisible({ timeout: 1200 }).catch(()=>false);
+      if (ok) return root;
+    }
+    // Fallback: presence of the Short Description filter input
+    const filter = root.locator('input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]');
+    if (await filter.first().isVisible({ timeout: 1200 }).catch(()=>false)) return root;
     return null;
   };
 
@@ -63,62 +120,38 @@ async function findGridRoot(page, headerTextCandidates = [
 
 /* ---------- main ---------- */
 (async () => {
-  const browser = await chromium.launch({ headless: true }); // set false locally to watch
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
   page.setDefaultTimeout(TIMEOUT);
 
   try {
-    // 1) Open login page
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+    // 1) Ensure we’re logged in
+    await fullyLogin(page);
 
-    // Sometimes the "Resume Session" modal appears even before entering creds.
-    await clickIfResumePrompt(page);
-    for (const f of page.frames()) await clickIfResumePrompt(f);
-
-    // 2) Fill username/password if inputs exist
-    const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
-    const passSel = 'input[name="password"], #password, input[type="password"]';
-
-    // If login inputs aren’t visible yet, don’t hang forever—just continue (some SSO flows auto-log you in).
-    const userVisible = await page.locator(userSel).first().isVisible({ timeout: 4000 }).catch(()=>false);
-    if (userVisible) {
-      await page.fill(userSel, USERNAME);
-      await page.fill(passSel, PASSWORD);
-      await Promise.all([
-        page.waitForLoadState('networkidle').catch(()=>{}),
-        page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
-      ]);
-    }
-
-    // 2b) Handle the resume prompt that appears right AFTER login
-    await clickIfResumePrompt(page);
-    for (const f of page.frames()) await clickIfResumePrompt(f);
-
-    // 3) Navigate straight to the Facility Reservation Interface / DataGrid
+    // 2) Go to the Facilities grid/app screen
     await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
-
-    // Some tenants show the resume prompt again on first app screen
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
+    await waitOutSpinner(page);
 
-    // 4) Find the grid root (page or iframe)
+    // 3) Find the grid (page or iframe)
     const root = await findGridRoot(page);
     if (!root) {
       await saveFailureArtifacts(page, 'no-grid');
       throw new Error('Could not find the Facilities grid. Check that GRID_URL is correct and that you are logged in.');
     }
 
-    // 5) Locate the "Fac Short Description" filter input
+    // 4) Short Description filter
     const SHORT_DESC_FILTER =
       'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
-    const filterVisible = await root.locator(SHORT_DESC_FILTER).first().isVisible({ timeout: 10000 }).catch(()=>false);
-    if (!filterVisible) {
+    const filter = root.locator(SHORT_DESC_FILTER).first();
+    if (!await filter.isVisible({ timeout: 15000 }).catch(()=>false)) {
       await saveFailureArtifacts(page, 'no-filter');
       throw new Error('Could not find the "Fac Short Description" filter input.');
     }
 
-    // Helper to read visible rows
+    // 5) Read rows helper
     async function readRows() {
       return root.evaluate(() => {
         const rows = Array.from(document.querySelectorAll('table tbody tr'));
@@ -135,12 +168,12 @@ async function findGridRoot(page, headerTextCandidates = [
       });
     }
 
-    // 6) Run each term, collect, dedupe
+    // 6) Filter for each term and collect
     const dedup = new Map();
     for (const term of FAC_TERMS) {
-      await root.fill(SHORT_DESC_FILTER, '');
-      await root.type(SHORT_DESC_FILTER, term);
-      await root.waitForTimeout(900);
+      await filter.fill('');
+      await filter.type(term);
+      await root.waitForTimeout(1000);
       const rows = await readRows();
       for (const row of rows) {
         const key = row.facCode || row.facShortDesc;
