@@ -9,6 +9,7 @@ const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL;
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
+/* ---------- utils ---------- */
 function toCsv(rows) {
   const headers = Object.keys(rows[0] || { facClass:'', facLocation:'', facCode:'', facShortDesc:'', status:'' });
   const esc = v => `"${String(v ?? '').replaceAll('"','""')}"`;
@@ -23,81 +24,101 @@ async function saveFailureArtifacts(page, label) {
   } catch { /* ignore */ }
 }
 
-// add near top
 async function clickIfResumePrompt(pageOrFrame) {
-  // Works whether it's the main page or an iframe
+  // Handles the "Login Prompts" → "Continue" dialog if present.
   const prompt = pageOrFrame.locator('text=Login Prompts');
   if (await prompt.first().isVisible({ timeout: 1500 }).catch(() => false)) {
-    // The button usually reads "Continue"
     const btn = pageOrFrame.getByRole('button', { name: /continue/i });
     await btn.click({ timeout: 5000 });
-    await pageOrFrame.waitForLoadState('networkidle', { timeout: 10000 });
-    await pageOrFrame.waitForTimeout(500); // let the modal fully close
+    await pageOrFrame.waitForLoadState('networkidle', { timeout: 10000 }).catch(()=>{});
+    await pageOrFrame.waitForTimeout(500);
   }
 }
 
+async function findGridRoot(page, headerTextCandidates = [
+  'Facility Reservation Interface',
+  'Facility DataGrid',
+  'Facilities'
+]) {
+  // Look in page, else crawl iframes.
+  const tryRoot = async (root) => {
+    for (const t of headerTextCandidates) {
+      if (await root.locator(`text=${t}`).first().isVisible({ timeout: 1500 }).catch(()=>false)) return root;
+    }
+    // As a fallback, try to detect the filter input for "Fac Short Description"
+    if (await root.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first()
+      .isVisible({ timeout: 1500 }).catch(()=>false)) return root;
+    return null;
+  };
+
+  let root = await tryRoot(page);
+  if (root) return root;
+
+  for (const f of page.frames()) {
+    root = await tryRoot(f);
+    if (root) return root;
+  }
+  return null;
+}
+
+/* ---------- main ---------- */
 (async () => {
-  const browser = await chromium.launch({ headless: true }); // use false locally to watch
+  const browser = await chromium.launch({ headless: true }); // set false locally to watch
   const context = await browser.newContext();
   const page = await context.newPage();
   page.setDefaultTimeout(TIMEOUT);
 
   try {
-    // 1) Login (same as before)
+    // 1) Open login page
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-    await page.fill('input[name="username"], #username, input[type="text"]', USERNAME);
-    await page.fill('input[name="password"], #password, input[type="password"]', PASSWORD);
-    await Promise.all([
-      page.waitForLoadState('networkidle'),
-      page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
-    ]);
-    
-    // 1b) Handle the "Resume Session" prompt if it appears
+
+    // Sometimes the "Resume Session" modal appears even before entering creds.
     await clickIfResumePrompt(page);
-    // ^ If RecTrac renders it inside an iframe, try frames too:
-    for (const f of page.frames()) { await clickIfResumePrompt(f); }
+    for (const f of page.frames()) await clickIfResumePrompt(f);
 
-    // CHECK THIS SELECTOR: username, password, submit
-    await page.fill('input[name="username"], #username, input[type="text"]', USERNAME);
-    await page.fill('input[name="password"], #password, input[type="password"]', PASSWORD);
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle', timeout: TIMEOUT }).catch(()=>{}),
-      page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
-    ]);
+    // 2) Fill username/password if inputs exist
+    const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
+    const passSel = 'input[name="password"], #password, input[type="password"]';
 
-    // 2) Go directly to the Facility Reservation Interface
+    // If login inputs aren’t visible yet, don’t hang forever—just continue (some SSO flows auto-log you in).
+    const userVisible = await page.locator(userSel).first().isVisible({ timeout: 4000 }).catch(()=>false);
+    if (userVisible) {
+      await page.fill(userSel, USERNAME);
+      await page.fill(passSel, PASSWORD);
+      await Promise.all([
+        page.waitForLoadState('networkidle').catch(()=>{}),
+        page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
+      ]);
+    }
+
+    // 2b) Handle the resume prompt that appears right AFTER login
+    await clickIfResumePrompt(page);
+    for (const f of page.frames()) await clickIfResumePrompt(f);
+
+    // 3) Navigate straight to the Facility Reservation Interface / DataGrid
     await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
 
-    // Some RecTrac screens render inside an iframe. Try page first, then any iframe.
-    // CHECK THIS SELECTOR: something near the grid header
-    const GRID_HEADER_TEXT = 'Facility Reservation Interface';
-    let root = page;
-    try {
-      await root.waitForSelector(`text=${GRID_HEADER_TEXT}`, { timeout: 8000 });
-    } catch {
-      // search iframes
-      const frames = page.frames();
-      for (const f of frames) {
-        try {
-          await f.waitForSelector(`text=${GRID_HEADER_TEXT}`, { timeout: 3000 });
-          root = f; // found it in this frame
-          break;
-        } catch { /* keep looking */ }
-      }
-    }
+    // Some tenants show the resume prompt again on first app screen
+    await clickIfResumePrompt(page);
+    for (const f of page.frames()) await clickIfResumePrompt(f);
 
-    // If still not found, dump artifacts and bail with a helpful error
-    try {
-      await root.waitForSelector(`text=${GRID_HEADER_TEXT}`, { timeout: 5000 });
-    } catch {
+    // 4) Find the grid root (page or iframe)
+    const root = await findGridRoot(page);
+    if (!root) {
       await saveFailureArtifacts(page, 'no-grid');
-      throw new Error(`Could not find "${GRID_HEADER_TEXT}". Check login, GRID_URL, or that the grid is not behind SSO or a different label.`);
+      throw new Error('Could not find the Facilities grid. Check that GRID_URL is correct and that you are logged in.');
     }
 
-    // ✅ CHECK THIS SELECTOR: the Fac Short Description filter input
-    const SHORT_DESC_FILTER = 'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
+    // 5) Locate the "Fac Short Description" filter input
+    const SHORT_DESC_FILTER =
+      'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
+    const filterVisible = await root.locator(SHORT_DESC_FILTER).first().isVisible({ timeout: 10000 }).catch(()=>false);
+    if (!filterVisible) {
+      await saveFailureArtifacts(page, 'no-filter');
+      throw new Error('Could not find the "Fac Short Description" filter input.');
+    }
 
-    // Helper to read visible rows from the grid table (adjust columns if needed)
+    // Helper to read visible rows
     async function readRows() {
       return root.evaluate(() => {
         const rows = Array.from(document.querySelectorAll('table tbody tr'));
@@ -114,13 +135,12 @@ async function clickIfResumePrompt(pageOrFrame) {
       });
     }
 
+    // 6) Run each term, collect, dedupe
     const dedup = new Map();
-
     for (const term of FAC_TERMS) {
-      // Clear + type filter term
-      await root.fill(SHORT_DESC_FILTER, '');                  // clear
-      await root.type(SHORT_DESC_FILTER, term);                // type
-      await root.waitForTimeout(900);                          // allow refresh
+      await root.fill(SHORT_DESC_FILTER, '');
+      await root.type(SHORT_DESC_FILTER, term);
+      await root.waitForTimeout(900);
       const rows = await readRows();
       for (const row of rows) {
         const key = row.facCode || row.facShortDesc;
@@ -128,6 +148,7 @@ async function clickIfResumePrompt(pageOrFrame) {
       }
     }
 
+    // 7) Write CSV
     const result = Array.from(dedup.values());
     const outPath = 'gmcc-week.csv';
     fs.writeFileSync(outPath, toCsv(result), 'utf8');
