@@ -1,5 +1,7 @@
+// scripts/export-reservations.js
 import { chromium } from 'playwright';
 import fs from 'fs';
+import path from 'path';
 
 const TIMEOUT = 60000;
 const FAC_TERMS = ['Community Lounge', 'Multi-use Pool', 'Full A+B'];
@@ -9,11 +11,35 @@ const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL;
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
-/* ---------- small utils ---------- */
+/* ---------- utils ---------- */
 function toCsv(rows) {
-  const headers = Object.keys(rows[0] || { facClass:'', facLocation:'', facCode:'', facShortDesc:'', status:'' });
+  const headers = Object.keys(rows[0] || { });
   const esc = v => `"${String(v ?? '').replaceAll('"','""')}"`;
   return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
+}
+
+function parseCsv(text) {
+  // Tiny CSV parser that handles quoted commas and quotes.
+  const out = [];
+  let row = [];
+  let cell = '';
+  let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], n = text[i+1];
+    if (inQ) {
+      if (c === '"' && n === '"') { cell += '"'; i++; }
+      else if (c === '"') { inQ = false; }
+      else { cell += c; }
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\r') { /* ignore */ }
+      else if (c === '\n') { row.push(cell); out.push(row); row = []; cell=''; }
+      else { cell += c; }
+    }
+  }
+  if (cell.length || row.length) { row.push(cell); out.push(row); }
+  return out;
 }
 
 async function saveFailureArtifacts(page, label) {
@@ -25,50 +51,24 @@ async function saveFailureArtifacts(page, label) {
 }
 
 async function clickIfResumePrompt(pageOrFrame) {
+  // "Login Prompts" → Continue
   const prompt = pageOrFrame.locator('text=Login Prompts');
-  if (await prompt.first().isVisible({ timeout: 700 }).catch(() => false)) {
-    await pageOrFrame.getByRole('button', { name: /continue/i }).click({ timeout: 8000 }).catch(()=>{});
+  if (await prompt.first().isVisible({ timeout: 500 }).catch(() => false)) {
+    const btn = pageOrFrame.getByRole('button', { name: /continue/i });
+    await btn.click({ timeout: 8000 }).catch(()=>{});
     await pageOrFrame.waitForLoadState('networkidle', { timeout: 15000 }).catch(()=>{});
     await pageOrFrame.waitForTimeout(600);
   }
 }
 
 async function waitOutSpinner(pageOrFrame) {
+  // "Please Wait..." overlay
   const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
-  if (await spinner.first().isVisible({ timeout: 700 }).catch(()=>false)) {
+  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
     await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
   }
 }
 
-/* CSV parsing that handles quotes/commas/newlines */
-function parseCsv(text) {
-  const rows = [];
-  let i = 0, field = '', curr = [], inQ = false;
-  while (i < text.length) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') {
-        if (text[i+1] === '"') { field += '"'; i++; }
-        else inQ = false;
-      } else field += c;
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ',') { curr.push(field); field = ''; }
-      else if (c === '\n' || c === '\r') {
-        if (c === '\r' && text[i+1] === '\n') i++;
-        curr.push(field); field = '';
-        rows.push(curr); curr = [];
-      } else field += c;
-    }
-    i++;
-  }
-  if (field.length || curr.length) { curr.push(field); rows.push(curr); }
-  return rows;
-}
-
-function norm(s) { return String(s||'').trim().toLowerCase(); }
-
-/* ---------- login & navigation ---------- */
 async function fullyLogin(page) {
   const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
   const passSel = 'input[name="password"], #password, input[type="password"]';
@@ -85,7 +85,8 @@ async function fullyLogin(page) {
     if (!page.url().includes('#/login')) break;
 
     const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 4000 }).catch(()=>false);
+    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(()=>false);
+
     if (hasLogin) {
       await userField.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
@@ -95,7 +96,8 @@ async function fullyLogin(page) {
       ]);
       continue;
     }
-    await page.waitForTimeout(700);
+
+    await page.waitForTimeout(800);
   }
 
   if (page.url().includes('#/login')) {
@@ -104,125 +106,72 @@ async function fullyLogin(page) {
   }
 }
 
-/** Open the Facility Reservation Interface panel.
- *  RecTrac may:
- *   - Keep you in the same tab,
- *   - Embed legacy UI in an iframe, or
- *   - Open a new popup tab.
- *  This returns the "work page" you should use for subsequent actions.
- */
-async function openFacilityPanel(context, page) {
+async function attachToLegacy(context, page) {
+  // We may land on the panel (shell) that injects the legacy UI,
+  // or RecTrac might open a popup. Handle both, with a reload fallback.
+  const until = Date.now() + 60_000;
+
+  async function tryLocateRoot(p) {
+    // Check page and its frames for grid header or recognizable toolbar.
+    const headerRx = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
+    const filterSel = 'h1.panel-header, h4:has-text("Facility DataGrid"), .datagrid-header-toolbar';
+
+    const tryRoot = async (root) => {
+      await waitOutSpinner(root);
+      await clickIfResumePrompt(root);
+      for (const rx of headerRx) {
+        if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
+      }
+      if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
+      return null;
+    };
+
+    let r = await tryRoot(p);
+    if (r) return r;
+
+    for (const f of p.frames()) {
+      r = await tryRoot(f);
+      if (r) return r;
+    }
+    return null;
+  }
+
+  // Navigate to the grid route first.
   await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
   await clickIfResumePrompt(page);
 
-  // Listen for a popup BEFORE any SPA-side navigation kicks in
-  const popupPromise = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
-
-  // Give the SPA a moment to spawn iframe/popup
-  await page.waitForTimeout(1500);
-
-  const popup = await popupPromise;
-  if (popup) {
-    await popup.waitForLoadState('domcontentloaded').catch(()=>{});
-    await clickIfResumePrompt(popup);
-    return popup;
-  }
-
-  // No popup: maybe an iframe
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    for (const f of page.frames()) {
-      const looksLikeLegacy = f.url().includes('legacy') ||
-        await f.getByText(/Facility (Reservation|DataGrid)/i).first().isVisible({ timeout: 400 }).catch(()=>false);
-      if (looksLikeLegacy) return page; // actions will still target this page; findGridRoot will drop into the frame
+  while (Date.now() < until) {
+    // 1) Did a popup open?
+    const pop = context.pages().find(pg => pg !== page && /client\.wsc/i.test(pg.url()));
+    if (pop) {
+      await pop.waitForLoadState('domcontentloaded').catch(()=>{});
+      const root = await tryLocateRoot(pop);
+      if (root) return { root, page: pop };
     }
-    await page.waitForTimeout(400);
+
+    // 2) Is the legacy UI mounted in this tab?
+    const rootHere = await tryLocateRoot(page);
+    if (rootHere) return { root: rootHere, page };
+
+    // 3) Give it a nudge: sometimes a reload kicks the injector
+    await page.waitForTimeout(1000);
+    if (Date.now() + 5000 < until) {
+      await page.reload({ waitUntil: 'domcontentloaded' }).catch(()=>{});
+      await clickIfResumePrompt(page);
+    }
   }
-  return page;
+
+  return null;
 }
 
-/* Find the grid root (page or frame) so subsequent locators work consistently */
-async function findGridRoot(page) {
-  const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
-
-  const tryRoot = async (root) => {
-    await waitOutSpinner(root);
-    await clickIfResumePrompt(root);
-    for (const rx of headerTexts) {
-      if (await root.getByText(rx).first().isVisible({ timeout: 700 }).catch(()=>false)) return root;
-    }
-    // grid table present?
-    if (await root.locator('table').first().isVisible({ timeout: 700 }).catch(()=>false)) return root;
-    return null;
+function normalizeHeaderIndex(headers) {
+  const map = {};
+  headers.forEach((h, i) => { map[h.toLowerCase()] = i; });
+  const idx = (nameLike) => {
+    const key = Object.keys(map).find(k => k.includes(nameLike.toLowerCase()));
+    return key != null ? map[key] : -1;
   };
-
-  // page first
-  let r = await tryRoot(page);
-  if (r) return { root: r, frame: null };
-
-  // then frames
-  const deadline = Date.now() + 20_000;
-  while (Date.now() < deadline) {
-    for (const f of page.frames()) {
-      const rr = await tryRoot(f);
-      if (rr) return { root: rr, frame: f };
-    }
-    await page.waitForTimeout(500);
-  }
-  return { root: null, frame: null };
-}
-
-/* Open gear menu → click "Export Comma Delimited" and capture the download */
-async function exportGridCsv(workPage, rootObj) {
-  const root = rootObj.frame ?? workPage; // locators can run against the frame if present
-  // Ensure the grid header is on-screen
-  const header = root.getByText(/Facility DataGrid/i).first();
-  await header.scrollIntoViewIfNeeded().catch(()=>{});
-
-  // Try to click the gear button in the toolbar (first button is typically the gear)
-  let clickedMenu = false;
-  const candidates = [
-    // obvious cases
-    root.locator('button[title*="Settings" i]'),
-    root.locator('button[aria-label*="Settings" i]'),
-    root.locator('button:has(i[class*="mdi-cog"])'),
-    // fallback: first button in the toolbar row near "Facility DataGrid"
-    header.locator('xpath=..').locator('button').first()
-  ];
-
-  for (const loc of candidates) {
-    const el = loc.first();
-    if (await el.isVisible({ timeout: 1200 }).catch(()=>false)) {
-      await el.click().catch(()=>{});
-      clickedMenu = true;
-      break;
-    }
-  }
-
-  if (!clickedMenu) {
-    await saveFailureArtifacts(workPage, 'no-gear');
-    throw new Error('Could not open the grid gear menu.');
-  }
-
-  // Click the "Export Comma Delimited" menu item
-  const menuItem = root.getByRole('menuitem', { name: /Export Comma Delimited/i }).first();
-  if (!await menuItem.isVisible({ timeout: 4000 }).catch(()=>false)) {
-    // Sometimes the menu renders as a simple list
-    await root.locator('text=Export Comma Delimited').first().click({ timeout: 4000 }).catch(()=>{});
-  } else {
-    await menuItem.click().catch(()=>{});
-  }
-
-  // Wait for the download
-  const download = await workPage.waitForEvent('download', { timeout: 60000 }).catch(()=>null);
-  if (!download) {
-    await saveFailureArtifacts(workPage, 'no-download');
-    throw new Error('Export did not trigger a download.');
-  }
-
-  const rawPath = 'rectrac-export.csv';
-  await download.saveAs(rawPath);
-  return rawPath;
+  return { idx };
 }
 
 /* ---------- main ---------- */
@@ -236,66 +185,77 @@ async function exportGridCsv(workPage, rootObj) {
     // 1) Login
     await fullyLogin(page);
 
-    // 2) Open the panel; capture popup if RecTrac spawns one
-    const workPage = await openFacilityPanel(context, page);
-
-    // 3) Find the grid (page or iframe)
-    const { root, frame } = await findGridRoot(workPage);
-    if (!root) {
-      await saveFailureArtifacts(workPage, 'no-grid');
+    // 2) Attach to the legacy grid (popup or same tab), with reload fallback
+    const attach = await attachToLegacy(context, page);
+    if (!attach) {
+      await saveFailureArtifacts(page, 'no-grid');
       throw new Error('Could not find the Facilities grid (blank panel or legacy UI not detected).');
     }
+    const { root, page: workPage } = attach;
 
-    // 4) Export full grid as CSV via gear menu
-    const rawCsvPath = await exportGridCsv(workPage, { frame });
+    // 3) Open the grid Options menu → Export Comma Delimited
+    const optionsBtn = root.locator('button.datagrid-tools-menu-button,[title="Options"]').first();
+    if (!await optionsBtn.isVisible({ timeout: 8000 }).catch(()=>false)) {
+      await saveFailureArtifacts(workPage, 'no-options');
+      throw new Error('Could not find the grid Options (gear) button.');
+    }
 
-    // 5) Read & filter locally by Fac Short Description
-    const raw = fs.readFileSync(rawCsvPath, 'utf8');
-    const rows = parseCsv(raw);
-    if (!rows.length) throw new Error('Downloaded CSV is empty.');
+    // Wait for download and click export
+    const [download] = await Promise.all([
+      workPage.waitForEvent('download', { timeout: 45_000 }),
+      (async () => {
+        await optionsBtn.click().catch(()=>{});
+        const exportItem = root.getByText(/Export Comma Delimited/i).first();
+        await exportItem.click({ timeout: 8000 });
+      })()
+    ]);
 
-    const headers = rows[0];
-    const body = rows.slice(1);
+    // 4) Save the CSV that RecTrac generates
+    const tmpPath = path.resolve('facility-export.csv');
+    await download.saveAs(tmpPath);
 
-    // Build index map with tolerant header matching
-    const idx = {};
-    headers.forEach((h, i) => {
-      const n = norm(h);
-      if (n.includes('fac class')) idx.facClass = i;
-      if (n.includes('fac location')) idx.facLocation = i;
-      if (n.includes('fac code')) idx.facCode = i;
-      if (n.includes('fac short')) idx.facShortDesc = i;
-      if (n === 'status' || n.includes('status')) idx.status = i;
+    // 5) Parse & filter locally (simpler than fighting the column filters)
+    const raw = fs.readFileSync(tmpPath, 'utf8');
+    const table = parseCsv(raw);
+    if (!table.length) throw new Error('Downloaded CSV is empty.');
+    const headers = table[0].map(h => h.trim());
+    const { idx } = normalizeHeaderIndex(headers);
+
+    const colMap = {
+      facClass:      idx('fac class'),
+      facLocation:   idx('fac location'),
+      facCode:       idx('fac code'),
+      facShortDesc:  idx('short desc'),
+      status:        idx('status'),
+    };
+
+    const rows = table.slice(1).map(r => ({
+      facClass:      colMap.facClass >= 0 ? r[colMap.facClass] : '',
+      facLocation:   colMap.facLocation >= 0 ? r[colMap.facLocation] : '',
+      facCode:       colMap.facCode >= 0 ? r[colMap.facCode] : '',
+      facShortDesc:  colMap.facShortDesc >= 0 ? r[colMap.facShortDesc] : '',
+      status:        colMap.status >= 0 ? r[colMap.status] : '',
+    }));
+
+    const wanted = new Set(FAC_TERMS.map(s => s.toLowerCase()));
+    const filtered = rows.filter(r => {
+      const s = (r.facShortDesc || '').toLowerCase();
+      for (const term of wanted) if (s.includes(term)) return true;
+      return false;
     });
 
-    if (idx.facShortDesc == null) {
-      await saveFailureArtifacts(workPage, 'no-filter'); // keep old label, useful for triage
-      throw new Error('Could not find the "Fac Short Description" column in the CSV.');
-    }
-
-    const want = FAC_TERMS.map(t => norm(t));
-    const picked = [];
+    // 6) Dedupe by facCode or short desc
     const dedup = new Map();
-
-    for (const r of body) {
-      const shortDesc = norm(r[idx.facShortDesc]);
-      if (!shortDesc) continue;
-      if (want.some(w => shortDesc.includes(w))) {
-        const row = {
-          facClass:     idx.facClass != null     ? r[idx.facClass]     : '',
-          facLocation:  idx.facLocation != null  ? r[idx.facLocation]  : '',
-          facCode:      idx.facCode != null      ? r[idx.facCode]      : '',
-          facShortDesc: r[idx.facShortDesc],
-          status:       idx.status != null       ? r[idx.status]       : ''
-        };
-        const key = row.facCode || row.facShortDesc;
-        if (!dedup.has(key)) { dedup.set(key, true); picked.push(row); }
-      }
+    for (const row of filtered) {
+      const key = row.facCode || row.facShortDesc;
+      dedup.set(key, row);
     }
+    const result = [...dedup.values()];
 
     const outPath = 'gmcc-week.csv';
-    fs.writeFileSync(outPath, toCsv(picked), 'utf8');
-    console.log(`Wrote ${picked.length} filtered rows to ${outPath}`);
+    const csvOut = toCsv(result);
+    fs.writeFileSync(outPath, csvOut, 'utf8');
+    console.log(`Wrote ${result.length} rows to ${outPath}`);
 
   } catch (err) {
     console.error('Scrape failed:', err);
