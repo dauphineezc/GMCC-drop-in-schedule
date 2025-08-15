@@ -187,6 +187,8 @@ async function openFacilityPanel(context, page) {
 
     // 2) open the panel and capture popup if one appears
     const workPage = await openFacilityPanel(context, page);
+    // Try to open the DataGrid tool inside that page
+    await openFacilityDataGrid(workPage);
     
     // If RecTrac embeds the legacy UI in an iframe instead of a popup,
     // your existing findGridRoot(...) should be called with workPage
@@ -201,7 +203,7 @@ async function openFacilityPanel(context, page) {
       'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
     const filter = root.locator(SHORT_DESC_FILTER).first();
     if (!await filter.isVisible({ timeout: 15000 }).catch(()=>false)) {
-      await saveFailureArtifacts(page, 'no-filter');
+      await saveFailureArtifacts(workPage, 'no-filter');
       throw new Error('Could not find the "Fac Short Description" filter input.');
     }
 
@@ -227,7 +229,7 @@ async function openFacilityPanel(context, page) {
     for (const term of FAC_TERMS) {
       await filter.fill('');
       await filter.type(term);
-      await root.waitForTimeout(1000);
+      await workPage.waitForTimeout(1000);
       const rows = await readRows();
       for (const row of rows) {
         const key = row.facCode || row.facShortDesc;
