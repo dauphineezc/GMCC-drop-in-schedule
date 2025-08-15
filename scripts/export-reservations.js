@@ -118,6 +118,76 @@ async function findGridRoot(page) {
   return null;
 }
 
+// click the "Continue session" modal if it shows up (you already have this)
+async function clickIfResumePrompt(pageOrFrame) { /* unchanged */ }
+
+// wait out the "Please Wait..." overlay if it flashes
+async function waitOutSpinner(pageOrFrame) {
+  const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
+  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
+    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
+  }
+}
+
+// NEW: explicitly open the Facility DataGrid from the left toolbar
+async function openFacilityDataGrid(page) {
+  await waitOutSpinner(page);
+  await clickIfResumePrompt(page);
+
+  // If the grid header is already visible, nothing to do
+  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(()=>false)) return;
+
+  // Try a handful of ways the button is exposed (Vuetify tooltips, titles, aria labels, etc.)
+  const candidates = [
+    page.getByRole('button', { name: /data\s*grid/i }),
+    page.locator('[title*="Data Grid" i]'),
+    page.locator('[title*="DataGrid" i]'),
+    page.locator('a:has-text("Facility DataGrid")'),
+    page.locator('button:has-text("DataGrid")'),
+    page.locator('div.v-tooltip:has-text("DataGrid")'),
+  ];
+  for (const loc of candidates) {
+    const el = loc.first();
+    if (await el.isVisible({ timeout: 800 }).catch(()=>false)) {
+      await el.click().catch(()=>{});
+      await waitOutSpinner(page);
+      break;
+    }
+  }
+}
+
+// Beefier grid finder: poll up to ~30s across page & iframes
+async function findGridRoot(page) {
+  const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
+  const filterSel = 'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
+
+  const tryRoot = async (root) => {
+    await waitOutSpinner(root);
+    await clickIfResumePrompt(root);
+    // header text?
+    for (const rx of headerTexts) {
+      if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
+    }
+    // or the filter input?
+    if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
+    return null;
+  };
+
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    let root = await tryRoot(page);
+    if (root) return root;
+
+    for (const f of page.frames()) {
+      root = await tryRoot(f);
+      if (root) return root;
+    }
+    await page.waitForTimeout(700);
+  }
+  return null;
+}
+
+
 /* ---------- main ---------- */
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -134,12 +204,13 @@ async function findGridRoot(page) {
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
+    await openFacilityDataGrid(page);
 
     // 3) Find the grid (page or iframe)
     const root = await findGridRoot(page);
     if (!root) {
       await saveFailureArtifacts(page, 'no-grid');
-      throw new Error('Could not find the Facilities grid. Check that GRID_URL is correct and that you are logged in.');
+      throw new Error('Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)');
     }
 
     // 4) Short Description filter
