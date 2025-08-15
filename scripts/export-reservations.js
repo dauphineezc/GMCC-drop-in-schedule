@@ -23,6 +23,19 @@ async function saveFailureArtifacts(page, label) {
   } catch { /* ignore */ }
 }
 
+// add near top
+async function clickIfResumePrompt(pageOrFrame) {
+  // Works whether it's the main page or an iframe
+  const prompt = pageOrFrame.locator('text=Login Prompts');
+  if (await prompt.first().isVisible({ timeout: 1500 }).catch(() => false)) {
+    // The button usually reads "Continue"
+    const btn = pageOrFrame.getByRole('button', { name: /continue/i });
+    await btn.click({ timeout: 5000 });
+    await pageOrFrame.waitForLoadState('networkidle', { timeout: 10000 });
+    await pageOrFrame.waitForTimeout(500); // let the modal fully close
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true }); // use false locally to watch
   const context = await browser.newContext();
@@ -30,10 +43,21 @@ async function saveFailureArtifacts(page, label) {
   page.setDefaultTimeout(TIMEOUT);
 
   try {
-    // 1) Login
+    // 1) Login (same as before)
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+    await page.fill('input[name="username"], #username, input[type="text"]', USERNAME);
+    await page.fill('input[name="password"], #password, input[type="password"]', PASSWORD);
+    await Promise.all([
+      page.waitForLoadState('networkidle'),
+      page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
+    ]);
+    
+    // 1b) Handle the "Resume Session" prompt if it appears
+    await clickIfResumePrompt(page);
+    // ^ If RecTrac renders it inside an iframe, try frames too:
+    for (const f of page.frames()) { await clickIfResumePrompt(f); }
 
-    // ✅ CHECK THIS SELECTOR: username, password, submit
+    // CHECK THIS SELECTOR: username, password, submit
     await page.fill('input[name="username"], #username, input[type="text"]', USERNAME);
     await page.fill('input[name="password"], #password, input[type="password"]', PASSWORD);
     await Promise.all([
@@ -45,7 +69,7 @@ async function saveFailureArtifacts(page, label) {
     await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
 
     // Some RecTrac screens render inside an iframe. Try page first, then any iframe.
-    // ✅ CHECK THIS SELECTOR: something near the grid header
+    // CHECK THIS SELECTOR: something near the grid header
     const GRID_HEADER_TEXT = 'Facility Reservation Interface';
     let root = page;
     try {
