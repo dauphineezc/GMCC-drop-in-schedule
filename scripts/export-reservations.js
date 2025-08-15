@@ -25,7 +25,7 @@ async function saveFailureArtifacts(page, label) {
 }
 
 async function clickIfResumePrompt(pageOrFrame) {
-  // Handles the "Login Prompts" → "Continue" dialog if present.
+  // "Login Prompts" → Continue
   const prompt = pageOrFrame.locator('text=Login Prompts');
   if (await prompt.first().isVisible({ timeout: 500 }).catch(() => false)) {
     const btn = pageOrFrame.getByRole('button', { name: /continue/i });
@@ -36,7 +36,7 @@ async function clickIfResumePrompt(pageOrFrame) {
 }
 
 async function waitOutSpinner(pageOrFrame) {
-  // Wait for "Please Wait..." overlay (if shown) to disappear.
+  // "Please Wait..." overlay
   const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
   if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
     await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
@@ -50,34 +50,28 @@ async function fullyLogin(page) {
 
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
 
-  // Login loop: up to 90s, do whichever step is needed right now.
+  // Up to 90s: handle whichever step is present
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
-    // Handle resume prompts on page or any frame
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
 
-    // If we are no longer on the login route, break (logged in or session restored)
-    if (!page.url().includes('#/login')) break;
+    if (!page.url().includes('#/login')) break; // past login
 
-    // If login form is visible, fill it and submit
     const userField = page.locator(userSel).first();
-    const passField = page.locator(passSel).first();
     const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(()=>false);
 
     if (hasLogin) {
       await userField.fill(USERNAME);
-      await passField.fill(PASSWORD);
+      await page.locator(passSel).first().fill(PASSWORD);
       await Promise.all([
         page.waitForLoadState('networkidle').catch(()=>{}),
         page.click(submitSel).catch(()=>{})
       ]);
-      // after submit, loop will run again to handle spinner/prompt
-      continue;
+      continue; // loop again to handle spinner/prompt
     }
 
-    // Nothing actionable yet → small wait, then try again
     await page.waitForTimeout(800);
   }
 
@@ -87,57 +81,14 @@ async function fullyLogin(page) {
   }
 }
 
-async function findGridRoot(page) {
-  const headerTextCandidates = [
-    'Facility Reservation Interface',
-    'Facility DataGrid',
-    'Facilities'
-  ];
-
-  const tryRoot = async (root) => {
-    await waitOutSpinner(root);
-    await clickIfResumePrompt(root);
-
-    for (const t of headerTextCandidates) {
-      const ok = await root.locator(`text=${t}`).first().isVisible({ timeout: 1200 }).catch(()=>false);
-      if (ok) return root;
-    }
-    // Fallback: presence of the Short Description filter input
-    const filter = root.locator('input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]');
-    if (await filter.first().isVisible({ timeout: 1200 }).catch(()=>false)) return root;
-    return null;
-  };
-
-  let root = await tryRoot(page);
-  if (root) return root;
-
-  for (const f of page.frames()) {
-    root = await tryRoot(f);
-    if (root) return root;
-  }
-  return null;
-}
-
-// click the "Continue session" modal if it shows up (you already have this)
-async function clickIfResumePrompt(pageOrFrame) { /* unchanged */ }
-
-// wait out the "Please Wait..." overlay if it flashes
-async function waitOutSpinner(pageOrFrame) {
-  const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
-  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
-    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
-  }
-}
-
-// NEW: explicitly open the Facility DataGrid from the left toolbar
 async function openFacilityDataGrid(page) {
   await waitOutSpinner(page);
   await clickIfResumePrompt(page);
 
-  // If the grid header is already visible, nothing to do
+  // Already on the grid?
   if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(()=>false)) return;
 
-  // Try a handful of ways the button is exposed (Vuetify tooltips, titles, aria labels, etc.)
+  // Try common button/tooltip/title variants for the left toolbar
   const candidates = [
     page.getByRole('button', { name: /data\s*grid/i }),
     page.locator('[title*="Data Grid" i]'),
@@ -156,7 +107,7 @@ async function openFacilityDataGrid(page) {
   }
 }
 
-// Beefier grid finder: poll up to ~30s across page & iframes
+// Poll for the grid in page or any iframe
 async function findGridRoot(page) {
   const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
   const filterSel = 'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
@@ -164,29 +115,25 @@ async function findGridRoot(page) {
   const tryRoot = async (root) => {
     await waitOutSpinner(root);
     await clickIfResumePrompt(root);
-    // header text?
     for (const rx of headerTexts) {
       if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
     }
-    // or the filter input?
     if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
     return null;
   };
 
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    let root = await tryRoot(page);
-    if (root) return root;
-
+    let r = await tryRoot(page);
+    if (r) return r;
     for (const f of page.frames()) {
-      root = await tryRoot(f);
-      if (root) return root;
+      r = await tryRoot(f);
+      if (r) return r;
     }
     await page.waitForTimeout(700);
   }
   return null;
 }
-
 
 /* ---------- main ---------- */
 (async () => {
@@ -196,24 +143,24 @@ async function findGridRoot(page) {
   page.setDefaultTimeout(TIMEOUT);
 
   try {
-    // 1) Ensure we’re logged in
+    // 1) Login
     await fullyLogin(page);
 
-    // 2) Go to the Facilities grid/app screen
+    // 2) Open the panel, then the actual DataGrid tool
     await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
     await openFacilityDataGrid(page);
 
-    // 3) Find the grid (page or iframe)
+    // 3) Find the grid root
     const root = await findGridRoot(page);
     if (!root) {
       await saveFailureArtifacts(page, 'no-grid');
       throw new Error('Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)');
     }
 
-    // 4) Short Description filter
+    // 4) Filter input
     const SHORT_DESC_FILTER =
       'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
     const filter = root.locator(SHORT_DESC_FILTER).first();
@@ -239,7 +186,7 @@ async function findGridRoot(page) {
       });
     }
 
-    // 6) Filter for each term and collect
+    // 6) Search each term; collect & dedupe
     const dedup = new Map();
     for (const term of FAC_TERMS) {
       await filter.fill('');
