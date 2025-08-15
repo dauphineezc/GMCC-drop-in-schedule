@@ -1,308 +1,250 @@
 // scripts/export-reservations.js
 import { chromium } from 'playwright';
 import fs from 'fs';
+import path from 'path';
 
 const TIMEOUT = 60000;
-const FAC_TERMS = ['Community Lounge','Multi-use Pool','Full A+B'];
+const FAC_TERMS = ['Community Lounge', 'Multi-use Pool', 'Full A+B'];
 
 const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;
-const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL;
+const PANEL_URL = process.env.RECTRAC_FACILITY_GRID_URL; // the panel route you already use
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
-/* ------------------------ utilities ------------------------ */
-function toCsv(rows) {
-  const headers = Object.keys(rows[0] || { facClass:'', facLocation:'', facCode:'', facShortDesc:'', status:'' });
-  const esc = v => `"${String(v ?? '').replaceAll('"','""')}"`;
-  return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
+function log(msg){ console.log(`[export] ${msg}`); }
+
+/* ---------------- CSV helpers ---------------- */
+function parseCsv(text) {
+  // tolerant CSV parser good enough for RecTrac’s export
+  const rows = [];
+  let i = 0, field = '', row = [], inQuotes = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') { i++; continue; }
+    if (c === '\n') { row.push(field); rows.push(row); field=''; row=[]; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
 }
 
-async function saveFailureArtifacts(page, label) {
-  try {
+function toCsvRows(rows) {
+  const esc = (v) => `"${String(v ?? '').replaceAll('"','""')}"`;
+  return rows.map(r => r.map(esc).join(',')).join('\n');
+}
+
+function filterReservationsCsv(csvText, keepTerms) {
+  const rows = parseCsv(csvText);
+  if (!rows.length) return csvText;
+
+  const header = rows[0].map(h => h.trim());
+  // Try to find the most likely facility columns
+  const nameIdx = header.findIndex(h => /fac(?:ility)?\s*short\s*desc/i.test(h) || /facility(?!.*code)/i.test(h));
+  const locationIdx = header.findIndex(h => /fac\s*location/i.test(h));
+
+  const termMatch = (v) => {
+    const val = String(v || '').toLowerCase();
+    return keepTerms.some(t => val.includes(t.toLowerCase()));
+  };
+
+  const filtered = [header];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const hit =
+      (nameIdx >= 0 && termMatch(r[nameIdx])) ||
+      (locationIdx >= 0 && termMatch(r[locationIdx]));
+    if (hit) filtered.push(r);
+  }
+  return toCsvRows(filtered);
+}
+
+/* ---------------- debug artifacts ---------------- */
+async function saveArtifacts(page, label){
+  try{
     await page.screenshot({ path: `playwright-${label}.png`, fullPage: true });
     fs.writeFileSync(`playwright-${label}.html`, await page.content(), 'utf8');
     fs.writeFileSync(`playwright-${label}.url.txt`, page.url(), 'utf8');
   } catch {}
 }
 
-async function clickIfResumePrompt(pageOrFrame) {
-  // Handles the "Login Prompts" → "Continue" dialog if present.
-  const prompt = pageOrFrame.locator('text=Login Prompts');
-  if (await prompt.first().isVisible({ timeout: 500 }).catch(() => false)) {
-    const btn = pageOrFrame.getByRole('button', { name: /continue/i });
-    await btn.click({ timeout: 8000 }).catch(()=>{});
-    await pageOrFrame.waitForLoadState('networkidle', { timeout: 15000 }).catch(()=>{});
-    await pageOrFrame.waitForTimeout(600);
+/* ---------------- small UI helpers ---------------- */
+async function clickIfResumePrompt(pageLike){
+  const box = pageLike.locator('text=Login Prompts');
+  if (await box.first().isVisible({ timeout: 800 }).catch(()=>false)) {
+    await pageLike.getByRole('button', { name: /continue/i }).click().catch(()=>{});
+    await pageLike.waitForLoadState('networkidle').catch(()=>{});
+    await pageLike.waitForTimeout(500);
+  }
+}
+async function waitOutSpinner(pageLike){
+  const sp = pageLike.locator('text=/Please\\s+Wait/i');
+  if (await sp.first().isVisible({ timeout: 800 }).catch(()=>false)) {
+    await sp.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
   }
 }
 
-async function waitOutSpinner(pageOrFrame) {
-  // Wait for "Please Wait..." overlay (if shown) to disappear.
-  const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
-  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
-    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
-  }
-}
-
-/* ------------------------ login flow ------------------------ */
-async function fullyLogin(page) {
+/* ---------------- login ---------------- */
+async function fullyLogin(page){
   const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
   const passSel = 'input[name="password"], #password, input[type="password"]';
-  const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
+  const submit  = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
 
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
 
-  // Up to 90s: handle whichever step is present
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
 
-    if (!page.url().includes('#/login')) break; // past login
+    if (!page.url().includes('#/login')) break;
 
-    const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(()=>false);
-
-    if (hasLogin) {
-      await userField.fill(USERNAME);
+    const user = page.locator(userSel).first();
+    if (await user.isVisible({ timeout: 1500 }).catch(()=>false)) {
+      await user.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
       await Promise.all([
         page.waitForLoadState('networkidle').catch(()=>{}),
-        page.click(submitSel).catch(()=>{})
+        page.click(submit).catch(()=>{})
       ]);
-      continue; // loop again to handle spinner/prompt
+      continue;
     }
-
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(600);
   }
-
   if (page.url().includes('#/login')) {
-    await saveFailureArtifacts(page, 'login-stuck');
+    await saveArtifacts(page, 'login-stuck');
     throw new Error('Login did not complete.');
   }
 }
 
-/* ------------------------ legacy panel / popup ------------------------ */
+/* ---------------- open panel & download ---------------- */
 async function openFacilityPanel(context, page) {
-  // Go to the panel launcher route
-  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
-
+  await page.goto(PANEL_URL, { waitUntil: 'domcontentloaded' });
   await clickIfResumePrompt(page);
   for (const f of page.frames()) await clickIfResumePrompt(f);
+  await waitOutSpinner(page);
 
-  // Start waiting for a popup **before** we click anything
-  const waitPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
-
-  // Try a few likely launchers; adjust as needed for your tenant
-  const candidates = [
-    page.getByRole('button', { name: /data\s*grid/i }),
-    page.getByRole('link',   { name: /facility reservation interface/i }),
-    page.locator('a:has-text("Facility DataGrid")'),
-    page.locator('button:has-text("DataGrid")'),
-  ];
-  for (const loc of candidates) {
-    const el = loc.first();
-    if (await el.isVisible({ timeout: 800 }).catch(() => false)) {
-      await el.click().catch(() => {});
-      break;
-    }
-  }
-
-  // If RecTrac opened a legacy window, switch to it
-  const popup = await waitPopup;
-  if (popup) {
-    await popup.waitForLoadState('domcontentloaded');
-    await clickIfResumePrompt(popup);
-    return popup;           // ← use this page from now on
-  }
-
-  // No popup? Keep working in the current page (or an iframe within it)
+  // In most tenants the panel is already focused when you hit the /panel/... route.
+  // If your build requires a click, add it here. Otherwise just return the page.
   return page;
 }
 
-async function openFacilityDataGrid(page) {
-  // Sometimes the left toolbar has a specific DataGrid tool that must be clicked.
-  await waitOutSpinner(page);
-  await clickIfResumePrompt(page);
+async function processAndDownloadCSV(workPage) {
+  // Many RecTrac sites download directly on "Process". Some show a report window first.
+  // We cover both paths.
 
-  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(()=>false)) return;
+  const outTmp = path.resolve('raw-export.csv');
 
-  const candidates = [
-    page.getByRole('button', { name: /data\s*grid/i }),
-    page.locator('[title*="Data Grid" i]'),
-    page.locator('[title*="DataGrid" i]'),
-    page.locator('a:has-text("Facility DataGrid")'),
-    page.locator('button:has-text("DataGrid")'),
-    page.locator('div.v-tooltip:has-text("DataGrid")'),
-  ];
-  for (const loc of candidates) {
-    const el = loc.first();
-    if (await el.isVisible({ timeout: 800 }).catch(()=>false)) {
-      await el.click().catch(()=>{});
-      await waitOutSpinner(page);
-      break;
+  // Prefer waiting for download BEFORE clicking Process
+  const dlPromise = workPage.waitForEvent('download', { timeout: 60000 }).catch(()=>null);
+  const popupPromise = workPage.context().waitForEvent('page', { timeout: 10000 }).catch(()=>null);
+
+  // Click the Process button (bottom left of the panel)
+  const clickProcess = async () => {
+    const candidates = [
+      workPage.getByRole('button', { name: /^Process$/i }),
+      workPage.locator('button:has-text("Process")')
+    ];
+    for (const c of candidates) {
+      const el = c.first();
+      if (await el.isVisible({ timeout: 1500 }).catch(()=>false)) {
+        await el.click().catch(()=>{});
+        return true;
+      }
     }
-  }
-}
-
-/* ------------------------ grid discovery ------------------------ */
-async function findGridRoot(page) {
-  const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
-
-  const tryRoot = async (root) => {
-    await waitOutSpinner(root);
-    await clickIfResumePrompt(root);
-    for (const rx of headerTexts) {
-      if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
-    }
-    // Sometimes the grid is present even if those headers aren't visible; look for a table.
-    if (await root.locator('table').first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
-    return null;
+    return false;
   };
 
-  // Poll page + any iframes up to 30s
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    let r = await tryRoot(page);
-    if (r) return r;
-    for (const f of page.frames()) {
-      r = await tryRoot(f);
-      if (r) return r;
-    }
-    await page.waitForTimeout(700);
+  if (!await clickProcess()) {
+    await saveArtifacts(workPage, 'no-process');
+    throw new Error('Could not find the "Process" button.');
   }
-  return null;
-}
 
-/* ------------------------ grid helpers (filtering) ------------------------ */
-async function getGridCard(root) {
-  // the card/panel that contains "Facility DataGrid"
-  const card = root.locator('div:has(> div:has-text("Facility DataGrid"))').first();
-  await card.waitFor({ state: 'visible', timeout: 15000 });
-  return card;
-}
-
-async function ensureFilterRowVisible(card) {
-  // If there are no inputs in the 2nd header row, open the gear → Show Filters
-  const filterRow = card.locator('thead tr').nth(1);
-  const hasInputs = await filterRow.locator('input, textarea, [contenteditable="true"]').count();
-  if (hasInputs === 0) {
-    const gear = card.locator('button:has([class*="mdi-cog"]), button:has(svg)').first();
-    if (await gear.isVisible().catch(()=>false)) {
-      await gear.click().catch(()=>{});
-      const menuItem = card.getByText(/show filters/i).first();
-      if (await menuItem.isVisible().catch(()=>false)) await menuItem.click().catch(()=>{});
-    }
+  // Path 1: direct download
+  const dl = await dlPromise;
+  if (dl) {
+    await dl.saveAs(outTmp);
+    return outTmp;
   }
-}
 
-async function filterInputFor(card, headerLabelRegex) {
-  // find which TH in the *first* header row contains our label,
-  // then return the input/contenteditable in the same column of the filter row (row index 1)
-  const ths = card.locator('thead tr').first().locator('th');
-  const thCount = await ths.count();
-  let idx = -1;
-  for (let i = 0; i < thCount; i++) {
-    const text = (await ths.nth(i).innerText()).trim();
-    if (headerLabelRegex.test(text)) { idx = i; break; }
+  // Path 2: popup with an Export button
+  const popup = await popupPromise;
+  if (popup) {
+    await popup.waitForLoadState('domcontentloaded');
+    await clickIfResumePrompt(popup);
+    await waitOutSpinner(popup);
+
+    const tryExport = async (root) => {
+      const btns = [
+        root.getByRole('button', { name: /export|download|csv|excel/i }),
+        root.locator('[title*="Export" i]'),
+        root.locator('[aria-label*="Export" i]'),
+        root.locator('button:has-text("CSV"), a:has-text("CSV")'),
+        root.locator('button:has-text("Excel"), a:has-text("Excel")'),
+      ];
+      for (const b of btns) {
+        const el = b.first();
+        if (await el.isVisible({ timeout: 1500 }).catch(()=>false)) {
+          const dl2 = popup.waitForEvent('download', { timeout: 30000 }).catch(()=>null);
+          await el.click().catch(()=>{});
+          const got = await dl2;
+          if (got) {
+            await got.saveAs(outTmp);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    if (await tryExport(popup)) return outTmp;
+    for (const f of popup.frames()) { if (await tryExport(f)) return outTmp; }
+
+    await saveArtifacts(popup, 'no-export');
+    throw new Error('Results opened, but no Export/CSV download was found.');
   }
-  if (idx === -1) return null;
 
-  const filterCell = card.locator('thead tr').nth(1).locator('th').nth(idx);
-  let input = filterCell.locator('input, textarea, [contenteditable="true"]').first();
-  if (!(await input.isVisible({ timeout: 1000 }).catch(()=>false))) {
-    input = filterCell.locator('.v-field__input input, input').first();
-  }
-  return input;
+  await saveArtifacts(workPage, 'no-download');
+  throw new Error('Process did not trigger a download or a results window.');
 }
 
-async function readRowsFrom(card) {
-  // Read visible rows from the grid table
-  return card.evaluate((el) => {
-    const table = el.querySelector('table') || document.querySelector('table');
-    if (!table) return [];
-    const rows = Array.from(table.querySelectorAll('tbody tr'));
-    return rows.map(r => {
-      const tds = r.querySelectorAll('td');
-      return {
-        facClass:     tds[0]?.innerText.trim() || '',
-        facLocation:  tds[1]?.innerText.trim() || '',
-        facCode:      tds[2]?.innerText.trim() || '',
-        facShortDesc: tds[3]?.innerText.trim() || '',
-        status:       tds[4]?.innerText.trim() || ''
-      };
-    }).filter(r => r.facShortDesc);
-  });
-}
-
-/* ------------------------ main ------------------------ */
+/* ---------------- main ---------------- */
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   page.setDefaultTimeout(TIMEOUT);
 
-  // optional: capture all open page URLs for debugging at end of run
-  process.on('beforeExit', async () => {
-    try {
-      const urls = context.pages().map(p => p.url()).join('\n');
-      fs.writeFileSync('all-pages.txt', urls);
-    } catch {}
-  });
-
   try {
-    // 1) Login
+    log('login…');
     await fullyLogin(page);
 
-    // 2) Open the Facility panel (captures popup if RecTrac opens a legacy window)
+    log('open panel…');
     const workPage = await openFacilityPanel(context, page);
 
-    // 3) If there is a left-toolbar DataGrid tool, click it
-    await openFacilityDataGrid(workPage);
+    log('process & download full CSV…');
+    const rawPath = await processAndDownloadCSV(workPage);
 
-    // 4) Find the grid root (page or iframe)
-    const root = await findGridRoot(workPage);
-    if (!root) {
-      await saveFailureArtifacts(workPage, 'no-grid');
-      throw new Error('Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)');
-    }
+    log('filtering to target facilities…');
+    const rawText = fs.readFileSync(rawPath, 'utf8');
+    const filteredText = filterReservationsCsv(rawText, FAC_TERMS);
 
-    // 5) Lock onto the grid card and ensure the filter row is visible
-    const card = await getGridCard(root);
-    await ensureFilterRowVisible(card);
-
-    // 6) Get the "Fac Short Description" filter input by header text
-    const shortDescInput = await filterInputFor(card, /Fac\s+Short\s+Description/i);
-    if (!shortDescInput || !(await shortDescInput.isVisible().catch(()=>false))) {
-      await saveFailureArtifacts(workPage, 'no-filter');
-      throw new Error('Could not find the "Fac Short Description" filter input.');
-    }
-
-    // 7) Search each term and collect rows
-    const dedup = new Map();
-    for (const term of FAC_TERMS) {
-      await shortDescInput.click({ timeout: 3000 }).catch(()=>{});
-      await shortDescInput.fill('');
-      await shortDescInput.type(term, { delay: 30 });
-      await workPage.waitForTimeout(900); // allow grid to refresh
-      const rows = await readRowsFrom(card);
-      for (const row of rows) {
-        const key = row.facCode || row.facShortDesc;
-        dedup.set(key, row);
-      }
-    }
-
-    // 8) Write CSV
-    const result = Array.from(dedup.values());
     const outPath = 'gmcc-week.csv';
-    fs.writeFileSync(outPath, toCsv(result), 'utf8');
-    console.log(`Wrote ${result.length} rows to ${outPath}`);
+    fs.writeFileSync(outPath, filteredText, 'utf8');
+    log(`Wrote ${outPath}`);
 
   } catch (err) {
     console.error('Scrape failed:', err);
-    // Try to save something useful from either the popup page or the original
-    try { await saveFailureArtifacts(page, 'error'); } catch {}
+    await saveArtifacts(page, 'error');
     process.exit(1);
   } finally {
     await browser.close();
