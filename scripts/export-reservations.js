@@ -41,12 +41,12 @@ async function saveFailureArtifacts(page, label) {
       page.click('button[type="submit"], input[type="submit"], button:has-text("Sign In")')
     ]);
 
-    // 2) Go directly to the Facility DataGrid
+    // 2) Go directly to the Facility Reservation Interface
     await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
 
     // Some RecTrac screens render inside an iframe. Try page first, then any iframe.
     // ✅ CHECK THIS SELECTOR: something near the grid header
-    const GRID_HEADER_TEXT = 'Facility DataGrid';
+    const GRID_HEADER_TEXT = 'Facility Reservation Interface';
     let root = page;
     try {
       await root.waitForSelector(`text=${GRID_HEADER_TEXT}`, { timeout: 8000 });
