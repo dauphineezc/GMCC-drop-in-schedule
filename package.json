@@ -1,0 +1,13 @@
+{
+    "name": "gmcc-rectrac-export",
+    "private": true,
+    "type": "module",
+    "scripts": {
+      "export": "node scripts/export-reservations.js",
+      "postinstall": "npx playwright install --with-deps chromium"
+    },
+    "dependencies": {
+      "playwright": "^1.46.0"
+    }
+  }
+  
