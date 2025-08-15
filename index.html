@@ -116,6 +116,10 @@
   </main>
 
   <script>
+
+  // S3 CSV location (single, stable file that gets overwritten daily)
+  const CSV_URL = 'https://gmcc-reservation-data.s3.us-east-2.amazonaws.com/gmcc-week.csv';
+
   /*** --------- CSV Data Management --------- ***/
   const PALETTE = {
     blue:   ["bg-blue-100","text-blue-800","border-blue-500"],
@@ -203,32 +207,19 @@
 
   async function loadCSVData() {
     try {
-      const response = await fetch('FRTest2.csv');
-      const csvText = await response.text();
+      // Cache-buster so browsers don’t reuse yesterday’s file
+      const url = `${CSV_URL}?t=${Date.now()}`;
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+      const csvText = await res.text();
       return parseCSV(csvText);
     } catch (error) {
-      console.error('Error loading CSV:', error);
-      // Return demo data as fallback
+      console.error('Error loading CSV from S3:', error);
+      // Fallback demo data so the UI still renders
       return {
-        aquatics: {
-          label: "Aquatics",
-          events: [
-            ev("Lap Swim", "Pool", 0, 5, 8, "blue"),
-            ev("Rec Swim", "Pool", 0, 5, 8, "green")
-          ]
-        },
-        courtSports: {
-          label: "Court Sports", 
-          events: [
-            ev("Basketball", "Court 1", 1, 9, 11, "orange")
-          ]
-        },
-        community: {
-          label: "Community",
-          events: [
-            ev("Yoga Class", "Studio", 0, 8, 9, "pink")
-          ]
-        }
+        aquatics: { label: "Aquatics", events: [ev("Lap Swim","Pool",0,5,8,"blue"), ev("Rec Swim","Pool",0,5,8,"green")] },
+        courtSports: { label: "Court Sports", events: [ev("Basketball","Court 1",1,9,11,"orange")] },
+        community: { label: "Community", events: [ev("Yoga Class","Studio",0,8,9,"pink")] }
       };
     }
   }
@@ -245,39 +236,48 @@
   }
 
   function parseCSV(csvText) {
-    const lines = csvText.trim().split('\n');
+    const rows = csvText.replace(/\r/g,'').trim().split('\n');
+    // Detect & drop header if the first row contains column names
+    const headerish = /facility|date|start|end|activity/i.test(rows[0]);
+    const lines = headerish ? rows.slice(1) : rows;
+  
     const events = {
-      aquatics: { label: "Aquatics", events: [] },
-      courtSports: { label: "Court Sports", events: [] },
-      community: { label: "Community", events: [] }
+      aquatics:   { label: "Aquatics",       events: [] },
+      courtSports:{ label: "Court Sports",   events: [] },
+      community:  { label: "Community",      events: [] }
     };
-
-    lines.forEach(line => {
-      if (!line.trim()) return;
-      
-      const parts = line.split(',').map(part => part.trim());
-      if (parts.length < 7) return;
-      
-      // csv format: facility, location, empty, date, start_time, end_time, activity, facility_dup, category
+  
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      // naive split works for your test files (no quoted commas)
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length < 7) continue;
+  
+      // Format used in your tests:
+      // facility, location, (blank), date, start_time, end_time, activity, facility_dup, category
       const [, location, , dateStr, startTime, endTime, activity] = parts;
-      
+  
       try {
         const startHour = parseTime(startTime);
-        const endHour = parseTime(endTime);
-        const [month, day, year] = dateStr.split('/').map(Number);
-        const eventDate = new Date(year, month - 1, day);
-        const dayIndex = parseDate(dateStr);
+        const endHour   = parseTime(endTime);
+        const [mm, dd, yyyy] = dateStr.split('/').map(Number);
+        const eventDate = new Date(yyyy, mm - 1, dd);
+  
+        // Day index relative to Monday=0
+        const jsDay = eventDate.getDay();               // Sun=0..Sat=6
+        const dayIndex = (jsDay + 6) % 7;               // Mon=0..Sun=6
+  
         const category = categorizeActivity(activity, location);
         const colorKey = getColorForActivity(activity);
-        
-        const event = ev(activity, location, dayIndex, startHour, endHour, colorKey);
-        event.date = eventDate; // Store the actual date for filtering
-        events[category].events.push(event);
-      } catch (error) {
-        console.error('Error parsing line:', line, error);
+  
+        const e = ev(activity, location, dayIndex, startHour, endHour, colorKey);
+        e.date = eventDate;
+        events[category].events.push(e);
+      } catch (err) {
+        console.error('Bad CSV row:', line, err);
       }
-    });
-
+    }
+  
     return events;
   }
 
