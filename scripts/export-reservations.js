@@ -31,18 +31,16 @@ const LONG_WAIT   = 30_000;
 const csvHits = []; // store any csv-ish responses we see
 
 function looksCsvish(resp) {
-  const url = resp.url();
-  const h = resp.headers();
-  const ct = (h["content-type"] || "").toLowerCase();
-  const cd = (h["content-disposition"] || "").toLowerCase();
-
-  // Heuristics: common content types + filename hints + url hints
-  const ctCsv = /\bcsv\b/.test(ct) || /\bexcel\b/.test(ct) || /octet-stream/.test(ct);
-  const cdCsv = /filename=.*\.csv/.test(cd);
-  const urlCsv = /\.csv(\?|$)/i.test(url) || /export|report|download/i.test(url);
-
-  return resp.ok() && (ctCsv || cdCsv || urlCsv);
-}
+    const url = resp.url();
+    const h = resp.headers();
+    const ct = (h["content-type"] || "").toLowerCase();
+    const cd = (h["content-disposition"] || "").toLowerCase();
+  
+    const ctCsv = /\bcsv\b/.test(ct) || /\bexcel\b/.test(ct);           // removed text/plain & octet-stream
+    const cdCsv = /filename=.*\.csv/i.test(cd);
+    const urlCsv = /\.csv(\?|$)/i.test(url);
+    return resp.ok() && (ctCsv || cdCsv || urlCsv);
+  }  
 
 function installCsvSniffer(context) {
   context.on("response", async (resp) => {
@@ -185,14 +183,73 @@ async function chooseRelativeDate(root, fieldLabel, optionText) {
     await root.waitForTimeout(120);
   }
 
-async function setDateRanges(root) {
-    console.log("→ Setting Begin Date = Today, End Date = Today …");
+  async function setDateRanges(root) {
+    console.log("→ Setting Begin Date = Today, End Date = Today+6 …");
     try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
-    await chooseRelativeDate(root, "Begin Date", "Today");
-    await chooseRelativeDate(root, "End Date",   "Today");
+  
+    // Begin = Today (relative)
+    await chooseRelativeDate(root, "Begin Date", "Today").catch(() => {});
+    // End = Actual Date (today + 113)  → yields a 14-day window inclusive
+    await setActualDate(root, "End Date", addDays(new Date(), 13));
+  
     await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
     await root.waitForTimeout(300);
-}
+  }
+  
+
+function addDays(d, days) {
+    const x = new Date(d);
+    x.setDate(x.getDate() + days);
+    return x;
+  }
+  function formatUS(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${mm}/${dd}/${d.getFullYear()}`;
+  }
+  
+  // Force a field's mode to "Actual Date" and fill its text box.
+  async function setActualDate(root, fieldLabel, dateObj) {
+    const container = root.locator('div').filter({
+      has: root.locator(`label:has-text("${fieldLabel}")`)
+    }).first();
+  
+    // Ensure the left-hand button says "Actual Date"
+    const trigger = container.locator('button.ui-datetime-date-option, button').first();
+    const current = (await trigger.textContent().catch(() => '') || '').toLowerCase();
+    if (!current.includes('actual')) {
+      await trigger.click().catch(() => {});
+      // pick "Actual Date" if a menu opens; otherwise we’ll just proceed
+      const menu = root.locator('ul.ui-menu[aria-hidden="false"]').last();
+      if (await menu.isVisible({ timeout: 1500 }).catch(() => false)) {
+        const item = menu.getByRole('menuitem', { name: /Actual Date/i }).first();
+        if (await item.isVisible().catch(() => false)) await item.click().catch(() => {});
+      }
+      await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
+    }
+  
+    // Fill the text input next to the button
+    const candidates = [
+      container.locator('input[aria-label*="date" i]').first(),
+      container.locator('input[placeholder*="/" i]').first(),
+      container.locator('input[type="text"]').last(),
+      container.locator('input').last(),
+    ];
+    let input = null;
+    for (const c of candidates) {
+      if (await c.isVisible({ timeout: 500 }).catch(() => false)) { input = c; break; }
+    }
+    if (input) {
+      const value = formatUS(dateObj);
+      await input.click().catch(() => {});
+      await input.fill(value).catch(() => {});
+      await input.blur().catch(() => {});
+      console.log(`→ Set ${fieldLabel} to Actual Date ${value}`);
+    } else {
+      console.log(`→ Could not locate input for ${fieldLabel}`);
+    }
+  }
+  
   
 function parseCsv(text) {
   const rows = [];
