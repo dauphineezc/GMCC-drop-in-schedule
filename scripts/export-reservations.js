@@ -235,6 +235,11 @@ async function openExportMenu(root) {
   const gearCount = await allGears.count();
   console.log(`→ Found ${gearCount} total gear/settings buttons (MDI icons) in the entire interface`);
   
+  // Look specifically for the UI-icon gear pattern from the HTML
+  const uiIconGears = root.locator('span.ui-icon.ui-icon-gear, button:has(span.ui-icon.ui-icon-gear)');
+  const uiGearCount = await uiIconGears.count();
+  console.log(`→ Found ${uiGearCount} total ui-icon-gear elements in the interface`);
+  
   // Look for other icon patterns that might be the gear
   const svgButtons = root.locator('button:has(svg)');
   const svgButtonCount = await svgButtons.count();
@@ -266,27 +271,28 @@ async function openExportMenu(root) {
     }
   }
 
-  // Search more specifically for the DataGrid gear icon, excluding sidebar/navigation menus
+  // Search specifically for the UI-icon gear pattern found in the HTML
   const broadGearCandidates = [
-    // Look specifically for gear buttons within the DataGrid area (exclude sidebar buttons)
-    root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
-    root.locator('div:has-text("Facility DataGrid")').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
-    root.locator('div:has-text("Facility DataGrid")').locator('xpath=following-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
+    // FIRST PRIORITY: Target the exact ui-icon-gear structure from the HTML
+    root.locator('button:has(span.ui-icon.ui-icon-gear)').first(),
+    root.locator('span.ui-icon.ui-icon-gear').locator('xpath=ancestor::button[1]').first(),
+    root.locator('.datagrid-header-toolbar').locator('button:has(span.ui-icon.ui-icon-gear)').first(),
     
-    // Look for toolbar/header areas within the DataGrid card (not sidebar)
-    root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[contains(@class, "card")]').locator('button:has(i[class*="mdi-cog"])').first(),
+    // Look for the gear in datagrid toolbar context
+    root.locator('[class*="datagrid-header-toolbar"]').locator('button:has(span.ui-icon-gear)').first(),
+    root.locator('[class*="datagrid-tools"]').locator('button:has(span.ui-icon-gear)').first(),
+    root.locator('[class*="toolbar"]').locator('button:has(span.ui-icon-gear)').first(),
     
-    // Target buttons specifically near the table/grid, not in sidebar
-    root.locator('table').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
-    root.locator('table').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
+    // Look for ui-icon patterns (jQuery UI icons)
+    root.locator('button:has(span.ui-icon)').first(),
+    root.locator('button:has(.ui-icon-gear)').first(),
     
-    // Look for gear icons using CSS selector exclusions (avoiding .not() method)
+    // Look specifically near DataGrid for ui-icon buttons
+    root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[1]').locator('button:has(span.ui-icon)').first(),
+    
+    // Fallback to original patterns
     root.locator('button:has(i[class*="mdi-cog"]):not(.menu-button):not(.sidebar-icon):not([class*="sidebar"]):not([class*="nav"])').first(),
-    root.locator('button:has(svg[class*="cog"]):not(.menu-button):not(.sidebar-icon):not([class*="sidebar"])').first(),
-    
-    // Simple gear button search (we'll filter manually)
-    root.locator('button:has(i[class*="mdi-cog"])').first(),
-    root.locator('button:has(svg[class*="cog"])').first()
+    root.locator('button:has(svg[class*="cog"]):not(.menu-button):not(.sidebar-icon):not([class*="sidebar"])').first()
   ];
 
   let gearFound = false;
@@ -345,6 +351,21 @@ async function openExportMenu(root) {
     
     // Expand search to include ANY button that might be a settings/action button
     const allPossibleGearButtons = root.locator([
+      // HIGHEST PRIORITY: The exact pattern from the HTML
+      'button:has(span.ui-icon.ui-icon-gear)',
+      'span.ui-icon.ui-icon-gear',
+      
+      // jQuery UI icon patterns
+      'button:has(span.ui-icon)',
+      'button:has(.ui-icon-gear)',
+      'span.ui-icon-gear',
+      '.ui-icon.ui-icon-gear',
+      
+      // Datagrid toolbar context
+      '.datagrid-header-toolbar button',
+      '[class*="datagrid-tools"] button',
+      '[class*="datagrid-header"] button',
+      
       // Traditional gear patterns
       'button:has(i[class*="mdi-cog"])',
       'button:has(svg[class*="cog"])', 
@@ -372,6 +393,7 @@ async function openExportMenu(root) {
       // Any button in what might be a toolbar row
       'button:has(i)',
       'button:has(span.icon)',
+      'button:has(span)',
       
       // Look for buttons with specific viewBox patterns (common in toolbar SVGs)
       'button:has(svg[viewBox*="16"])',
