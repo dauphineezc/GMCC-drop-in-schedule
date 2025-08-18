@@ -254,12 +254,13 @@ async function openExportMenu(root) {
     root.locator('table').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
     root.locator('table').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Look for gear icons in areas that are NOT the sidebar
-    root.locator('button:has(i[class*="mdi-cog"])').not(root.locator('[class*="sidebar"], [class*="nav"], [class*="menu-button"]')).first(),
+    // Look for gear icons using CSS selector exclusions (avoiding .not() method)
+    root.locator('button:has(i[class*="mdi-cog"]):not(.menu-button):not(.sidebar-icon):not([class*="sidebar"]):not([class*="nav"])').first(),
+    root.locator('button:has(svg[class*="cog"]):not(.menu-button):not(.sidebar-icon):not([class*="sidebar"])').first(),
     
-    // Target gear buttons by excluding known sidebar classes
-    root.locator('button:has(i[class*="mdi-cog"]):not(.menu-button):not(.sidebar-icon)').first(),
-    root.locator('button:has(svg[class*="cog"]):not(.menu-button):not(.sidebar-icon)').first()
+    // Simple gear button search (we'll filter manually)
+    root.locator('button:has(i[class*="mdi-cog"])').first(),
+    root.locator('button:has(svg[class*="cog"])').first()
   ];
 
   let gearFound = false;
@@ -274,6 +275,18 @@ async function openExportMenu(root) {
         const buttonHtml = await gear.innerHTML().catch(() => '');
         console.log(`→ Trying broad gear candidate ${i}: text="${buttonText}", class="${buttonClass}"`);
         console.log(`→ Button HTML: ${buttonHtml.substring(0, 200)}...`);
+        
+        // Skip known sidebar/navigation buttons
+        if (buttonClass && (buttonClass.includes('menu-button') || buttonClass.includes('sidebar-icon') || buttonClass.includes('sidebar') || buttonClass.includes('nav'))) {
+          console.log(`→ Skipping broad gear candidate ${i} - appears to be sidebar/navigation button`);
+          continue;
+        }
+        
+        // Skip if button text suggests it's a navigation menu
+        if (buttonText && (buttonText.toLowerCase().includes('menu') || buttonText.toLowerCase().includes('navigation'))) {
+          console.log(`→ Skipping broad gear candidate ${i} - text suggests navigation button`);
+          continue;
+        }
         
         await gear.click({ timeout: 3000 });
         await root.waitForTimeout(2000);
@@ -316,6 +329,18 @@ async function openExportMenu(root) {
           const buttonHtml = await specificGear.innerHTML().catch(() => '');
           console.log(`→ Trying gear button ${j}: text="${buttonText}", class="${buttonClass}"`);
           console.log(`→ Button HTML: ${buttonHtml.substring(0, 150)}...`);
+          
+          // Skip known sidebar/navigation buttons
+          if (buttonClass && (buttonClass.includes('menu-button') || buttonClass.includes('sidebar-icon') || buttonClass.includes('sidebar') || buttonClass.includes('nav'))) {
+            console.log(`→ Skipping gear button ${j} - appears to be sidebar/navigation button`);
+            continue;
+          }
+          
+          // Skip if button text suggests it's a navigation menu
+          if (buttonText && (buttonText.toLowerCase().includes('menu') || buttonText.toLowerCase().includes('navigation'))) {
+            console.log(`→ Skipping gear button ${j} - text suggests navigation button`);
+            continue;
+          }
           
           await specificGear.click({ timeout: 3000 });
           await root.waitForTimeout(2000);
