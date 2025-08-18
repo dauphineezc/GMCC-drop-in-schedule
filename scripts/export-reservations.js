@@ -290,25 +290,29 @@ async function openExportMenu(root) {
   // Look specifically for gear button in the header area (top part of the card, near "Facility DataGrid" text)
   console.log("→ Looking for gear/settings button in DataGrid header...");
   const gearCandidates = [
+    // Target the specific row with the toolbar icons (gear, expand, refresh, etc.)
+    gridCard.locator('div:has(button[class*="settings" i], button[class*="cog" i])').locator('button:has(i[class*="mdi-cog"])').first(),
+    
+    // Look for the gear in the header row with other action buttons
+    gridCard.locator('div:has-text("Facilities")').locator('..').locator('button:has(i[class*="mdi-cog"])').first(),
+    
     // Look for buttons specifically near the "Facility DataGrid" text (in header)
     gridCard.locator('div:has-text("Facility DataGrid")').locator('button:has(i[class*="mdi-cog"])').first(),
     gridCard.locator('div:has-text("Facility DataGrid")').locator('button:has(svg)').first(),
     
+    // Look in the first button group/row (where the toolbar buttons typically are)
+    gridCard.locator('button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('button:has(svg[class*="cog"])').first(),
+    gridCard.locator('button:has(i[class*="settings"])').first(),
+    
+    // Target buttons by aria-label or title
+    gridCard.locator('button[aria-label*="settings" i]').first(),
+    gridCard.locator('button[title*="settings" i]').first(),
+    
     // Look in what appears to be a header/toolbar area
     gridCard.locator('[class*="header"]').locator('button:has(i[class*="mdi-cog"])').first(),
     gridCard.locator('[class*="toolbar"]').locator('button:has(i[class*="mdi-cog"])').first(),
-    gridCard.locator('[class*="card-title"]').locator('button').first(),
-    
-    // Gear icons that are siblings or children of the title
-    gridCard.locator('div:has-text("Facility DataGrid") ~ button:has(i[class*="mdi-cog"])').first(),
-    gridCard.locator('div:has-text("Facility DataGrid") button:has(i[class*="mdi-cog"])').first(),
-    
-    // Generic gear buttons in the upper area (exclude those in the table body)
-    gridCard.locator('button:has(i[class*="mdi-cog"])').first(),
-    gridCard.locator('button:has(svg[class*="cog"])').first(),
-    
-    // Fallback: any button that's not in the table body or right sidebar
-    gridCard.locator('button').not(gridCard.locator('tbody button')).not(gridCard.locator('div:has-text("Additional Criteria") button')).first()
+    gridCard.locator('[class*="card-title"]').locator('button').first()
   ];
 
   let gearFound = false;
@@ -351,8 +355,8 @@ async function openExportMenu(root) {
     root.locator('.dropdown-menu:visible').getByText(/export.*comma.*delimited/i).first(),
     root.locator('[class*="menu"]:visible').getByText(/export.*comma.*delimited/i).first(),
     
-    // Broader search but exclude sidebar
-    root.locator('div:has-text("Export"):visible').not(root.locator('div:has-text("Additional Criteria") div')).first()
+    // Broader search in visible dropdown menus
+    root.locator('div:has-text("Export"):visible').first()
   ];
 
   let menuClicked = false;
