@@ -509,10 +509,7 @@ async function setDateRanges(root) {
 
     await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
     await root.waitForTimeout(300);
-}  
-  
-// Wait a moment for the date changes to take effect
-await root.waitForTimeout(2000);
+}
 
 async function processExport(root) {
   console.log("→ Looking for Process button to trigger export...");
@@ -715,7 +712,7 @@ async function processExport(root) {
   // If no close button found, try pressing Escape
   if (!dialogClosed) {
     console.log("→ No close button found, trying Escape key...");
-    await root.press('Escape').catch(() => {});
+    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
     await root.waitForTimeout(1000);
   }
   
