@@ -226,39 +226,42 @@ async function findGridRoot(page) {
 async function setDateRanges(root) {
   console.log("→ Setting date ranges: Begin Date to 'Today', End Date to 'End of Month'...");
   
-  // Look for the Additional Criteria section with date dropdowns
-  const beginDateDropdown = root.locator('select:near(text="Begin Date"), div:has-text("Begin Date") select, div:has-text("Begin Date") + * select').first();
-  const endDateDropdown = root.locator('select:near(text="End Date"), div:has-text("End Date") select, div:has-text("End Date") + * select').first();
+  // Based on the HTML structure, look for jQuery UI datetime components
+  // The structure is: label "Begin Date" -> div with ui-datetime components -> button with "Actual Date"
   
-  // Try alternative selectors for the dropdowns (including modern styled dropdowns)
+  // Find Begin Date dropdown button - it's the button inside the ui-datetime component after "Begin Date" label
+  const beginDateButton = root.locator('label:has-text("Begin Date")').locator('xpath=following-sibling::div').locator('button[class*="ui-datetime-date-option"][class*="ui-state-default"]').first();
+  
+  // Find End Date dropdown button - it's the button inside the ui-datetime component after "End Date" label  
+  const endDateButton = root.locator('label:has-text("End Date")').locator('xpath=following-sibling::div').locator('button[class*="ui-datetime-date-option"][class*="ui-state-default"]').first();
+  
+  // Alternative selectors based on the HTML structure
   const beginDateAlternatives = [
-    // Standard select elements
-    root.locator('div:has-text("Begin Date")').locator('xpath=following-sibling::*[1]').locator('select').first(),
-    root.locator('div:has-text("Begin Date")').locator('..').locator('select').first(),
-    root.locator('label:has-text("Begin Date")').locator('xpath=following-sibling::*[1]').locator('select').first(),
+    // Target the specific button ID pattern from HTML
+    root.locator('button[id*="facilityreservationinterface_begindate"][class*="ui-datetime-date-option"]').first(),
     
-    // Styled dropdown buttons (like in the screenshot)
-    root.locator('div:has-text("Begin Date")').locator('xpath=following-sibling::*[1]').locator('button, div[role="button"], div[class*="dropdown"]').first(),
-    root.locator('div:has-text("Begin Date")').locator('..').locator('button:has-text("Actual Date"), div:has-text("Actual Date")').first(),
+    // Target by the ui-datetime structure
+    root.locator('div[class*="ui-datetime"]:has(label:has-text("Begin Date"))').locator('button[class*="ui-datetime-date-option"]').first(),
     
-    // Look for dropdowns containing "Actual Date" (the default value)
-    root.locator('button:has-text("Actual Date"), div:has-text("Actual Date")').first(),
-    root.locator('select').filter({ hasText: /actual date|today|date/i }).first()
+    // Look for button with "Actual Date" text near "Begin Date"
+    root.locator('div:has(label:has-text("Begin Date"))').locator('button:has-text("Actual Date")').first(),
+    
+    // Generic fallback for first "Actual Date" button
+    root.locator('button[class*="ui-datetime-date-option"]:has-text("Actual Date")').first()
   ];
   
   const endDateAlternatives = [
-    // Standard select elements
-    root.locator('div:has-text("End Date")').locator('xpath=following-sibling::*[1]').locator('select').first(),
-    root.locator('div:has-text("End Date")').locator('..').locator('select').first(),
-    root.locator('label:has-text("End Date")').locator('xpath=following-sibling::*[1]').locator('select').first(),
+    // Target the specific button ID pattern from HTML  
+    root.locator('button[id*="facilityreservationinterface_enddate"][class*="ui-datetime-date-option"]').first(),
     
-    // Styled dropdown buttons (like in the screenshot)
-    root.locator('div:has-text("End Date")').locator('xpath=following-sibling::*[1]').locator('button, div[role="button"], div[class*="dropdown"]').first(),
-    root.locator('div:has-text("End Date")').locator('..').locator('button:has-text("Actual Date"), div:has-text("Actual Date")').nth(1),
+    // Target by the ui-datetime structure
+    root.locator('div[class*="ui-datetime"]:has(label:has-text("End Date"))').locator('button[class*="ui-datetime-date-option"]').first(),
     
-    // Look for the second dropdown containing "Actual Date"
-    root.locator('button:has-text("Actual Date"), div:has-text("Actual Date")').nth(1),
-    root.locator('select').filter({ hasText: /actual date|today|date/i }).nth(1)
+    // Look for button with "Actual Date" text near "End Date"
+    root.locator('div:has(label:has-text("End Date"))').locator('button:has-text("Actual Date")').first(),
+    
+    // Generic fallback for second "Actual Date" button
+    root.locator('button[class*="ui-datetime-date-option"]:has-text("Actual Date")').nth(1)
   ];
   
   // Set Begin Date to "Today"
@@ -266,13 +269,32 @@ async function setDateRanges(root) {
   console.log("→ Setting Begin Date to 'Today'...");
   
   // Try main selector first
-  if (await beginDateDropdown.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await beginDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     try {
-      await beginDateDropdown.selectOption({ label: 'Today' });
-      console.log("→ Successfully set Begin Date to 'Today'");
-      beginDateSet = true;
+      console.log("→ Found Begin Date button, clicking to open dropdown...");
+      await beginDateButton.click();
+      await root.waitForTimeout(1000); // Wait for dropdown to appear
+      
+      // Look for "Today" option in the jQuery UI dropdown menu
+      const todayOption = root.locator('ul.ui-menu li:has-text("Today"), div.ui-menu-item:has-text("Today"), li[role="menuitem"]:has-text("Today")').first();
+      if (await todayOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log("→ Found 'Today' option, clicking...");
+        await todayOption.click();
+        beginDateSet = true;
+        console.log("→ Successfully set Begin Date to 'Today'");
+      } else {
+        console.log("→ Could not find 'Today' option in dropdown menu, debugging available options...");
+        // Debug: log all visible menu items
+        const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
+        const itemCount = await allMenuItems.count();
+        console.log(`→ Found ${itemCount} menu items total`);
+        for (let j = 0; j < Math.min(itemCount, 10); j++) {
+          const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
+          console.log(`→ Menu item ${j}: "${itemText}"`);
+        }
+      }
     } catch (e) {
-      console.log("→ Failed to set Begin Date with main selector, trying alternatives...");
+      console.log(`→ Failed to set Begin Date with main selector: ${e.message}`);
     }
   }
   
@@ -282,40 +304,31 @@ async function setDateRanges(root) {
       const dropdown = beginDateAlternatives[i];
       if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
         try {
-          // Check if it's a standard select element
-          const tagName = await dropdown.evaluate(el => el.tagName.toLowerCase());
+          console.log(`→ Trying Begin Date alternative ${i}...`);
+          await dropdown.click();
+          await root.waitForTimeout(1000);
           
-          if (tagName === 'select') {
-            await dropdown.selectOption({ label: 'Today' });
-          } else {
-            // It's a styled dropdown, click to open it
-            await dropdown.click();
-            await root.waitForTimeout(500);
-            
-            // Look for "Today" option in the opened dropdown
-            const todayOption = root.locator('div:has-text("Today"), li:has-text("Today"), option:has-text("Today")').first();
-            if (await todayOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-              await todayOption.click();
-            } else {
-              // Try alternative patterns for "Today"
-              const todayAlts = [
-                root.locator('[role="option"]:has-text("Today")').first(),
-                root.locator('[class*="option"]:has-text("Today")').first(),
-                root.locator('div:visible:has-text("Today")').first()
-              ];
-              
-              for (const alt of todayAlts) {
-                if (await alt.isVisible({ timeout: 500 }).catch(() => false)) {
-                  await alt.click();
-                  break;
-                }
-              }
+          // Look for "Today" option in various dropdown menu formats
+          const todayOptions = [
+            root.locator('ul.ui-menu li:has-text("Today")').first(),
+            root.locator('div.ui-menu-item:has-text("Today")').first(),
+            root.locator('li[role="menuitem"]:has-text("Today")').first(),
+            root.locator('div[role="option"]:has-text("Today")').first(),
+            root.locator('div:visible:has-text("Today")').filter({ hasNotText: 'Begin Date' }).first(),
+            root.locator('a:has-text("Today")').first()
+          ];
+          
+          for (const todayOpt of todayOptions) {
+            if (await todayOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
+              console.log(`→ Found 'Today' option, clicking...`);
+              await todayOpt.click();
+              beginDateSet = true;
+              console.log(`→ Successfully set Begin Date to 'Today' using alternative ${i}`);
+              break;
             }
           }
           
-          console.log(`→ Successfully set Begin Date to 'Today' using alternative ${i}`);
-          beginDateSet = true;
-          break;
+          if (beginDateSet) break;
         } catch (e) {
           console.log(`→ Alternative ${i} failed: ${e.message}`);
         }
@@ -328,13 +341,32 @@ async function setDateRanges(root) {
   console.log("→ Setting End Date to 'End of Month'...");
   
   // Try main selector first
-  if (await endDateDropdown.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     try {
-      await endDateDropdown.selectOption({ label: 'End of Month' });
-      console.log("→ Successfully set End Date to 'End of Month'");
-      endDateSet = true;
+      console.log("→ Found End Date button, clicking to open dropdown...");
+      await endDateButton.click();
+      await root.waitForTimeout(1000); // Wait for dropdown to appear
+      
+      // Look for "End of Month" option in the jQuery UI dropdown menu
+      const endOfMonthOption = root.locator('ul.ui-menu li:has-text("End of Month"), div.ui-menu-item:has-text("End of Month"), li[role="menuitem"]:has-text("End of Month")').first();
+      if (await endOfMonthOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log("→ Found 'End of Month' option, clicking...");
+        await endOfMonthOption.click();
+        endDateSet = true;
+        console.log("→ Successfully set End Date to 'End of Month'");
+      } else {
+        console.log("→ Could not find 'End of Month' option in dropdown menu, debugging available options...");
+        // Debug: log all visible menu items
+        const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
+        const itemCount = await allMenuItems.count();
+        console.log(`→ Found ${itemCount} menu items total`);
+        for (let j = 0; j < Math.min(itemCount, 10); j++) {
+          const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
+          console.log(`→ Menu item ${j}: "${itemText}"`);
+        }
+      }
     } catch (e) {
-      console.log("→ Failed to set End Date with main selector, trying alternatives...");
+      console.log(`→ Failed to set End Date with main selector: ${e.message}`);
     }
   }
   
@@ -344,43 +376,34 @@ async function setDateRanges(root) {
       const dropdown = endDateAlternatives[i];
       if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
         try {
-          // Check if it's a standard select element
-          const tagName = await dropdown.evaluate(el => el.tagName.toLowerCase());
+          console.log(`→ Trying End Date alternative ${i}...`);
+          await dropdown.click();
+          await root.waitForTimeout(1000);
           
-          if (tagName === 'select') {
-            await dropdown.selectOption({ label: 'End of Month' });
-          } else {
-            // It's a styled dropdown, click to open it
-            await dropdown.click();
-            await root.waitForTimeout(500);
-            
-            // Look for "End of Month" option in the opened dropdown
-            const endOfMonthOption = root.locator('div:has-text("End of Month"), li:has-text("End of Month"), option:has-text("End of Month")').first();
-            if (await endOfMonthOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-              await endOfMonthOption.click();
-            } else {
-              // Try alternative patterns for "End of Month"
-              const endOfMonthAlts = [
-                root.locator('[role="option"]:has-text("End of Month")').first(),
-                root.locator('[class*="option"]:has-text("End of Month")').first(),
-                root.locator('div:visible:has-text("End of Month")').first(),
-                // Try shorter patterns in case of text wrapping
-                root.locator('[role="option"]:has-text("End")').first(),
-                root.locator('div:visible:has-text("Month")').first()
-              ];
-              
-              for (const alt of endOfMonthAlts) {
-                if (await alt.isVisible({ timeout: 500 }).catch(() => false)) {
-                  await alt.click();
-                  break;
-                }
-              }
+          // Look for "End of Month" option in various dropdown menu formats
+          const endOfMonthOptions = [
+            root.locator('ul.ui-menu li:has-text("End of Month")').first(),
+            root.locator('div.ui-menu-item:has-text("End of Month")').first(),
+            root.locator('li[role="menuitem"]:has-text("End of Month")').first(),
+            root.locator('div[role="option"]:has-text("End of Month")').first(),
+            root.locator('div:visible:has-text("End of Month")').filter({ hasNotText: 'End Date' }).first(),
+            root.locator('a:has-text("End of Month")').first(),
+            // Try shorter patterns in case of text wrapping
+            root.locator('li[role="menuitem"]:has-text("End")').first(),
+            root.locator('div:visible:has-text("Month")').filter({ hasNotText: 'End Date' }).first()
+          ];
+          
+          for (const endOfMonthOpt of endOfMonthOptions) {
+            if (await endOfMonthOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
+              console.log(`→ Found 'End of Month' option, clicking...`);
+              await endOfMonthOpt.click();
+              endDateSet = true;
+              console.log(`→ Successfully set End Date to 'End of Month' using alternative ${i}`);
+              break;
             }
           }
           
-          console.log(`→ Successfully set End Date to 'End of Month' using alternative ${i}`);
-          endDateSet = true;
-          break;
+          if (endDateSet) break;
         } catch (e) {
           console.log(`→ Alternative ${i} failed: ${e.message}`);
         }
