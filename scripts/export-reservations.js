@@ -2,6 +2,12 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+const S3_BUCKET = process.env.S3_BUCKET;
+const AWS_REGION = process.env.AWS_REGION;
+
+const s3 = new S3Client({ region: AWS_REGION });
 
 /* ========= CONFIG ========= */
 const FAC_TERMS = ["Community Lounge", "Multi-use Pool", "Full A+B"];
@@ -34,7 +40,30 @@ async function saveFailureArtifacts(pageLike, label) {
   } catch {}
 }
 
+async function uploadCsvBufferToS3(buf, key = "gmcc-week.csv") {
+// NOTE: do NOT set ACL here (your bucket uses "Bucket owner enforced")
+await s3.send(new PutObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: key,
+    Body: buf,
+    ContentType: "text/csv",
+    CacheControl: "no-cache",
+}));
+console.log(`→ Uploaded to s3://${S3_BUCKET}/${key}`);
+}
 
+function csvy(resp) {
+const url = resp.url().toLowerCase();
+const ct  = (resp.headers()["content-type"] || "").toLowerCase();
+const cd  = (resp.headers()["content-disposition"] || "").toLowerCase();
+return resp.ok() && (ct.includes("text/csv") || cd.includes(".csv") || url.endsWith(".csv"));
+}
+
+async function waitForCsvResponse(context, timeoutMs = 120_000) {
+try {
+    return await context.waitForResponse(csvy, { timeout: timeoutMs });
+} catch { return null; }
+}  
 
 async function waitOutSpinner(root) {
   const spinner = root.locator('text=/Please\\s+Wait/i').first();
@@ -1033,6 +1062,24 @@ function filterDownloadedCsv(csvText) {
     // Extend timeout for server-side processing
     const downloadPromise = workPage.waitForEvent("download", { timeout: 120_000 }).catch(() => null);
     await processExport(root);
+
+    // Try to catch the CSV bytes directly from the network and upload to S3
+    console.log("→ Waiting for CSV network response …");
+    const csvResp = await waitForCsvResponse(context, 120_000);
+
+    if (csvResp) {
+    const csvBuf = await csvResp.body();
+    const csvText = csvBuf.toString("utf8");
+
+    console.log("→ Filtering locally to target facilities …");
+    const filtered = filterDownloadedCsv(csvText);
+    const outText = filtered.length
+        ? toCsv(filtered)
+        : (toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n");
+
+    await uploadCsvBufferToS3(Buffer.from(outText, "utf8"), "gmcc-week.csv");
+    return; // we're done; skip download/notification fallback
+    }
 
     // Wait longer for server-side processing to complete
     console.log("→ Waiting for server-side processing and download...");
