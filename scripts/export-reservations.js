@@ -224,157 +224,112 @@ async function findGridRoot(page) {
 }
 
 async function openExportMenu(root) {
-  console.log("→ Looking for Facility DataGrid table and its header gear button...");
+  console.log("→ Looking for gear/settings button in the entire interface...");
   
-  // First, find the actual data table (not the sidebar)
-  let dataTableArea = null;
-  const tableCandidates = [
-    // Look for the table specifically with the facility data
-    root.locator('table:has(th:has-text("Fac Class"))'),
-    root.locator('table:has(th:has-text("Fac Location"))'),
-    root.locator('table:has(th:has-text("Fac Code"))'),
-    root.locator('table:has(tbody tr:has(td:has-text("GMCC")))'),
-    
-    // Look for the container that has both "Facility DataGrid" header AND a table
-    root.locator('div:has-text("Facility DataGrid"):has(table)'),
-    root.locator('[class*="card"]:has-text("Facility DataGrid"):has(table)'),
-  ];
+  // Instead of limiting ourselves to the table container, let's search the entire root
+  // and save screenshots to understand the structure better
+  await saveFailureArtifacts(root.page ? root.page() : root, "before-gear-search");
   
-  for (const candidate of tableCandidates) {
-    if (await candidate.isVisible({ timeout: 1000 }).catch(() => false)) {
-      dataTableArea = candidate;
-      console.log("→ Found data table area");
-      break;
-    }
-  }
+  // Count how many gear buttons exist in the entire interface
+  const allGears = root.locator('button:has(i[class*="mdi-cog"]), button:has(svg[class*="cog"]), button:has(i[class*="settings"])');
+  const gearCount = await allGears.count();
+  console.log(`→ Found ${gearCount} total gear/settings buttons in the entire interface`);
   
-  if (!dataTableArea) {
-    // Fallback: find any table and work from there
-    dataTableArea = root.locator('table').first();
-    if (await dataTableArea.isVisible({ timeout: 1000 }).catch(() => false)) {
-      console.log("→ Using fallback table");
-    } else {
-      console.log("→ No table found, using whole root");
-      dataTableArea = root;
-    }
-  }
+  // Let's also count different types of buttons to understand the structure
+  const allButtons = root.locator('button');
+  const buttonCount = await allButtons.count();
+  console.log(`→ Found ${buttonCount} total buttons in the interface`);
 
-  // Now find the container/card that holds this table AND has the "Facility DataGrid" header
-  let gridCard = null;
-  const gridCardCandidates = [
-    // Navigate up from table to find the card with the header
-    dataTableArea.locator('xpath=ancestor::div[contains(., "Facility DataGrid")]').first(),
-    dataTableArea.locator('xpath=ancestor::*[contains(@class, "card")]').first(),
+  // Search more broadly for the gear icon - it might be in a toolbar outside the table container
+  const broadGearCandidates = [
+    // Search the entire root for gear buttons, prioritizing those near "Facility DataGrid"
+    root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
+    root.locator('div:has-text("Facility DataGrid")').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
+    root.locator('div:has-text("Facility DataGrid")').locator('xpath=following-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Direct search for cards containing both header and table
-    root.locator('div:has-text("Facility DataGrid"):has(table)'),
-    root.locator('[class*="card"]:has-text("Facility DataGrid"):has(table)'),
+    // Look for toolbar/header areas that might contain the gear
+    root.locator('[class*="toolbar"], [class*="header"], [class*="actions"]').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Broader search
-    root.locator('div:has-text("Facility DataGrid")').first()
-  ];
-  
-  for (const candidate of gridCardCandidates) {
-    if (await candidate.isVisible({ timeout: 1000 }).catch(() => false)) {
-      gridCard = candidate;
-      console.log("→ Found Facility DataGrid container");
-      break;
-    }
-  }
-  
-  if (!gridCard) {
-    gridCard = dataTableArea;
-    console.log("→ Using data table area as grid card");
-  }
-
-  // Look specifically for gear button in the header area (top part of the card, near "Facility DataGrid" text)
-  console.log("→ Looking for gear/settings button in DataGrid header...");
-  
-  // First, let's specifically target the toolbar area that contains the small action icons
-  const toolbarArea = gridCard.locator('div:has-text("Facilities")').first();
-  
-  const gearCandidates = [
-    // Look for the settings gear in the top toolbar (the row with small icons)
-    // This should be in the area above the "Facilities" column header
-    toolbarArea.locator('..').locator('button:has(i[class*="mdi-cog"])').first(),
-    toolbarArea.locator('..').locator('button:has(i[class*="mdi-settings"])').first(),
+    // Search for gear buttons in any card or panel that contains "DataGrid"
+    root.locator('div:has-text("DataGrid")').locator('xpath=ancestor::*[contains(@class, "card") or contains(@class, "panel")]').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Target the first row of buttons (toolbar row) before the column headers
-    gridCard.locator('div:has(button)').first().locator('button:has(i[class*="mdi-cog"])').first(),
-    gridCard.locator('div:has(button)').first().locator('button:has(i[class*="settings"])').first(),
+    // Broader search - any gear button in the root
+    root.locator('button:has(i[class*="mdi-cog"])').first(),
+    root.locator('button:has(svg[class*="cog"])').first(),
+    root.locator('button:has(i[class*="settings"])').first(),
     
-    // Look for buttons that have gear icons but are NOT in table cells (tbody)
-    gridCard.locator('button:has(i[class*="mdi-cog"])').nth(0), // First occurrence
-    gridCard.locator('button:has(svg[class*="cog"])').nth(0),
+    // Try different Material Design icon patterns
+    root.locator('button:has(i[class*="mdi-settings"])').first(),
+    root.locator('button:has(i[class*="gear"])').first(),
     
-    // Target by the parent structure - look for button containers above the table headers
-    gridCard.locator('thead').locator('..').locator('button:has(i[class*="mdi-cog"])').first(),
-    
-    // Look specifically for settings/gear buttons that are NOT checkboxes or row selections
-    gridCard.locator('button[type!="checkbox"]:has(i[class*="mdi-cog"])').first(),
-    gridCard.locator('button:not([role="checkbox"]):has(i[class*="mdi-cog"])').first(),
-    
-    // Try targeting the gear by its likely position in DOM structure
-    gridCard.locator('div:has-text("Facility DataGrid")').locator('~ div').locator('button:has(i[class*="mdi-cog"])').first(),
-    
-    // Last resort: get all gear buttons and try each one
-    gridCard.locator('button:has(i[class*="mdi-cog"])')
+    // Look for buttons with settings-related attributes
+    root.locator('button[aria-label*="settings" i], button[title*="settings" i], button[aria-label*="menu" i]').first()
   ];
 
   let gearFound = false;
-  for (let i = 0; i < gearCandidates.length; i++) {
-    const gear = gearCandidates[i];
+  
+  // First try the broad candidates
+  for (let i = 0; i < broadGearCandidates.length; i++) {
+    const gear = broadGearCandidates[i];
     try {
-      // For the last candidate (all gear buttons), try each one individually
-      if (i === gearCandidates.length - 1) {
-        const gearCount = await gear.count();
-        console.log(`→ Found ${gearCount} total gear buttons, trying each...`);
+      if (await gear.isVisible({ timeout: 1000 }).catch(() => false)) {
+        const buttonText = await gear.textContent().catch(() => '');
+        const buttonClass = await gear.getAttribute('class').catch(() => '');
+        const buttonHtml = await gear.innerHTML().catch(() => '');
+        console.log(`→ Trying broad gear candidate ${i}: text="${buttonText}", class="${buttonClass}"`);
+        console.log(`→ Button HTML: ${buttonHtml.substring(0, 200)}...`);
         
-        for (let j = 0; j < gearCount; j++) {
-          const specificGear = gear.nth(j);
-          if (await specificGear.isVisible({ timeout: 500 }).catch(() => false)) {
-            // Get some info about this button to help identify it
-            const buttonText = await specificGear.textContent().catch(() => '');
-            const buttonClass = await specificGear.getAttribute('class').catch(() => '');
-            console.log(`→ Trying gear button ${j}: text="${buttonText}", class="${buttonClass}"`);
-            
-            await specificGear.click({ timeout: 3000 });
-            await root.waitForTimeout(2000);
-            
-            // Check if a dropdown menu appeared
-            const hasMenu = await root.locator('[role="menu"], .dropdown-menu, div:has-text("Export")').first().isVisible({ timeout: 1000 }).catch(() => false);
-            if (hasMenu) {
-              console.log(`→ Successfully clicked gear button ${j} - menu appeared!`);
-              gearFound = true;
-              break;
-            } else {
-              console.log(`→ Gear button ${j} clicked but no menu appeared`);
-            }
-          }
+        await gear.click({ timeout: 3000 });
+        await root.waitForTimeout(2000);
+        
+        // Check if a dropdown menu appeared
+        const hasMenu = await root.locator('[role="menu"], .dropdown-menu, div:has-text("Export")').first().isVisible({ timeout: 1000 }).catch(() => false);
+        if (hasMenu) {
+          console.log(`→ Successfully clicked broad gear candidate ${i} - menu appeared!`);
+          gearFound = true;
+          break;
+        } else {
+          console.log(`→ Broad gear candidate ${i} clicked but no menu appeared`);
         }
-        if (gearFound) break;
-      } else {
-        if (await gear.isVisible({ timeout: 1000 }).catch(() => false)) {
-          const buttonText = await gear.textContent().catch(() => '');
-          const buttonClass = await gear.getAttribute('class').catch(() => '');
-          console.log(`→ Trying gear candidate ${i}: text="${buttonText}", class="${buttonClass}"`);
+      }
+    } catch (e) {
+      console.log(`→ Broad gear candidate ${i} failed: ${e.message}`);
+    }
+  }
+  
+  // If broad search didn't work, try clicking ALL gear buttons systematically
+  if (!gearFound) {
+    console.log("→ Broad search failed, trying ALL gear buttons in the interface...");
+    const allGearButtons = root.locator('button:has(i[class*="mdi-cog"]), button:has(svg[class*="cog"]), button:has(i[class*="settings"]), button:has(i[class*="mdi-settings"])');
+    const totalGears = await allGearButtons.count();
+    console.log(`→ Found ${totalGears} total gear buttons, trying each systematically...`);
+    
+    for (let j = 0; j < totalGears; j++) {
+      const specificGear = allGearButtons.nth(j);
+      try {
+        if (await specificGear.isVisible({ timeout: 500 }).catch(() => false)) {
+          const buttonText = await specificGear.textContent().catch(() => '');
+          const buttonClass = await specificGear.getAttribute('class').catch(() => '');
+          const buttonHtml = await specificGear.innerHTML().catch(() => '');
+          console.log(`→ Trying gear button ${j}: text="${buttonText}", class="${buttonClass}"`);
+          console.log(`→ Button HTML: ${buttonHtml.substring(0, 150)}...`);
           
-          await gear.click({ timeout: 3000 });
+          await specificGear.click({ timeout: 3000 });
           await root.waitForTimeout(2000);
           
           // Check if a dropdown menu appeared
           const hasMenu = await root.locator('[role="menu"], .dropdown-menu, div:has-text("Export")').first().isVisible({ timeout: 1000 }).catch(() => false);
           if (hasMenu) {
-            console.log(`→ Successfully clicked gear candidate ${i} - menu appeared!`);
+            console.log(`→ SUCCESS! Gear button ${j} opened the export menu!`);
             gearFound = true;
             break;
           } else {
-            console.log(`→ Gear candidate ${i} clicked but no menu appeared`);
+            console.log(`→ Gear button ${j} clicked but no menu appeared`);
           }
         }
+      } catch (e) {
+        console.log(`→ Gear button ${j} failed: ${e.message}`);
       }
-    } catch (e) {
-      console.log(`→ Gear candidate ${i} failed: ${e.message}`);
     }
   }
 
