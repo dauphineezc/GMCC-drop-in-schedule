@@ -224,44 +224,133 @@ async function findGridRoot(page) {
 }
 
 async function openExportMenu(root) {
-  // The gear lives in the grid card header; click "Export Comma Delimited"
-  const card = root.locator(
-    'div:has(> .v-card-title:has-text("Facility DataGrid")), div:has-text("Facility DataGrid")'
-  ).first();
-
-  const gearCandidates = [
-    card.getByRole("button", { name: /settings/i }),
-    card.locator('button[aria-label*="Settings" i]'),
-    card.locator('button:has(i[class*="mdi-cog"])'),
-    card.locator('i[class*="mdi-cog"]').first().locator('xpath=ancestor::button[1]')
+  console.log("→ Looking for Facility DataGrid card and gear button...");
+  
+  // Find the Facility DataGrid card - try multiple approaches
+  let card = null;
+  const cardCandidates = [
+    root.locator('div:has-text("Facility DataGrid")').first(),
+    root.locator('[class*="card"]:has-text("Facility DataGrid")').first(),
+    root.locator('div:has(> div:has-text("Facility DataGrid"))').first(),
+    root.locator('div:has(> .v-card-title:has-text("Facility DataGrid"))').first()
   ];
-
-  let opened = false;
-  for (const c of gearCandidates) {
-    if (await c.isVisible({ timeout: 800 }).catch(() => false)) {
-      await c.click().catch(() => {});
-      opened = true;
+  
+  for (const candidate of cardCandidates) {
+    if (await candidate.isVisible({ timeout: 1000 }).catch(() => false)) {
+      card = candidate;
+      console.log("→ Found Facility DataGrid card");
       break;
     }
   }
-  if (!opened) {
-    await card.locator("button").first().click({ timeout: 2000 }).catch(() => {});
+  
+  if (!card) {
+    console.log("→ Could not find Facility DataGrid card, trying whole root");
+    card = root;
   }
 
-  // Click the export item (menuitem or list entry)
-  const menuItem = root.getByRole("menuitem", { name: /export.*comma/i }).first();
-  if (await menuItem.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await menuItem.click().catch(() => {});
-    return;
+  // Look for gear/settings button with multiple strategies
+  console.log("→ Looking for gear/settings button...");
+  const gearCandidates = [
+    // Common gear icon patterns
+    card.locator('button:has(i[class*="mdi-cog"])'),
+    card.locator('button:has(i[class*="gear"])'),
+    card.locator('button:has(svg[class*="cog"])'),
+    card.locator('button:has(svg[class*="gear"])'),
+    
+    // Aria label patterns
+    card.getByRole("button", { name: /settings/i }),
+    card.locator('button[aria-label*="Settings" i]'),
+    card.locator('button[title*="Settings" i]'),
+    
+    // Generic button patterns near the header
+    card.locator('div:has-text("Facility DataGrid") ~ button').first(),
+    card.locator('div:has-text("Facility DataGrid") button').first(),
+    
+    // Icon-based patterns
+    card.locator('i[class*="mdi-cog"]').locator('xpath=ancestor::button[1]'),
+    card.locator('svg[class*="cog"]').locator('xpath=ancestor::button[1]')
+  ];
+
+  let gearFound = false;
+  for (const gear of gearCandidates) {
+    try {
+      if (await gear.isVisible({ timeout: 1000 }).catch(() => false)) {
+        console.log("→ Found gear button, clicking...");
+        await gear.click({ timeout: 3000 });
+        gearFound = true;
+        break;
+      }
+    } catch (e) {
+      console.log(`→ Gear candidate failed: ${e.message}`);
+    }
   }
-  const alt = root.locator('div[role="menu"] >> text=/Export\\s+Comma\\s+Delimited/i').first();
-  if (await alt.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await alt.click().catch(() => {});
-    return;
+  
+  if (!gearFound) {
+    console.log("→ No specific gear found, trying first button in card");
+    try {
+      const firstButton = card.locator("button").first();
+      if (await firstButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await firstButton.click({ timeout: 2000 });
+        gearFound = true;
+      }
+    } catch (e) {
+      console.log(`→ First button fallback failed: ${e.message}`);
+    }
   }
 
-  await saveFailureArtifacts(root.page ? root.page() : root, "no-export-menu");
-  throw new Error('Could not open the "Export Comma Delimited" menu.');
+  if (!gearFound) {
+    await saveFailureArtifacts(root.page ? root.page() : root, "no-gear-button");
+    throw new Error('Could not find the gear/settings button in Facility DataGrid.');
+  }
+
+  // Wait a moment for menu to appear
+  await root.waitForTimeout(1000);
+
+  // Look for export menu item with multiple strategies
+  console.log("→ Looking for Export Comma Delimited menu item...");
+  const menuCandidates = [
+    // Role-based menu items
+    root.getByRole("menuitem", { name: /export.*comma/i }),
+    root.getByRole("menuitem", { name: /comma.*delimited/i }),
+    root.getByRole("menuitem", { name: /export/i }),
+    
+    // Text-based selections
+    root.getByText(/export.*comma.*delimited/i),
+    root.getByText(/comma.*delimited/i),
+    root.getByText(/export.*csv/i),
+    root.getByText(/export/i),
+    
+    // Menu structure patterns
+    root.locator('div[role="menu"] >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[role="menu"] >> text=/comma.*delimited/i'),
+    root.locator('[role="menuitem"]:has-text("Export")'),
+    
+    // Generic clickable elements with export text
+    root.locator('div:has-text("Export"):visible'),
+    root.locator('li:has-text("Export"):visible'),
+    root.locator('a:has-text("Export"):visible')
+  ];
+
+  let menuClicked = false;
+  for (const menuItem of menuCandidates) {
+    try {
+      if (await menuItem.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log("→ Found export menu item, clicking...");
+        await menuItem.first().click({ timeout: 3000 });
+        menuClicked = true;
+        break;
+      }
+    } catch (e) {
+      console.log(`→ Menu candidate failed: ${e.message}`);
+    }
+  }
+
+  if (!menuClicked) {
+    await saveFailureArtifacts(root.page ? root.page() : root, "no-export-menu");
+    throw new Error('Could not find the "Export Comma Delimited" menu item.');
+  }
+  
+  console.log("→ Successfully clicked export menu item");
 }
 
 function filterDownloadedCsv(csvText) {
