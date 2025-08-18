@@ -276,13 +276,30 @@ async function setDateRanges(root) {
       await root.waitForTimeout(1000); // Wait for dropdown to appear
       
       // Look for "Today" option in the jQuery UI dropdown menu
-      const todayOption = root.locator('ul.ui-menu li:has-text("Today"), div.ui-menu-item:has-text("Today"), li[role="menuitem"]:has-text("Today")').first();
-      if (await todayOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-        console.log("→ Found 'Today' option, clicking...");
-        await todayOption.click();
-        beginDateSet = true;
-        console.log("→ Successfully set Begin Date to 'Today'");
-      } else {
+      // Try multiple selector approaches for robustness
+      const todaySelectors = [
+        'ul.ui-menu li:has-text("Today")',
+        'div.ui-menu-item:has-text("Today")', 
+        'li[role="menuitem"]:has-text("Today")',
+        'li:has-text("Today")',  // Simpler pattern
+        'div:has-text("Today")', // Even simpler
+        '*:has-text("Today")'    // Most generic
+      ];
+      
+      let foundToday = false;
+      for (const selector of todaySelectors) {
+        const todayOption = root.locator(selector).first();
+        if (await todayOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+          console.log(`→ Found 'Today' option using selector: ${selector}, clicking...`);
+          await todayOption.click();
+          beginDateSet = true;
+          foundToday = true;
+          console.log("→ Successfully set Begin Date to 'Today'");
+          break;
+        }
+      }
+      
+      if (!foundToday) {
         console.log("→ Could not find 'Today' option in dropdown menu, debugging available options...");
         // Debug: log all visible menu items
         const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
@@ -291,6 +308,15 @@ async function setDateRanges(root) {
         for (let j = 0; j < Math.min(itemCount, 10); j++) {
           const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
           console.log(`→ Menu item ${j}: "${itemText}"`);
+        }
+        
+        // Try clicking by index since we know it's item 1 based on the debug output
+        console.log("→ Attempting to click menu item 1 (Today) by index...");
+        const menuItem1 = allMenuItems.nth(1);
+        if (await menuItem1.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await menuItem1.click();
+          beginDateSet = true;
+          console.log("→ Successfully clicked menu item 1 (Today)");
         }
       }
     } catch (e) {
@@ -348,13 +374,30 @@ async function setDateRanges(root) {
       await root.waitForTimeout(1000); // Wait for dropdown to appear
       
       // Look for "End of Month" option in the jQuery UI dropdown menu
-      const endOfMonthOption = root.locator('ul.ui-menu li:has-text("End of Month"), div.ui-menu-item:has-text("End of Month"), li[role="menuitem"]:has-text("End of Month")').first();
-      if (await endOfMonthOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-        console.log("→ Found 'End of Month' option, clicking...");
-        await endOfMonthOption.click();
-        endDateSet = true;
-        console.log("→ Successfully set End Date to 'End of Month'");
-      } else {
+      // Try multiple selector approaches since debug shows the item exists
+      const endOfMonthSelectors = [
+        'ul.ui-menu li:has-text("End of Month")',
+        'div.ui-menu-item:has-text("End of Month")', 
+        'li[role="menuitem"]:has-text("End of Month")',
+        'li:has-text("End of Month")',  // Simpler pattern
+        'div:has-text("End of Month")', // Even simpler
+        '*:has-text("End of Month")'    // Most generic
+      ];
+      
+      let foundEndOfMonth = false;
+      for (const selector of endOfMonthSelectors) {
+        const endOfMonthOption = root.locator(selector).first();
+        if (await endOfMonthOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+          console.log(`→ Found 'End of Month' option using selector: ${selector}, clicking...`);
+          await endOfMonthOption.click();
+          endDateSet = true;
+          foundEndOfMonth = true;
+          console.log("→ Successfully set End Date to 'End of Month'");
+          break;
+        }
+      }
+      
+      if (!foundEndOfMonth) {
         console.log("→ Could not find 'End of Month' option in dropdown menu, debugging available options...");
         // Debug: log all visible menu items
         const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
@@ -363,6 +406,15 @@ async function setDateRanges(root) {
         for (let j = 0; j < Math.min(itemCount, 10); j++) {
           const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
           console.log(`→ Menu item ${j}: "${itemText}"`);
+        }
+        
+        // Try clicking by index since we know it's item 3
+        console.log("→ Attempting to click menu item 3 (End of Month) by index...");
+        const menuItem3 = allMenuItems.nth(3);
+        if (await menuItem3.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await menuItem3.click();
+          endDateSet = true;
+          console.log("→ Successfully clicked menu item 3 (End of Month)");
         }
       }
     } catch (e) {
