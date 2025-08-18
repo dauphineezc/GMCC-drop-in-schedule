@@ -223,6 +223,166 @@ async function findGridRoot(page) {
   return null;
 }
 
+async function accessNotificationCenter(page) {
+  console.log("→ Attempting to access notification center...");
+  
+  try {
+    // Look for the notification bell icon in the left sidebar
+    // Based on the screenshot, it's a sidebar button with notification icon
+    const notificationSelectors = [
+      // Target the notification button/icon in sidebar
+      'button[aria-label*="Notification" i]',
+      'button[title*="Notification" i]',
+      'button.sidebar-icon.notification-button',
+      'button.notifications',
+      
+      // Look for notification bell/icon
+      'button:has(svg[class*="svg-icon"]):has-text("")', // Notification icons often have no text
+      'button[class*="notification"]',
+      
+      // Generic sidebar button targeting
+      '.sidebar button:has(svg)',
+      '.ng-sidebar button[aria-label*="Notification"]',
+      
+      // Target by the specific structure from HTML
+      'button[class*="sidebar-icon"][class*="notification"]',
+      'div[class*="ng-sidebar"] button:has(svg)',
+      
+      // Most generic - any button in sidebar area
+      'aside button, nav button, .sidebar button'
+    ];
+    
+    let notificationButton = null;
+    for (const selector of notificationSelectors) {
+      const button = page.locator(selector).first();
+      if (await button.isVisible({ timeout: 2000 }).catch(() => false)) {
+        // Check if this looks like a notification button
+        const ariaLabel = await button.getAttribute('aria-label').catch(() => '');
+        const title = await button.getAttribute('title').catch(() => '');
+        const className = await button.getAttribute('class').catch(() => '');
+        
+        if (ariaLabel.toLowerCase().includes('notification') || 
+            title.toLowerCase().includes('notification') ||
+            className.toLowerCase().includes('notification')) {
+          console.log(`→ Found notification button with selector: ${selector}`);
+          notificationButton = button;
+          break;
+        }
+      }
+    }
+    
+    if (!notificationButton) {
+      console.log("→ Could not find notification button, trying sidebar buttons systematically...");
+      // Try clicking buttons in sidebar area that might be notifications
+      const sidebarButtons = page.locator('.sidebar button, aside button, nav button, .ng-sidebar button');
+      const buttonCount = await sidebarButtons.count();
+      console.log(`→ Found ${buttonCount} sidebar buttons to try`);
+      
+      for (let i = 0; i < Math.min(buttonCount, 10); i++) {
+        const btn = sidebarButtons.nth(i);
+        const btnText = await btn.textContent().catch(() => '');
+        const btnClass = await btn.getAttribute('class').catch(() => '');
+        const btnAria = await btn.getAttribute('aria-label').catch(() => '');
+        
+        console.log(`→ Sidebar button ${i}: text="${btnText}", class="${btnClass}", aria="${btnAria}"`);
+        
+        // Look for buttons that might be notifications
+        if (btnAria.toLowerCase().includes('notification') || 
+            btnClass.toLowerCase().includes('notification') ||
+            btnText.toLowerCase().includes('notification')) {
+          notificationButton = btn;
+          console.log(`→ Found potential notification button ${i}`);
+          break;
+        }
+      }
+    }
+    
+    if (!notificationButton) {
+      console.log("→ Could not locate notification center button");
+      return null;
+    }
+    
+    // Click the notification button to open notification center
+    console.log("→ Clicking notification button to open notification center...");
+    await notificationButton.click();
+    await page.waitForTimeout(2000);
+    
+    // Look for notification panel/dropdown
+    const notificationPanel = page.locator('div:has-text("Notifications"), .notification-panel, .notifications-dropdown, [class*="notification"][class*="panel"]').first();
+    
+    if (!(await notificationPanel.isVisible({ timeout: 5000 }).catch(() => false))) {
+      console.log("→ Notification panel did not appear after clicking button");
+      return null;
+    }
+    
+    console.log("→ Notification panel opened, looking for latest FacilityReservationInterface document...");
+    
+    // Look for the latest notification about FacilityReservationInterface process completion
+    const facilityNotifications = notificationPanel.locator('div:has-text("FacilityReservationInterface"), div:has-text("Process is Complete")');
+    const notificationCount = await facilityNotifications.count();
+    console.log(`→ Found ${notificationCount} facility reservation notifications`);
+    
+    if (notificationCount === 0) {
+      console.log("→ No FacilityReservationInterface notifications found");
+      return null;
+    }
+    
+    // Click on the most recent (first) notification
+    const latestNotification = facilityNotifications.first();
+    console.log("→ Clicking on latest FacilityReservationInterface notification...");
+    
+    // Look for "Preview Document" button within the notification
+    const previewButton = latestNotification.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+    
+    if (await previewButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log("→ Found 'Preview Document' button, clicking to download...");
+      
+      // Wait for download to start
+      const downloadPromise = page.waitForEvent("download", { timeout: 30000 });
+      await previewButton.click();
+      
+      try {
+        const download = await downloadPromise;
+        console.log("→ Successfully downloaded document from notification center");
+        return download;
+      } catch (e) {
+        console.log(`→ Download from notification center failed: ${e.message}`);
+        return null;
+      }
+    } else {
+      console.log("→ Could not find 'Preview Document' button in notification");
+      
+      // Try clicking on the notification itself to see if it expands
+      await latestNotification.click();
+      await page.waitForTimeout(1000);
+      
+      // Try again to find Preview Document button
+      const expandedPreviewButton = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+      if (await expandedPreviewButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log("→ Found 'Preview Document' button after expanding notification, clicking...");
+        
+        const downloadPromise = page.waitForEvent("download", { timeout: 30000 });
+        await expandedPreviewButton.click();
+        
+        try {
+          const download = await downloadPromise;
+          console.log("→ Successfully downloaded document from expanded notification");
+          return download;
+        } catch (e) {
+          console.log(`→ Download from expanded notification failed: ${e.message}`);
+          return null;
+        }
+      }
+    }
+    
+    return null;
+    
+  } catch (error) {
+    console.log(`→ Error accessing notification center: ${error.message}`);
+    return null;
+  }
+}
+
 async function setDateRanges(root) {
   console.log("→ Setting date ranges: Begin Date to 'Today', End Date to 'End of Month'...");
   
@@ -362,106 +522,210 @@ async function setDateRanges(root) {
     }
   }
   
-  // Set End Date to "End of Month"
-  let endDateSet = false;
-  console.log("→ Setting End Date to 'End of Month'...");
-  
-  // Try main selector first
-  if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+
+  // Set End Date to "Today"
+    let endDateSet = false;
+    console.log("→ Setting End Date to 'Today'...");
+
+    // Try main selector first
+    if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     try {
-      console.log("→ Found End Date button, clicking to open dropdown...");
-      await endDateButton.click();
-      await root.waitForTimeout(1000); // Wait for dropdown to appear
-      
-      // Look for "End of Month" option in the jQuery UI dropdown menu
-      // Try multiple selector approaches since debug shows the item exists
-      const endOfMonthSelectors = [
-        'ul.ui-menu li:has-text("End of Month")',
-        'div.ui-menu-item:has-text("End of Month")', 
-        'li[role="menuitem"]:has-text("End of Month")',
-        'li:has-text("End of Month")',  // Simpler pattern
-        'div:has-text("End of Month")', // Even simpler
-        '*:has-text("End of Month")'    // Most generic
-      ];
-      
-      let foundEndOfMonth = false;
-      for (const selector of endOfMonthSelectors) {
-        const endOfMonthOption = root.locator(selector).first();
-        if (await endOfMonthOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-          console.log(`→ Found 'End of Month' option using selector: ${selector}, clicking...`);
-          await endOfMonthOption.click();
-          endDateSet = true;
-          foundEndOfMonth = true;
-          console.log("→ Successfully set End Date to 'End of Month'");
-          break;
+        console.log("→ Found End Date button, clicking to open dropdown...");
+        await endDateButton.click();
+        await root.waitForTimeout(1000); // Wait for dropdown to appear
+        
+        // Look for "Today" option in the jQuery UI dropdown menu
+        // Try multiple selector approaches for robustness
+        const todaySelectors = [
+        'ul.ui-menu li:has-text("Today")',
+        'div.ui-menu-item:has-text("Today")', 
+        'li[role="menuitem"]:has-text("Today")',
+        'li:has-text("Today")',  // Simpler pattern
+        'div:has-text("Today")', // Even simpler
+        '*:has-text("Today")'    // Most generic
+        ];
+        
+        let foundToday = false;
+        for (const selector of todaySelectors) {
+        const todayOption = root.locator(selector).first();
+        if (await todayOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+            console.log(`→ Found 'Today' option using selector: ${selector}, clicking...`);
+            await todayOption.click();
+            endDateSet = true;
+            foundToday = true;
+            console.log("→ Successfully set End Date to 'Today'");
+            break;
         }
-      }
-      
-      if (!foundEndOfMonth) {
-        console.log("→ Could not find 'End of Month' option in dropdown menu, debugging available options...");
+        }
+        
+        if (!foundToday) {
+        console.log("→ Could not find 'Today' option in dropdown menu, debugging available options...");
         // Debug: log all visible menu items
         const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
         const itemCount = await allMenuItems.count();
         console.log(`→ Found ${itemCount} menu items total`);
         for (let j = 0; j < Math.min(itemCount, 10); j++) {
-          const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
-          console.log(`→ Menu item ${j}: "${itemText}"`);
+            const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
+            console.log(`→ Menu item ${j}: "${itemText}"`);
         }
         
-        // Try clicking by index since we know it's item 3
-        console.log("→ Attempting to click menu item 3 (End of Month) by index...");
-        const menuItem3 = allMenuItems.nth(3);
-        if (await menuItem3.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await menuItem3.click();
-          endDateSet = true;
-          console.log("→ Successfully clicked menu item 3 (End of Month)");
+        // Try clicking by index since we know it's item 1 based on the debug output
+        console.log("→ Attempting to click menu item 1 (Today) by index...");
+        const menuItem1 = allMenuItems.nth(1);
+        if (await menuItem1.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await menuItem1.click();
+            endDateSet = true;
+            console.log("→ Successfully clicked menu item 1 (Today)");
         }
-      }
+        }
     } catch (e) {
-      console.log(`→ Failed to set End Date with main selector: ${e.message}`);
+        console.log(`→ Failed to set End Date with main selector: ${e.message}`);
     }
-  }
-  
-  // Try alternative selectors
-  if (!endDateSet) {
+    }
+
+    // Try alternative selectors
+    if (!endDateSet) {
     for (let i = 0; i < endDateAlternatives.length; i++) {
-      const dropdown = endDateAlternatives[i];
-      if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
+        const dropdown = endDateAlternatives[i];
+        if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
         try {
-          console.log(`→ Trying End Date alternative ${i}...`);
-          await dropdown.click();
-          await root.waitForTimeout(1000);
-          
-          // Look for "End of Month" option in various dropdown menu formats
-          const endOfMonthOptions = [
-            root.locator('ul.ui-menu li:has-text("End of Month")').first(),
-            root.locator('div.ui-menu-item:has-text("End of Month")').first(),
-            root.locator('li[role="menuitem"]:has-text("End of Month")').first(),
-            root.locator('div[role="option"]:has-text("End of Month")').first(),
-            root.locator('div:visible:has-text("End of Month")').filter({ hasNotText: 'End Date' }).first(),
-            root.locator('a:has-text("End of Month")').first(),
-            // Try shorter patterns in case of text wrapping
-            root.locator('li[role="menuitem"]:has-text("End")').first(),
-            root.locator('div:visible:has-text("Month")').filter({ hasNotText: 'End Date' }).first()
-          ];
-          
-          for (const endOfMonthOpt of endOfMonthOptions) {
-            if (await endOfMonthOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
-              console.log(`→ Found 'End of Month' option, clicking...`);
-              await endOfMonthOpt.click();
-              endDateSet = true;
-              console.log(`→ Successfully set End Date to 'End of Month' using alternative ${i}`);
-              break;
+            console.log(`→ Trying End Date alternative ${i}...`);
+            await dropdown.click();
+            await root.waitForTimeout(1000);
+            
+            // Look for "Today" option in various dropdown menu formats
+            const todayOptions = [
+            root.locator('ul.ui-menu li:has-text("Today")').first(),
+            root.locator('div.ui-menu-item:has-text("Today")').first(),
+            root.locator('li[role="menuitem"]:has-text("Today")').first(),
+            root.locator('div[role="option"]:has-text("Today")').first(),
+            root.locator('div:visible:has-text("Today")').filter({ hasNotText: 'Begin Date' }).first(),
+            root.locator('a:has-text("Today")').first()
+            ];
+            
+            for (const todayOpt of todayOptions) {
+            if (await todayOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
+                console.log(`→ Found 'Today' option, clicking...`);
+                await todayOpt.click();
+                endDateSet = true;
+                console.log(`→ Successfully set End Date to 'Today' using alternative ${i}`);
+                break;
             }
-          }
-          
-          if (endDateSet) break;
+            }
+            
+            if (endDateSet) break;
         } catch (e) {
-          console.log(`→ Alternative ${i} failed: ${e.message}`);
+            console.log(`→ Alternative ${i} failed: ${e.message}`);
         }
-      }
+        }
     }
-  }
+    }
+
+
+
+//   // Set End Date to "End of Month"
+//   let endDateSet = false;
+//   console.log("→ Setting End Date to 'End of Month'...");
+  
+//   // Try main selector first
+//   if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+//     try {
+//       console.log("→ Found End Date button, clicking to open dropdown...");
+//       await endDateButton.click();
+//       await root.waitForTimeout(1000); // Wait for dropdown to appear
+      
+//       // Look for "End of Month" option in the jQuery UI dropdown menu
+//       // Try multiple selector approaches since debug shows the item exists
+//       const endOfMonthSelectors = [
+//         'ul.ui-menu li:has-text("End of Month")',
+//         'div.ui-menu-item:has-text("End of Month")', 
+//         'li[role="menuitem"]:has-text("End of Month")',
+//         'li:has-text("End of Month")',  // Simpler pattern
+//         'div:has-text("End of Month")', // Even simpler
+//         '*:has-text("End of Month")'    // Most generic
+//       ];
+      
+//       let foundEndOfMonth = false;
+//       for (const selector of endOfMonthSelectors) {
+//         const endOfMonthOption = root.locator(selector).first();
+//         if (await endOfMonthOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+//           console.log(`→ Found 'End of Month' option using selector: ${selector}, clicking...`);
+//           await endOfMonthOption.click();
+//           endDateSet = true;
+//           foundEndOfMonth = true;
+//           console.log("→ Successfully set End Date to 'End of Month'");
+//           break;
+//         }
+//       }
+      
+//       if (!foundEndOfMonth) {
+//         console.log("→ Could not find 'End of Month' option in dropdown menu, debugging available options...");
+//         // Debug: log all visible menu items
+//         const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
+//         const itemCount = await allMenuItems.count();
+//         console.log(`→ Found ${itemCount} menu items total`);
+//         for (let j = 0; j < Math.min(itemCount, 10); j++) {
+//           const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
+//           console.log(`→ Menu item ${j}: "${itemText}"`);
+//         }
+        
+//         // Try clicking by index since we know it's item 3
+//         console.log("→ Attempting to click menu item 3 (End of Month) by index...");
+//         const menuItem3 = allMenuItems.nth(3);
+//         if (await menuItem3.isVisible({ timeout: 1000 }).catch(() => false)) {
+//           await menuItem3.click();
+//           endDateSet = true;
+//           console.log("→ Successfully clicked menu item 3 (End of Month)");
+//         }
+//       }
+//     } catch (e) {
+//       console.log(`→ Failed to set End Date with main selector: ${e.message}`);
+//     }
+//   }
+  
+//   // Try alternative selectors
+//   if (!endDateSet) {
+//     for (let i = 0; i < endDateAlternatives.length; i++) {
+//       const dropdown = endDateAlternatives[i];
+//       if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
+//         try {
+//           console.log(`→ Trying End Date alternative ${i}...`);
+//           await dropdown.click();
+//           await root.waitForTimeout(1000);
+          
+//           // Look for "End of Month" option in various dropdown menu formats
+//           const endOfMonthOptions = [
+//             root.locator('ul.ui-menu li:has-text("End of Month")').first(),
+//             root.locator('div.ui-menu-item:has-text("End of Month")').first(),
+//             root.locator('li[role="menuitem"]:has-text("End of Month")').first(),
+//             root.locator('div[role="option"]:has-text("End of Month")').first(),
+//             root.locator('div:visible:has-text("End of Month")').filter({ hasNotText: 'End Date' }).first(),
+//             root.locator('a:has-text("End of Month")').first(),
+//             // Try shorter patterns in case of text wrapping
+//             root.locator('li[role="menuitem"]:has-text("End")').first(),
+//             root.locator('div:visible:has-text("Month")').filter({ hasNotText: 'End Date' }).first()
+//           ];
+          
+//           for (const endOfMonthOpt of endOfMonthOptions) {
+//             if (await endOfMonthOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
+//               console.log(`→ Found 'End of Month' option, clicking...`);
+//               await endOfMonthOpt.click();
+//               endDateSet = true;
+//               console.log(`→ Successfully set End Date to 'End of Month' using alternative ${i}`);
+//               break;
+//             }
+//           }
+          
+//           if (endDateSet) break;
+//         } catch (e) {
+//           console.log(`→ Alternative ${i} failed: ${e.message}`);
+//         }
+//       }
+//     }
+//   }
+
+
+
   
   if (!beginDateSet || !endDateSet) {
     console.log(`→ Warning: Could not set all dates (Begin: ${beginDateSet}, End: ${endDateSet})`);
@@ -793,6 +1057,11 @@ function filterDownloadedCsv(csvText) {
           // Continue with this download
           download = secondDownload;
         }
+      }
+      
+      if (!download) {
+        console.log("→ Attempting to retrieve document from notification center...");
+        download = await accessNotificationCenter(workPage);
       }
       
       if (!download) {
