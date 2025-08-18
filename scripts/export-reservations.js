@@ -240,30 +240,26 @@ async function openExportMenu(root) {
   const buttonCount = await allButtons.count();
   console.log(`→ Found ${buttonCount} total buttons in the interface`);
 
-  // Search more broadly for the gear icon - it might be in a toolbar outside the table container
+  // Search more specifically for the DataGrid gear icon, excluding sidebar/navigation menus
   const broadGearCandidates = [
-    // Search the entire root for gear buttons, prioritizing those near "Facility DataGrid"
+    // Look specifically for gear buttons within the DataGrid area (exclude sidebar buttons)
     root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
     root.locator('div:has-text("Facility DataGrid")').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
     root.locator('div:has-text("Facility DataGrid")').locator('xpath=following-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Look for toolbar/header areas that might contain the gear
-    root.locator('[class*="toolbar"], [class*="header"], [class*="actions"]').locator('button:has(i[class*="mdi-cog"])').first(),
+    // Look for toolbar/header areas within the DataGrid card (not sidebar)
+    root.locator('div:has-text("Facility DataGrid")').locator('xpath=ancestor::*[contains(@class, "card")]').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Search for gear buttons in any card or panel that contains "DataGrid"
-    root.locator('div:has-text("DataGrid")').locator('xpath=ancestor::*[contains(@class, "card") or contains(@class, "panel")]').locator('button:has(i[class*="mdi-cog"])').first(),
+    // Target buttons specifically near the table/grid, not in sidebar
+    root.locator('table').locator('xpath=ancestor::*[1]').locator('button:has(i[class*="mdi-cog"])').first(),
+    root.locator('table').locator('xpath=preceding-sibling::*').locator('button:has(i[class*="mdi-cog"])').first(),
     
-    // Broader search - any gear button in the root
-    root.locator('button:has(i[class*="mdi-cog"])').first(),
-    root.locator('button:has(svg[class*="cog"])').first(),
-    root.locator('button:has(i[class*="settings"])').first(),
+    // Look for gear icons in areas that are NOT the sidebar
+    root.locator('button:has(i[class*="mdi-cog"])').not(root.locator('[class*="sidebar"], [class*="nav"], [class*="menu-button"]')).first(),
     
-    // Try different Material Design icon patterns
-    root.locator('button:has(i[class*="mdi-settings"])').first(),
-    root.locator('button:has(i[class*="gear"])').first(),
-    
-    // Look for buttons with settings-related attributes
-    root.locator('button[aria-label*="settings" i], button[title*="settings" i], button[aria-label*="menu" i]').first()
+    // Target gear buttons by excluding known sidebar classes
+    root.locator('button:has(i[class*="mdi-cog"]):not(.menu-button):not(.sidebar-icon)').first(),
+    root.locator('button:has(svg[class*="cog"]):not(.menu-button):not(.sidebar-icon)').first()
   ];
 
   let gearFound = false;
@@ -282,14 +278,21 @@ async function openExportMenu(root) {
         await gear.click({ timeout: 3000 });
         await root.waitForTimeout(2000);
         
-        // Check if a dropdown menu appeared
-        const hasMenu = await root.locator('[role="menu"], .dropdown-menu, div:has-text("Export")').first().isVisible({ timeout: 1000 }).catch(() => false);
-        if (hasMenu) {
-          console.log(`→ Successfully clicked broad gear candidate ${i} - menu appeared!`);
+        // Check if a dropdown menu with export options appeared (not navigation menu)
+        const hasExportMenu = await root.locator('[role="menu"]:has-text("Export"), .dropdown-menu:has-text("Export"), div:has-text("Export Comma Delimited")').first().isVisible({ timeout: 1000 }).catch(() => false);
+        const hasNavigationMenu = await root.locator('[role="menu"]:has-text("Home"), [role="menu"]:has-text("Dashboard"), div:has-text("Navigation")').first().isVisible({ timeout: 500 }).catch(() => false);
+        
+        if (hasExportMenu) {
+          console.log(`→ Successfully clicked broad gear candidate ${i} - export menu appeared!`);
           gearFound = true;
           break;
+        } else if (hasNavigationMenu) {
+          console.log(`→ Broad gear candidate ${i} opened navigation menu, not export menu - closing and continuing`);
+          // Try to close the navigation menu by clicking elsewhere or pressing escape
+          await root.press('Escape').catch(() => {});
+          await root.waitForTimeout(500);
         } else {
-          console.log(`→ Broad gear candidate ${i} clicked but no menu appeared`);
+          console.log(`→ Broad gear candidate ${i} clicked but no export menu appeared`);
         }
       }
     } catch (e) {
@@ -317,12 +320,19 @@ async function openExportMenu(root) {
           await specificGear.click({ timeout: 3000 });
           await root.waitForTimeout(2000);
           
-          // Check if a dropdown menu appeared
-          const hasMenu = await root.locator('[role="menu"], .dropdown-menu, div:has-text("Export")').first().isVisible({ timeout: 1000 }).catch(() => false);
-          if (hasMenu) {
+          // Check if a dropdown menu with export options appeared (not navigation menu)
+          const hasExportMenu = await root.locator('[role="menu"]:has-text("Export"), .dropdown-menu:has-text("Export"), div:has-text("Export Comma Delimited")').first().isVisible({ timeout: 1000 }).catch(() => false);
+          const hasNavigationMenu = await root.locator('[role="menu"]:has-text("Home"), [role="menu"]:has-text("Dashboard"), div:has-text("Navigation")').first().isVisible({ timeout: 500 }).catch(() => false);
+          
+          if (hasExportMenu) {
             console.log(`→ SUCCESS! Gear button ${j} opened the export menu!`);
             gearFound = true;
             break;
+          } else if (hasNavigationMenu) {
+            console.log(`→ Gear button ${j} opened navigation menu, not export menu - closing and continuing`);
+            // Try to close the navigation menu by clicking elsewhere or pressing escape
+            await root.press('Escape').catch(() => {});
+            await root.waitForTimeout(500);
           } else {
             console.log(`→ Gear button ${j} clicked but no menu appeared`);
           }
@@ -340,24 +350,29 @@ async function openExportMenu(root) {
 
   // Look for export menu item - focus on dropdown menus that appear after clicking gear
   console.log("→ Looking for Export Comma Delimited in dropdown menu...");
+  
+  // Wait a bit longer for the menu to fully render
+  await root.waitForTimeout(1000);
+  
   const menuCandidates = [
-    // Standard dropdown menu items
+    // Target export options specifically within visible dropdown menus (not in table)
+    root.locator('[role="menu"]:visible >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[role="menu"]:visible >> text=/comma.*delimited/i'),
+    root.locator('[role="menu"]:visible >> text=/export.*csv/i'),
+    
+    // Target visible dropdown containers with export text
+    root.locator('.dropdown-menu:visible >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[class*="menu"]:visible >> text=/Export.*Comma.*Delimited/i'),
+    
+    // Standard dropdown menu items (with role verification)
     root.getByRole("menuitem", { name: /export.*comma.*delimited/i }),
     root.getByRole("menuitem", { name: /comma.*delimited/i }),
     root.getByRole("menuitem", { name: /export.*csv/i }),
     
-    // Dropdown list items
-    root.locator('[role="menu"] >> text=/Export.*Comma.*Delimited/i'),
-    root.locator('[role="listbox"] >> text=/Export.*Comma.*Delimited/i'),
-    root.locator('ul >> text=/Export.*Comma.*Delimited/i'),
-    
-    // Generic dropdown items (avoid sidebar elements)
-    root.locator('div[role="menu"]:visible').getByText(/export.*comma.*delimited/i).first(),
-    root.locator('.dropdown-menu:visible').getByText(/export.*comma.*delimited/i).first(),
-    root.locator('[class*="menu"]:visible').getByText(/export.*comma.*delimited/i).first(),
-    
-    // Broader search in visible dropdown menus
-    root.locator('div:has-text("Export"):visible').first()
+    // Target menu items that are definitely in overlays/dropdowns (higher z-index)
+    root.locator('[style*="z-index"]:visible >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[class*="overlay"]:visible >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[class*="dropdown"]:visible >> text=/Export.*Comma.*Delimited/i')
   ];
 
   let menuClicked = false;
