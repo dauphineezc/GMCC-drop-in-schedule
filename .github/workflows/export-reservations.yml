@@ -1,17 +1,22 @@
 name: Export RecTrac CSV
 on:
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '0 10 * * *'   # every day 10:00 UTC
   workflow_dispatch:
 
 jobs:
   export:
     runs-on: ubuntu-latest
-    permissions: { contents: read }
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with:
+          node-version: '20'
+
       - run: npm ci
       - run: npx playwright install --with-deps chromium
 
@@ -23,18 +28,33 @@ jobs:
           RECTRAC_USER: ${{ secrets.RECTRAC_USER }}
           RECTRAC_PASS: ${{ secrets.RECTRAC_PASS }}
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Upload CSV to S3
         if: success()
         run: |
-          pipx install awscli
-          aws s3 cp gmcc-week.csv s3://${{ secrets.S3_BUCKET }}/gmcc-week.csv --acl public-read --region ${{ secrets.AWS_REGION }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          set -euxo pipefail
+          test -s gmcc-week.csv
+          aws s3 cp gmcc-week.csv "s3://${{ secrets.S3_BUCKET }}/gmcc-week.csv" \
+            --content-type text/csv \
+            --cache-control "no-cache"
+          aws s3 ls "s3://${{ secrets.S3_BUCKET }}/gmcc-week.csv"
+
+      - name: Upload CSV artifact (debug/backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmcc-week
+          path: gmcc-week.csv
+          if-no-files-found: ignore
 
       - name: Upload debug artifacts (screenshots/html)
-        if: failure() || always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-debug
