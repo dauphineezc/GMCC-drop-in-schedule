@@ -34,86 +34,7 @@ async function saveFailureArtifacts(pageLike, label) {
   } catch {}
 }
 
-const isLogin = (url) => /#\/login/i.test(url);
-const isHome  = (url) => /#\/home/i.test(url);
-const isFacilityInterface = (url) => /facility.*reservation|reservation.*facility|#\/panel\/.*\/legacy/i.test(url);
 
-// More robust state detection functions
-async function detectPageState(page) {
-  const url = page.url();
-  console.log(`Detecting state for URL: ${url}`);
-  
-  // Check for login page elements
-  const hasLoginForm = await page.locator('input[name="username"], #username, input[type="text"][autocomplete*=username]')
-    .isVisible({ timeout: 2000 }).catch(() => false);
-  
-  // Check for login prompt/resume session dialog
-  const hasLoginPrompt = await page.getByText(/Login Prompts/i).first()
-    .isVisible({ timeout: 1000 }).catch(() => false);
-  
-  // Check for facility grid elements - multiple patterns
-  let hasFacilityGrid = false;
-  try {
-    const checks = await Promise.allSettled([
-      page.getByText(/Facility.*DataGrid|Facility Reservation Interface/i).first().isVisible({ timeout: 1500 }),
-      page.locator('div:has-text("Facility DataGrid")').first().isVisible({ timeout: 1000 }),
-      page.locator('[class*="grid"], [class*="data-grid"], table').first().isVisible({ timeout: 1000 }),
-      page.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first().isVisible({ timeout: 1000 }),
-      page.locator('button:has(i[class*="mdi-cog"])').first().isVisible({ timeout: 1000 }) // settings gear button
-    ]);
-    hasFacilityGrid = checks.some(result => result.status === 'fulfilled' && result.value === true);
-  } catch (e) {
-    hasFacilityGrid = false;
-  }
-  
-  // Check for home page elements (favorites, main dashboard)
-  const hasHomeFavorites = await page.getByText(/facility reservation interface/i).first()
-    .isVisible({ timeout: 2000 }).catch(() => false);
-  
-  // Determine state based on URL and content
-  let state = 'unknown';
-  
-  if (hasLoginForm || isLogin(url)) {
-    state = hasLoginPrompt ? 'login_prompt' : 'login_form';
-  } else if (hasFacilityGrid || isFacilityInterface(url)) {
-    state = 'facility_interface';
-  } else if (hasHomeFavorites || isHome(url)) {
-    state = 'home_page';
-  } else {
-    // Try to detect by URL patterns if content detection fails
-    if (isLogin(url)) state = 'login_form';
-    else if (isHome(url)) state = 'home_page';
-    else if (isFacilityInterface(url)) state = 'facility_interface';
-    else if (url.includes('/panel/') && url.includes('/legacy')) {
-      // Special case: panel/legacy URLs are likely facility interface even if content isn't loaded yet
-      console.log('→ Detected panel/legacy URL pattern, waiting for content to load...');
-      await page.waitForTimeout(3000); // Give legacy interface time to load
-      
-      // Re-check for facility grid content after waiting
-      try {
-        const delayedGridCheck = await Promise.allSettled([
-          page.getByText(/Facility.*DataGrid|Facility Reservation Interface/i).first().isVisible({ timeout: 2000 }),
-          page.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first().isVisible({ timeout: 2000 }),
-          page.locator('button:has(i[class*="mdi-cog"])').first().isVisible({ timeout: 2000 })
-        ]);
-        const hasDelayedGrid = delayedGridCheck.some(result => result.status === 'fulfilled' && result.value === true);
-        
-        if (hasDelayedGrid) {
-          console.log('→ Confirmed facility grid content after delay');
-        } else {
-          console.log('→ No facility grid content found even after delay, but URL suggests facility interface');
-        }
-      } catch (e) {
-        console.log('→ Error checking delayed grid content, but URL suggests facility interface');
-      }
-      
-      state = 'facility_interface';
-    }
-  }
-  
-  console.log(`Detected state: ${state} (hasLoginForm: ${hasLoginForm}, hasLoginPrompt: ${hasLoginPrompt}, hasFacilityGrid: ${hasFacilityGrid}, hasHomeFavorites: ${hasHomeFavorites})`);
-  return state;
-}
 
 async function waitOutSpinner(root) {
   const spinner = root.locator('text=/Please\\s+Wait/i').first();
@@ -173,197 +94,131 @@ async function gotoWithRetries(page, url, label) {
   }
 }
 
-async function ensureLoggedInOnHome(page) {
-  // 1) Always start from the login route to get a clean session.
-  await gotoWithRetries(page, LOGIN_URL, "login");
-  await page.waitForTimeout(1000); // Allow page to settle
+async function fullyLogin(page) {
+  const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
+  const passSel = 'input[name="password"], #password, input[type="password"]';
+  const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
 
+  await gotoWithRetries(page, LOGIN_URL, "login");
+
+  // Up to 90s: handle whichever step is present
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
-    const state = await detectPageState(page);
-    
-    switch (state) {
-      case 'login_prompt':
-        console.log("→ Handling login prompt/resume session dialog");
-        await clickIfResumePrompt(page);
-        await waitOutSpinner(page);
-        await page.waitForTimeout(1000);
-        break;
-        
-      case 'login_form':
-        console.log("→ Submitting login credentials");
-        const userSel   = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
-        const passSel   = 'input[name="password"], #password, input[type="password"]';
-        const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
-        
-        const userField = page.locator(userSel).first();
-        if (await userField.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await userField.fill(USERNAME);
-          await page.locator(passSel).first().fill(PASSWORD);
-          await Promise.all([
-            page.waitForLoadState("networkidle").catch(() => {}),
-            page.click(submitSel).catch(() => {})
-          ]);
-          await page.waitForTimeout(2000); // Wait for redirect
-        } else {
-          await page.waitForTimeout(1000);
-        }
-        break;
-        
-      case 'facility_interface':
-        console.log("→ Already on facility interface, navigating to home first");
-        await gotoWithRetries(page, HOME_URL, "home-from-facility");
-        break;
-        
-      case 'home_page':
-        console.log("→ Successfully reached home page");
-        return; // We're done!
-        
-      default:
-        console.log(`→ Unknown state '${state}', trying to navigate to home`);
-        // If we're not on login but not clearly on home either, try going to home
-        if (!isLogin(page.url())) {
-          await gotoWithRetries(page, HOME_URL, "home-fallback");
-          await page.waitForTimeout(1000);
-        } else {
-          await page.waitForTimeout(1000);
-        }
-        break;
+    await clickIfResumePrompt(page);
+    for (const f of page.frames()) await clickIfResumePrompt(f);
+    await waitOutSpinner(page);
+
+    if (!page.url().includes('#/login')) break; // past login
+
+    const userField = page.locator(userSel).first();
+    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (hasLogin) {
+      await userField.fill(USERNAME);
+      await page.locator(passSel).first().fill(PASSWORD);
+      await Promise.all([
+        page.waitForLoadState('networkidle').catch(() => {}),
+        page.click(submitSel).catch(() => {})
+      ]);
+      continue; // loop again to handle spinner/prompt
     }
+
+    await page.waitForTimeout(800);
   }
 
-  // Final state check
-  const finalState = await detectPageState(page);
-  if (finalState !== 'home_page') {
-    await saveFailureArtifacts(page, `login-failed-final-state-${finalState}`);
-    throw new Error(`Login did not complete successfully. Final state: ${finalState}`);
+  if (page.url().includes('#/login')) {
+    await saveFailureArtifacts(page, 'login-stuck');
+    throw new Error('Login did not complete.');
   }
 }
 
 async function openFacilityPanel(context, page) {
-  // At this point we guarantee we're on #/home
-  console.log("→ Attempting to open facility panel");
-  
-  // First try the direct grid route if provided (sometimes blank—handled later)
-  if (GRID_URL) {
-    try {
-      console.log("→ Trying direct GRID_URL");
-      await page.goto(GRID_URL, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
-      await clickIfResumePrompt(page);
-      await waitOutSpinner(page);
-      await page.waitForTimeout(2000);
-      
-      // Check if we actually reached the facility interface
-      const state = await detectPageState(page);
-      if (state === 'facility_interface') {
-        console.log("→ Successfully opened facility interface via direct URL");
-        return page;
-      }
-      console.log(`→ Direct URL failed, current state: ${state}`);
-    } catch (e) {
-      console.log(`→ Direct URL failed with error: ${e.message}`);
-    }
-  }
+  // Go to the panel launcher route
+  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
 
-  // If direct URL failed or not provided, go back to home and use favorites
-  const currentState = await detectPageState(page);
-  if (currentState !== 'home_page') {
-    console.log("→ Not on home page, navigating there first");
-    await gotoWithRetries(page, HOME_URL, "home-before-favorites");
-    await page.waitForTimeout(1000);
-  }
+  await clickIfResumePrompt(page);
+  for (const f of page.frames()) await clickIfResumePrompt(f);
 
-  // Prepare for a popup before clicking anything
-  const popupPromise = context.waitForEvent("page", { timeout: 15_000 }).catch(() => null);
+  // Start waiting for a popup **before** we click anything
+  const waitPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
 
-  // Click the "Facility Reservation Interface" favorite (card/tile or link)
-  console.log("→ Looking for Facility Reservation Interface favorite");
+  // Try a few likely launchers; adjust as needed for your tenant
   const candidates = [
-    page.getByRole("button", { name: /facility reservation interface/i }),
-    page.getByRole("link",   { name: /facility reservation interface/i }),
-    page.locator(':is(div,button,a):has-text("Facility Reservation Interface")').first()
+    page.getByRole('button', { name: /data\s*grid/i }),
+    page.getByRole('link', { name: /facility reservation interface/i }),
+    page.locator('a:has-text("Facility DataGrid")'),
+    page.locator('button:has-text("DataGrid")'),
   ];
-  
-  let clicked = false;
-  for (const c of candidates) {
-    if (await c.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log("→ Found and clicking facility interface favorite");
-      await c.click({ trial: false }).catch(() => {});
-      clicked = true;
+  for (const loc of candidates) {
+    const el = loc.first();
+    if (await el.isVisible({ timeout: 800 }).catch(() => false)) {
+      await el.click().catch(() => {});
       break;
     }
   }
-  
-  if (!clicked) {
-    await saveFailureArtifacts(page, "no-facility-favorite");
-    throw new Error("Could not find Facility Reservation Interface favorite on home page");
-  }
 
-  // Wait a moment for navigation or popup
-  await page.waitForTimeout(3000);
-
-  const popup = await popupPromise;
+  // If RecTrac opened a legacy window, switch to it
+  const popup = await waitPopup;
   if (popup) {
-    console.log("→ Facility interface opened in popup window");
-    await popup.waitForLoadState("domcontentloaded").catch(() => {});
+    await popup.waitForLoadState('domcontentloaded');
     await clickIfResumePrompt(popup);
-    await waitOutSpinner(popup);
-    
-    // Verify popup actually has facility interface
-    const popupState = await detectPageState(popup);
-    if (popupState !== 'facility_interface') {
-      await saveFailureArtifacts(popup, `popup-wrong-state-${popupState}`);
-      throw new Error(`Popup opened but has wrong state: ${popupState}`);
-    }
-    
-    return popup; // legacy window
+    return popup; // ← use this page from now on
   }
 
-  // Check if facility interface opened in same tab
-  const finalState = await detectPageState(page);
-  if (finalState === 'facility_interface') {
-    console.log("→ Facility interface opened in same tab");
-    return page;
+  // No popup? Keep working in the current page (or an iframe within it)
+  return page;
+}
+
+async function openFacilityDataGrid(page) {
+  // Sometimes the left toolbar has a specific DataGrid tool that must be clicked.
+  await waitOutSpinner(page);
+  await clickIfResumePrompt(page);
+
+  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(() => false)) return;
+
+  const candidates = [
+    page.getByRole('button', { name: /data\s*grid/i }),
+    page.locator('[title*="Data Grid" i]'),
+    page.locator('[title*="DataGrid" i]'),
+    page.locator('a:has-text("Facility DataGrid")'),
+    page.locator('button:has-text("DataGrid")'),
+    page.locator('div.v-tooltip:has-text("DataGrid")'),
+  ];
+  for (const loc of candidates) {
+    const el = loc.first();
+    if (await el.isVisible({ timeout: 800 }).catch(() => false)) {
+      await el.click().catch(() => {});
+      await waitOutSpinner(page);
+      break;
+    }
   }
-  
-  await saveFailureArtifacts(page, `facility-open-failed-${finalState}`);
-  throw new Error(`Failed to open facility interface. Final state: ${finalState}`);
 }
 
 /* ========= GRID DETECTION / EXPORT ========= */
-async function findGridRoot(workPage) {
-  const headerRx = /Facility Reservation Interface/i;
-  const gridTitleRx = /Facility DataGrid/i;
-  const filterSel = 'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
+async function findGridRoot(page) {
+  const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
 
-  async function tryRoot(root) {
-    await clickIfResumePrompt(root);
+  const tryRoot = async (root) => {
     await waitOutSpinner(root);
-
-    const hasHeader = await root.getByText(headerRx).first()
-      .isVisible({ timeout: 800 }).catch(() => false);
-    const hasGridTitle = await root.getByText(gridTitleRx).first()
-      .isVisible({ timeout: 800 }).catch(() => false);
-    if (hasHeader && hasGridTitle) return root;
-
-    if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(() => false)) return root;
+    await clickIfResumePrompt(root);
+    for (const rx of headerTexts) {
+      if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(() => false)) return root;
+    }
+    // Sometimes the grid is present even if those headers aren't visible; look for a table.
+    if (await root.locator('table').first().isVisible({ timeout: 800 }).catch(() => false)) return root;
     return null;
-  }
+  };
 
+  // Poll page + any iframes up to 30s
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    let r = await tryRoot(workPage);
+    let r = await tryRoot(page);
     if (r) return r;
-    for (const f of workPage.frames()) {
+    for (const f of page.frames()) {
       r = await tryRoot(f);
       if (r) return r;
     }
-    // Nudge the tab if it exists
-    const tab = workPage.getByRole("tab", { name: headerRx }).first();
-    if (await tab.isVisible({ timeout: 300 }).catch(() => false)) {
-      await tab.click().catch(() => {});
-    }
-    await workPage.waitForTimeout(700);
+    await page.waitForTimeout(700);
   }
   return null;
 }
@@ -455,41 +310,24 @@ function filterDownloadedCsv(csvText) {
   const page = await context.newPage();
 
   try {
-    console.log("→ Ensuring we're logged in and on #/home …");
-    await ensureLoggedInOnHome(page);
+    // 1) Login
+    console.log("→ Logging in...");
+    await fullyLogin(page);
 
+    // 2) Open the Facility panel (captures popup if RecTrac opens a legacy window)
     console.log("→ Opening Facility Reservation Interface …");
     const workPage = await openFacilityPanel(context, page);
 
+    // 3) If there is a left-toolbar DataGrid tool, click it
+    console.log("→ Opening Facility DataGrid...");
+    await openFacilityDataGrid(workPage);
+
+    // 4) Find the grid root (page or iframe)
     console.log("→ Locating Facility DataGrid …");
-    
-    // First verify we're actually on the facility interface
-    const workPageState = await detectPageState(workPage);
-    if (workPageState !== 'facility_interface') {
-      await saveFailureArtifacts(workPage, `wrong-state-before-grid-${workPageState}`);
-      throw new Error(`Expected to be on facility interface, but current state is: ${workPageState}`);
-    }
-    
-    let root = await findGridRoot(workPage);
+    const root = await findGridRoot(workPage);
     if (!root) {
-      console.log("→ Grid not found, trying soft reload");
-      // Soft reload can wake a blank panel
-      await workPage.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
-      await waitOutSpinner(workPage);
-      await workPage.waitForTimeout(2000);
-      
-      // Verify state after reload
-      const reloadState = await detectPageState(workPage);
-      if (reloadState !== 'facility_interface') {
-        await saveFailureArtifacts(workPage, `wrong-state-after-reload-${reloadState}`);
-        throw new Error(`After reload, expected facility interface but got: ${reloadState}`);
-      }
-      
-      root = await findGridRoot(workPage);
-    }
-    if (!root) {
-      await saveFailureArtifacts(workPage, "no-grid");
-      throw new Error("Could not find the Facilities grid (blank panel or legacy UI not detected).");
+      await saveFailureArtifacts(workPage, 'no-grid');
+      throw new Error('Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)');
     }
 
     console.log("→ Exporting CSV from grid …");
