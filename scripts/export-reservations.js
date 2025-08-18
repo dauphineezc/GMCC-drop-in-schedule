@@ -531,6 +531,28 @@ async function accessNotificationCenter(page) {
     }
     const csvText = fs.readFileSync(tmpPath, "utf8");
 
+    // After: const csvText = fs.readFileSync(tmpPath, "utf8");
+
+    // 1) Save raw export for debugging
+    const rawPath = path.resolve("gmcc-week-raw.csv");
+    fs.writeFileSync(rawPath, csvText, "utf8");
+    console.log(`→ Saved raw export to ${rawPath}`);
+    try {
+    if (S3_BUCKET) {
+        await uploadCsvBufferToS3(Buffer.from(csvText, "utf8"), "gmcc-week-raw.csv");
+        console.log("→ Also uploaded raw export to S3 as gmcc-week-raw.csv");
+    }
+    } catch (e) {
+    console.log("→ Raw-upload skipped/failed:", e?.message || e);
+    }
+
+    // 2) Inspect headers & counts
+    const parsed = parseCsv(csvText);
+    const header = parsed[0] || [];
+    console.log("→ Export headers:", header.join(" | "));
+    console.log(`→ Raw export rows (including header): ${parsed.length}`);
+
+
     // Filter down to the facilities we care about
     console.log("→ Filtering locally to target facilities …");
     const filtered = filterDownloadedCsv(csvText);
