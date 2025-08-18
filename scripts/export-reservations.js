@@ -4,71 +4,72 @@ import fs from 'fs';
 import path from 'path';
 
 const TIMEOUT = 60000;
-const FAC_TERMS = ['Community Lounge', 'Multi-use Pool', 'Full A+B'];
+const FAC_TERMS = ['Community Lounge','Multi-use Pool','Full A+B'];
 
 const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;
 const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL;
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
-/* ---------- utils ---------- */
-function toCsv(rows) {
-  const headers = Object.keys(rows[0] || { });
-  const esc = v => `"${String(v ?? '').replaceAll('"','""')}"`;
-  return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
-}
-
-function parseCsv(text) {
-  // Tiny CSV parser that handles quoted commas and quotes.
-  const out = [];
-  let row = [];
-  let cell = '';
-  let inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i], n = text[i+1];
-    if (inQ) {
-      if (c === '"' && n === '"') { cell += '"'; i++; }
-      else if (c === '"') { inQ = false; }
-      else { cell += c; }
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ',') { row.push(cell); cell = ''; }
-      else if (c === '\r') { /* ignore */ }
-      else if (c === '\n') { row.push(cell); out.push(row); row = []; cell=''; }
-      else { cell += c; }
-    }
-  }
-  if (cell.length || row.length) { row.push(cell); out.push(row); }
-  return out;
-}
-
+/* ---------------- utils ---------------- */
 async function saveFailureArtifacts(page, label) {
   try {
     await page.screenshot({ path: `playwright-${label}.png`, fullPage: true });
     fs.writeFileSync(`playwright-${label}.html`, await page.content(), 'utf8');
     fs.writeFileSync(`playwright-${label}.url.txt`, page.url(), 'utf8');
-  } catch {}
+  } catch (_) {}
 }
 
 async function clickIfResumePrompt(pageOrFrame) {
-  // "Login Prompts" → Continue
+  // “Login Prompts” → Continue
   const prompt = pageOrFrame.locator('text=Login Prompts');
-  if (await prompt.first().isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await prompt.first().isVisible({ timeout: 800 }).catch(() => false)) {
     const btn = pageOrFrame.getByRole('button', { name: /continue/i });
-    await btn.click({ timeout: 8000 }).catch(()=>{});
-    await pageOrFrame.waitForLoadState('networkidle', { timeout: 15000 }).catch(()=>{});
+    await btn.click({ timeout: 8000 }).catch(() => {});
+    await pageOrFrame.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     await pageOrFrame.waitForTimeout(600);
   }
 }
 
 async function waitOutSpinner(pageOrFrame) {
-  // "Please Wait..." overlay
+  // “Please Wait…” overlay
   const spinner = pageOrFrame.locator('text=/Please\\s+Wait/i');
-  if (await spinner.first().isVisible({ timeout: 500 }).catch(()=>false)) {
-    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(()=>{});
+  if (await spinner.first().isVisible({ timeout: 800 }).catch(() => false)) {
+    await spinner.first().waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
   }
 }
 
+function parseCsv(text) {
+  // lightweight CSV parser that handles quoted commas
+  const rows = [];
+  let i = 0, field = '', inQ = false, row = [];
+  while (i < text.length) {
+    const c = text[i++];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i] === '"') { field += '"'; i++; }  // escaped quote
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* ignore */ }
+      else field += c;
+    }
+  }
+  // trailing
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function toCsv(rows) {
+  const headers = Object.keys(rows[0] || {});
+  const esc = v => `"${String(v ?? '').replaceAll('"','""')}"`;
+  return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
+}
+
+/* ---------------- login & navigation ---------------- */
 async function fullyLogin(page) {
   const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
   const passSel = 'input[name="password"], #password, input[type="password"]';
@@ -82,101 +83,192 @@ async function fullyLogin(page) {
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
 
-    if (!page.url().includes('#/login')) break;
+    // If we’ve moved off the login route, we’re done
+    if (!page.url().includes('#/login')) return;
 
+    // Try to submit the form if visible
     const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(()=>false);
-
+    const hasLogin = await userField.isVisible({ timeout: 1500 }).catch(() => false);
     if (hasLogin) {
       await userField.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
       await Promise.all([
-        page.waitForLoadState('networkidle').catch(()=>{}),
-        page.click(submitSel).catch(()=>{})
+        page.waitForLoadState('networkidle').catch(() => {}),
+        page.click(submitSel).catch(() => {})
       ]);
       continue;
     }
 
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(600);
   }
 
-  if (page.url().includes('#/login')) {
-    await saveFailureArtifacts(page, 'login-stuck');
-    throw new Error('Login did not complete.');
-  }
+  await saveFailureArtifacts(page, 'login-stuck');
+  throw new Error('Login did not complete.');
 }
 
-async function attachToLegacy(context, page) {
-  // We may land on the panel (shell) that injects the legacy UI,
-  // or RecTrac might open a popup. Handle both, with a reload fallback.
-  const until = Date.now() + 60_000;
+async function openFacilityPanel(context, page) {
+  // Go to the launcher route
+  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
+  await clickIfResumePrompt(page);
+  await waitOutSpinner(page);
 
-  async function tryLocateRoot(p) {
-    // Check page and its frames for grid header or recognizable toolbar.
-    const headerRx = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
-    const filterSel = 'h1.panel-header, h4:has-text("Facility DataGrid"), .datagrid-header-toolbar';
+  // Some installs open a legacy popup. Arm the listener *before* any clicks.
+  const popupPromise = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
 
-    const tryRoot = async (root) => {
-      await waitOutSpinner(root);
-      await clickIfResumePrompt(root);
-      for (const rx of headerRx) {
-        if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
-      }
-      if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(()=>false)) return root;
-      return null;
-    };
-
-    let r = await tryRoot(p);
-    if (r) return r;
-
-    for (const f of p.frames()) {
-      r = await tryRoot(f);
-      if (r) return r;
+  // If the page already shows content, great; otherwise try clicking a launcher if visible.
+  // (We keep this guarded so it’s harmless if nothing is needed.)
+  const maybeLaunchers = [
+    page.getByRole('button', { name: /facility.*(data)?grid/i }),
+    page.getByRole('link',   { name: /facility reservation interface/i }),
+    page.locator('a:has-text("Facility DataGrid")'),
+    page.locator('button:has-text("DataGrid")'),
+  ];
+  for (const l of maybeLaunchers) {
+    if (await l.first().isVisible({ timeout: 800 }).catch(() => false)) {
+      await l.first().click().catch(() => {});
+      break;
     }
+  }
+
+  const popup = await popupPromise;
+  if (popup) {
+    await popup.waitForLoadState('domcontentloaded').catch(() => {});
+    await clickIfResumePrompt(popup);
+    await waitOutSpinner(popup);
+    return popup; // work in the popup
+  }
+  return page; // work in current tab
+}
+
+async function findGridRoot(workPage) {
+  const headerRx = /Facility Reservation Interface/i;
+  const gridTitleRx = /Facility DataGrid/i;
+
+  const filterSel = 'input[aria-label*="Short Description"], input[placeholder*="Short"], input[type="search"]';
+
+  async function tryRoot(root) {
+    await clickIfResumePrompt(root);
+    await waitOutSpinner(root);
+
+    // Header + grid card check
+    const hasHeader = await root.getByText(headerRx).first()
+      .isVisible({ timeout: 800 }).catch(() => false);
+    const hasGridTitle = await root.getByText(gridTitleRx).first()
+      .isVisible({ timeout: 800 }).catch(() => false);
+
+    if (hasHeader && hasGridTitle) return root;
+
+    // Fallback: filter input (when filters are visible)
+    if (await root.locator(filterSel).first().isVisible({ timeout: 800 }).catch(() => false)) return root;
+
     return null;
   }
 
-  // Navigate to the grid route first.
-  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
-  await clickIfResumePrompt(page);
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    // Try page itself
+    let r = await tryRoot(workPage);
+    if (r) return r;
 
-  while (Date.now() < until) {
-    // 1) Did a popup open?
-    const pop = context.pages().find(pg => pg !== page && /client\.wsc/i.test(pg.url()));
-    if (pop) {
-      await pop.waitForLoadState('domcontentloaded').catch(()=>{});
-      const root = await tryLocateRoot(pop);
-      if (root) return { root, page: pop };
+    // Try iframes
+    for (const f of workPage.frames()) {
+      r = await tryRoot(f);
+      if (r) return r;
     }
 
-    // 2) Is the legacy UI mounted in this tab?
-    const rootHere = await tryLocateRoot(page);
-    if (rootHere) return { root: rootHere, page };
-
-    // 3) Give it a nudge: sometimes a reload kicks the injector
-    await page.waitForTimeout(1000);
-    if (Date.now() + 5000 < until) {
-      await page.reload({ waitUntil: 'domcontentloaded' }).catch(()=>{});
-      await clickIfResumePrompt(page);
+    // If the tab caption exists but the panel body is blank, try nudging it
+    const tab = workPage.getByRole('tab', { name: headerRx }).first();
+    if (await tab.isVisible({ timeout: 300 }).catch(() => false)) {
+      await tab.click().catch(() => {});
     }
+
+    await workPage.waitForTimeout(700);
   }
 
   return null;
 }
 
-function normalizeHeaderIndex(headers) {
-  const map = {};
-  headers.forEach((h, i) => { map[h.toLowerCase()] = i; });
-  const idx = (nameLike) => {
-    const key = Object.keys(map).find(k => k.includes(nameLike.toLowerCase()));
-    return key != null ? map[key] : -1;
-  };
-  return { idx };
+/* ---------------- export & filter ---------------- */
+async function exportCsvFromGrid(root) {
+  // Open the gear menu in the “Facility DataGrid” header and click “Export Comma Delimited”
+  // We look for the grid card container first to scope our search.
+  const card = root.locator('div:has(> .v-card-title:has-text("Facility DataGrid")), div:has-text("Facility DataGrid")')
+                   .first();
+
+  // Try a handful of gear-button selectors
+  const gearCandidates = [
+    card.getByRole('button', { name: /settings/i }),
+    card.locator('button[aria-label*="Settings" i]'),
+    card.locator('button:has(i[class*="mdi-cog"])'),
+    card.locator('i[class*="mdi-cog"]').first().locator('xpath=ancestor::button[1]')
+  ];
+
+  let clicked = false;
+  for (const c of gearCandidates) {
+    if (await c.isVisible({ timeout: 800 }).catch(() => false)) {
+      await c.click().catch(() => {});
+      clicked = true;
+      break;
+    }
+  }
+  if (!clicked) {
+    // Last-ditch: click the very first small icon button in the card header area
+    const firstIcon = card.locator('button').first();
+    await firstIcon.click({ timeout: 2000 }).catch(() => {});
+  }
+
+  // Now click the menu item
+  const menuItem = root.getByRole('menuitem', { name: /export.*comma/i }).first();
+  if (!await menuItem.isVisible({ timeout: 3000 }).catch(() => false)) {
+    // Some builds render the popup as a listitem/button
+    const alt = root.locator('div[role="menu"] >> text=/Export\\s+Comma\\s+Delimited/i').first();
+    if (await alt.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await alt.click().catch(() => {});
+    } else {
+      await saveFailureArtifacts(root.page ? root.page() : root, 'no-export-menu');
+      throw new Error('Could not open the “Export Comma Delimited” menu.');
+    }
+  } else {
+    await menuItem.click().catch(() => {});
+  }
 }
 
-/* ---------- main ---------- */
+function filterDownloadedCsv(csvText) {
+  const rows = parseCsv(csvText);
+  if (!rows.length) return [];
+
+  const headers = rows[0];
+  const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h));
+  const idxClass = headers.findIndex(h => /fac.*class/i.test(h));
+  const idxLoc   = headers.findIndex(h => /fac.*loc/i.test(h));
+  const idxCode  = headers.findIndex(h => /fac.*code/i.test(h));
+  const idxStat  = headers.findIndex(h => /status/i.test(h));
+
+  const wanted = new Set(FAC_TERMS.map(s => s.toLowerCase()));
+  const out = [];
+
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const short = (row[idxShort] || '').toLowerCase();
+    // keep if the whole short desc equals one of our terms OR contains any term
+    const keep = Array.from(wanted).some(t => short.includes(t));
+    if (keep) {
+      out.push({
+        facClass:     row[idxClass] ?? '',
+        facLocation:  row[idxLoc]   ?? '',
+        facCode:      row[idxCode]  ?? '',
+        facShortDesc: row[idxShort] ?? '',
+        status:       row[idxStat]  ?? ''
+      });
+    }
+  }
+  return out;
+}
+
+/* ---------------- main ---------------- */
 (async () => {
   const browser = await chromium.launch({ headless: true });
+  // acceptDownloads is required to capture the CSV
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   page.setDefaultTimeout(TIMEOUT);
@@ -185,77 +277,46 @@ function normalizeHeaderIndex(headers) {
     // 1) Login
     await fullyLogin(page);
 
-    // 2) Attach to the legacy grid (popup or same tab), with reload fallback
-    const attach = await attachToLegacy(context, page);
-    if (!attach) {
-      await saveFailureArtifacts(page, 'no-grid');
+    // 2) Open panel (and switch to popup if RecTrac spawns one)
+    const workPage = await openFacilityPanel(context, page);
+
+    // 3) Find the grid (page or iframe)
+    let root = await findGridRoot(workPage);
+    if (!root) {
+      // Sometimes the panel paints blank once; a soft reload can kick it
+      await workPage.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+      await waitOutSpinner(workPage);
+      root = await findGridRoot(workPage);
+    }
+    if (!root) {
+      await saveFailureArtifacts(workPage, 'no-grid');
       throw new Error('Could not find the Facilities grid (blank panel or legacy UI not detected).');
     }
-    const { root, page: workPage } = attach;
 
-    // 3) Open the grid Options menu → Export Comma Delimited
-    const optionsBtn = root.locator('button.datagrid-tools-menu-button,[title="Options"]').first();
-    if (!await optionsBtn.isVisible({ timeout: 8000 }).catch(()=>false)) {
-      await saveFailureArtifacts(workPage, 'no-options');
-      throw new Error('Could not find the grid Options (gear) button.');
+    // 4) Export CSV via gear menu
+    const downloadPromise = workPage.waitForEvent('download', { timeout: 20000 }).catch(() => null);
+    await exportCsvFromGrid(root);
+
+    const download = await downloadPromise;
+    if (!download) {
+      await saveFailureArtifacts(workPage, 'no-download');
+      throw new Error('Export did not trigger a CSV download.');
     }
 
-    // Wait for download and click export
-    const [download] = await Promise.all([
-      workPage.waitForEvent('download', { timeout: 45_000 }),
-      (async () => {
-        await optionsBtn.click().catch(()=>{});
-        const exportItem = root.getByText(/Export Comma Delimited/i).first();
-        await exportItem.click({ timeout: 8000 });
-      })()
-    ]);
+    const tmpPath = await download.path();
+    const csvText = fs.readFileSync(tmpPath, 'utf8');
 
-    // 4) Save the CSV that RecTrac generates
-    const tmpPath = path.resolve('facility-export.csv');
-    await download.saveAs(tmpPath);
-
-    // 5) Parse & filter locally (simpler than fighting the column filters)
-    const raw = fs.readFileSync(tmpPath, 'utf8');
-    const table = parseCsv(raw);
-    if (!table.length) throw new Error('Downloaded CSV is empty.');
-    const headers = table[0].map(h => h.trim());
-    const { idx } = normalizeHeaderIndex(headers);
-
-    const colMap = {
-      facClass:      idx('fac class'),
-      facLocation:   idx('fac location'),
-      facCode:       idx('fac code'),
-      facShortDesc:  idx('short desc'),
-      status:        idx('status'),
-    };
-
-    const rows = table.slice(1).map(r => ({
-      facClass:      colMap.facClass >= 0 ? r[colMap.facClass] : '',
-      facLocation:   colMap.facLocation >= 0 ? r[colMap.facLocation] : '',
-      facCode:       colMap.facCode >= 0 ? r[colMap.facCode] : '',
-      facShortDesc:  colMap.facShortDesc >= 0 ? r[colMap.facShortDesc] : '',
-      status:        colMap.status >= 0 ? r[colMap.status] : '',
-    }));
-
-    const wanted = new Set(FAC_TERMS.map(s => s.toLowerCase()));
-    const filtered = rows.filter(r => {
-      const s = (r.facShortDesc || '').toLowerCase();
-      for (const term of wanted) if (s.includes(term)) return true;
-      return false;
-    });
-
-    // 6) Dedupe by facCode or short desc
-    const dedup = new Map();
-    for (const row of filtered) {
-      const key = row.facCode || row.facShortDesc;
-      dedup.set(key, row);
+    // 5) Filter locally to our target facilities and write final CSV
+    const filtered = filterDownloadedCsv(csvText);
+    const outPath = path.resolve('gmcc-week.csv');
+    if (filtered.length) {
+      fs.writeFileSync(outPath, toCsv(filtered), 'utf8');
+      console.log(`Wrote ${filtered.length} rows to ${outPath}`);
+    } else {
+      // Write an empty but well-formed CSV so downstream steps still succeed
+      fs.writeFileSync(outPath, toCsv([{ facClass:'', facLocation:'', facCode:'', facShortDesc:'', status:'' }]).trim() + '\n', 'utf8');
+      console.log(`Wrote 0 rows to ${outPath} (no matches after export).`);
     }
-    const result = [...dedup.values()];
-
-    const outPath = 'gmcc-week.csv';
-    const csvOut = toCsv(result);
-    fs.writeFileSync(outPath, csvOut, 'utf8');
-    console.log(`Wrote ${result.length} rows to ${outPath}`);
 
   } catch (err) {
     console.error('Scrape failed:', err);
