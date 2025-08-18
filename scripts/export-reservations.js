@@ -131,55 +131,68 @@ async function clickIfResumePrompt(root) {
 }
 
 async function chooseRelativeDate(root, fieldLabel, optionText) {
-    // Find the field container by its <label>
+    // Scope to the field container via its label
     const container = root.locator('div').filter({
-        has: root.locator(`label:has-text("${fieldLabel}")`)
+      has: root.locator(`label:has-text("${fieldLabel}")`)
     }).first();
-
-    // The “Actual Date” dropdown trigger inside that container
+  
+    // Trigger that normally opens the jQuery-UI menu
     const trigger = container.locator('button.ui-datetime-date-option, button:has-text("Actual Date")').first();
-
+  
     await trigger.scrollIntoViewIfNeeded().catch(() => {});
-    await trigger.click({ force: true }); // open the jQuery UI menu
-
-    // Prefer the menu inside the same document as `root` (frame-safe)
+    await trigger.click({ force: true }); // try to open the menu
+  
+    // Try to locate a visible jQuery-UI menu near this frame
     let menu = root.locator('ul.ui-menu[aria-hidden="false"], ul.ui-menu:visible').first();
-
-    // If not visible yet, scan page + frames for a visible menu as a fallback
-    if (!(await menu.isVisible({ timeout: 1500 }).catch(() => false))) {
-        const page = root.page ? root.page() : null;
-        const scopes = page ? [page, ...page.frames()] : [];
-        for (const s of scopes) {
+  
+    // If not found in this root, scan page + frames quickly
+    if (!(await menu.isVisible({ timeout: 400 }).catch(() => false))) {
+      const page = root.page ? root.page() : null;
+      const scopes = page ? [page, ...page.frames()] : [];
+      for (const s of scopes) {
         const m = s.locator('ul.ui-menu[aria-hidden="false"], ul.ui-menu:visible').first();
-        if (await m.isVisible({ timeout: 200 }).catch(() => false)) { menu = m; break; }
-        }
+        if (await m.isVisible({ timeout: 150 }).catch(() => false)) { menu = m; break; }
+      }
     }
-
-    // If we have a visible menu, pick the option
-    if (await menu.isVisible({ timeout: 500 }).catch(() => false)) {
-        let item = menu.getByRole('menuitem', { name: new RegExp(`^${optionText}$`, 'i') }).first();
-        if (!(await item.isVisible().catch(() => false))) {
+  
+    // If a visible menu exists, pick the option
+    if (await menu.isVisible({ timeout: 150 }).catch(() => false)) {
+      let item = menu.getByRole('menuitem', { name: new RegExp(`^${optionText}$`, 'i') }).first();
+      if (!(await item.isVisible().catch(() => false))) {
         item = menu.locator('li[role="menuitem"], .ui-menu-item')
-                    .filter({ hasText: new RegExp(`^${optionText}$`, 'i') })
-                    .first();
-        }
-        await item.click().catch(() => {});
-        await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {}); // close cleanly
-        await root.waitForTimeout(150);
-        return;
+                   .filter({ hasText: new RegExp(`^${optionText}$`, 'i') })
+                   .first();
+      }
+      await item.click().catch(() => {});
+      await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {}); // close safely
+      await root.waitForTimeout(120);
+      return;
     }
-
-    // Last-resort fallback: fill the date text input directly
+  
+    // Fallback: set the text input directly (MM/DD/YYYY is typical in RecTrac)
     const input = container.locator('input[type="text"], input').first();
     const d = new Date();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const yyyy = d.getFullYear();
-    const todayText = `${mm}/${dd}/${yyyy}`;      // RecTrac typically uses MM/DD/YYYY
+    const todayText = `${mm}/${dd}/${yyyy}`;
+  
     await input.fill(todayText);
+    // kick change detection
+    await input.dispatchEvent('input').catch(() => {});
+    await input.dispatchEvent('change').catch(() => {});
     await input.blur().catch(() => {});
-    await root.waitForTimeout(150);
-}  
+    await root.waitForTimeout(120);
+  }
+
+async function setDateRanges(root) {
+    console.log("→ Setting Begin Date = Today, End Date = Today …");
+    try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
+    await chooseRelativeDate(root, "Begin Date", "Today");
+    await chooseRelativeDate(root, "End Date",   "Today");
+    await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
+    await root.waitForTimeout(300);
+}
   
 function parseCsv(text) {
   const rows = [];
@@ -510,18 +523,6 @@ async function accessNotificationCenter(page) {
     console.log(`→ Error accessing notification center: ${error.message}`);
     return null;
   }
-}
-
-async function setDateRanges(root) {
-    console.log("→ Setting Begin Date = Today, End Date = Today …");
-
-    try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
-
-    await chooseRelativeDate(root, "Begin Date", "Today");
-    await chooseRelativeDate(root, "End Date",   "Today");
-
-    await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
-    await root.waitForTimeout(300);
 }
 
 async function processExport(root) {
