@@ -230,15 +230,41 @@ async function openExportMenu(root) {
   // and save screenshots to understand the structure better
   await saveFailureArtifacts(root.page ? root.page() : root, "before-gear-search");
   
-  // Count how many gear buttons exist in the entire interface
+  // Count how many different types of buttons/icons exist in the entire interface
   const allGears = root.locator('button:has(i[class*="mdi-cog"]), button:has(svg[class*="cog"]), button:has(i[class*="settings"])');
   const gearCount = await allGears.count();
-  console.log(`→ Found ${gearCount} total gear/settings buttons in the entire interface`);
+  console.log(`→ Found ${gearCount} total gear/settings buttons (MDI icons) in the entire interface`);
   
-  // Let's also count different types of buttons to understand the structure
+  // Look for other icon patterns that might be the gear
+  const svgButtons = root.locator('button:has(svg)');
+  const svgButtonCount = await svgButtons.count();
+  console.log(`→ Found ${svgButtonCount} total buttons with SVG icons`);
+  
+  const iconButtons = root.locator('button:has(i)');
+  const iconButtonCount = await iconButtons.count();
+  console.log(`→ Found ${iconButtonCount} total buttons with <i> icons`);
+  
+  const smallButtons = root.locator('button[style*="16px"], button[style*="18px"], button[style*="20px"]');
+  const smallButtonCount = await smallButtons.count();
+  console.log(`→ Found ${smallButtonCount} total small buttons (16-20px)`);
+  
   const allButtons = root.locator('button');
   const buttonCount = await allButtons.count();
   console.log(`→ Found ${buttonCount} total buttons in the interface`);
+  
+  // Debug: Let's log some button details to understand what we're working with
+  console.log("→ Analyzing first 10 buttons in the interface:");
+  for (let i = 0; i < Math.min(10, buttonCount); i++) {
+    const btn = allButtons.nth(i);
+    try {
+      const btnClass = await btn.getAttribute('class').catch(() => '');
+      const btnText = await btn.textContent().catch(() => '');
+      const btnHtml = await btn.innerHTML().catch(() => '');
+      console.log(`Button ${i}: class="${btnClass}", text="${btnText}", html="${btnHtml.substring(0, 100)}..."`);
+    } catch (e) {
+      console.log(`Button ${i}: Error - ${e.message}`);
+    }
+  }
 
   // Search more specifically for the DataGrid gear icon, excluding sidebar/navigation menus
   const broadGearCandidates = [
@@ -313,15 +339,50 @@ async function openExportMenu(root) {
     }
   }
   
-  // If broad search didn't work, try clicking ALL gear buttons systematically
+  // If broad search didn't work, try a much broader systematic search
   if (!gearFound) {
-    console.log("→ Broad search failed, trying ALL gear buttons in the interface...");
-    const allGearButtons = root.locator('button:has(i[class*="mdi-cog"]), button:has(svg[class*="cog"]), button:has(i[class*="settings"]), button:has(i[class*="mdi-settings"])');
-    const totalGears = await allGearButtons.count();
-    console.log(`→ Found ${totalGears} total gear buttons, trying each systematically...`);
+    console.log("→ Broad search failed, trying ALL possible gear/settings/action buttons...");
+    
+    // Expand search to include ANY button that might be a settings/action button
+    const allPossibleGearButtons = root.locator([
+      // Traditional gear patterns
+      'button:has(i[class*="mdi-cog"])',
+      'button:has(svg[class*="cog"])', 
+      'button:has(i[class*="settings"])',
+      'button:has(i[class*="mdi-settings"])',
+      'button:has(i[class*="gear"])',
+      
+      // Any SVG button (toolbar icons often use SVG)
+      'button:has(svg)',
+      
+      // Small buttons that might be toolbar icons
+      'button[style*="16px"]',
+      'button[style*="18px"]', 
+      'button[style*="20px"]',
+      
+      // Buttons with common icon/action classes
+      'button[class*="icon"]',
+      'button[class*="action"]',
+      'button[class*="tool"]',
+      
+      // Buttons near the DataGrid that might be action buttons
+      'div:has-text("Facility DataGrid") button',
+      'div:has-text("Facilities") button',
+      
+      // Any button in what might be a toolbar row
+      'button:has(i)',
+      'button:has(span.icon)',
+      
+      // Look for buttons with specific viewBox patterns (common in toolbar SVGs)
+      'button:has(svg[viewBox*="16"])',
+      'button:has(svg[viewBox*="0 0 16"])'
+    ].join(', '));
+    
+    const totalGears = await allPossibleGearButtons.count();
+    console.log(`→ Found ${totalGears} total possible gear/action buttons, trying each systematically...`);
     
     for (let j = 0; j < totalGears; j++) {
-      const specificGear = allGearButtons.nth(j);
+      const specificGear = allPossibleGearButtons.nth(j);
       try {
         if (await specificGear.isVisible({ timeout: 500 }).catch(() => false)) {
           const buttonText = await specificGear.textContent().catch(() => '');
