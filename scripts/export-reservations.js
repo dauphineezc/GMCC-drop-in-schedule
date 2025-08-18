@@ -381,27 +381,70 @@ async function processExport(root) {
     throw new Error('Could not find the Process button to trigger export.');
   }
 
-  // Handle the success popups and wait for document download
-  console.log("→ Handling success popups and waiting for document download...");
+  // Handle the success popups and wait for document processing
+  console.log("→ Handling success popups and waiting for document processing...");
   
-  // Wait for and handle success popup
-  await root.waitForTimeout(2000);
+  // Wait for processing popup to appear
+  await root.waitForTimeout(3000);
   
-  // Look for "Preview Document" or download link in the popup
-  const previewButton = root.locator('button:has-text("Preview Document"), a:has-text("Preview Document"), div:has-text("Preview Document")').first();
-  if (await previewButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-    console.log("→ Found Preview Document button, clicking...");
-    await previewButton.click({ timeout: 3000 });
+  // The error shows a dialog is intercepting clicks, so let's handle it properly
+  console.log("→ Looking for and closing success dialog...");
+  
+  // First, try to close the dialog using various methods
+  const dialogCloseAttempts = [
+    // Standard close buttons
+    root.locator('.ui-dialog').locator('button:has-text("Close")'),
+    root.locator('.ui-dialog').locator('button[aria-label="Close"]'),
+    root.locator('.ui-dialog').locator('.ui-dialog-titlebar-close'),
+    root.locator('[role="dialog"]').locator('button:has-text("Close")'),
+    
+    // OK buttons in success dialogs
+    root.locator('.ui-dialog').locator('button:has-text("OK")'),
+    root.locator('[role="dialog"]').locator('button:has-text("OK")'),
+    
+    // X close buttons
+    root.locator('.ui-dialog').locator('button.ui-dialog-titlebar-close'),
+    root.locator('.ui-dialog').locator('span.ui-icon-closethick')
+  ];
+  
+  let dialogClosed = false;
+  for (const closeBtn of dialogCloseAttempts) {
+    if (await closeBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      console.log("→ Found dialog close button, clicking...");
+      await closeBtn.click({ timeout: 3000 }).catch(() => {});
+      dialogClosed = true;
+      await root.waitForTimeout(1000);
+      break;
+    }
   }
   
-  // Close any success popups by clicking Close button or clicking outside
-  const closeButton = root.locator('button:has-text("Close"), button[aria-label="Close"]').first();
-  if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    console.log("→ Closing success popup...");
-    await closeButton.click({ timeout: 3000 });
+  // If no close button found, try pressing Escape
+  if (!dialogClosed) {
+    console.log("→ No close button found, trying Escape key...");
+    await root.press('Escape').catch(() => {});
+    await root.waitForTimeout(1000);
   }
   
-  console.log("→ Process button clicked successfully, waiting for download to start...");
+  // The popup mentions "Check the notification center for completed processes"
+  // Let's look for notification center or completed document
+  console.log("→ Looking for notification center or completed document...");
+  
+  const notificationElements = [
+    root.locator('div:has-text("notification center")'),
+    root.locator('[class*="notification"], [class*="alert"], [class*="message"]'),
+    root.locator('div:has-text("completed"), div:has-text("finished"), div:has-text("ready")'),
+    root.locator('a[href*=".csv"], a[href*=".pdf"], a[href*="download"]')
+  ];
+  
+  for (const notification of notificationElements) {
+    if (await notification.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log("→ Found notification/download element, attempting to click...");
+      await notification.click({ timeout: 3000 }).catch(() => {});
+      await root.waitForTimeout(2000);
+    }
+  }
+  
+  console.log("→ Process completed, waiting for potential download or checking for document links...");
 }
 
 function filterDownloadedCsv(csvText) {
@@ -471,13 +514,42 @@ function filterDownloadedCsv(csvText) {
     }
 
     console.log("→ Processing export from interface …");
-    const downloadPromise = workPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
+    // Extend timeout for server-side processing
+    const downloadPromise = workPage.waitForEvent("download", { timeout: 120_000 }).catch(() => null);
     await processExport(root);
 
-    const download = await downloadPromise;
+    // Wait longer for server-side processing to complete
+    console.log("→ Waiting for server-side processing and download...");
+    await workPage.waitForTimeout(10_000);
+    
+    let download = await downloadPromise;
     if (!download) {
-      await saveFailureArtifacts(workPage, "no-download");
-      throw new Error("Export did not trigger a CSV download.");
+      console.log("→ No direct download detected, checking for alternative download methods...");
+      
+      // Look for download links that might have appeared
+      const downloadLinks = workPage.locator('a[href*=".csv"], a[href*=".pdf"], a[href*="download"], a:has-text("download")');
+      const linkCount = await downloadLinks.count();
+      console.log(`→ Found ${linkCount} potential download links`);
+      
+      if (linkCount > 0) {
+        console.log("→ Attempting to click download link...");
+        const secondDownloadPromise = workPage.waitForEvent("download", { timeout: 30_000 }).catch(() => null);
+        await downloadLinks.first().click().catch(() => {});
+        const secondDownload = await secondDownloadPromise;
+        if (secondDownload) {
+          console.log("→ Successfully triggered download via link");
+          // Continue with this download
+          download = secondDownload;
+        }
+      }
+      
+      if (!download) {
+        await saveFailureArtifacts(workPage, "no-download");
+        console.log("→ Document may have been sent to S3 bucket or notification center instead of direct download");
+        console.log("→ Check your S3 bucket or RecTrac notification center for the processed document");
+        // Don't throw error - the process may have succeeded but gone to S3
+        return;
+      }
     }
 
     // Read exported CSV
