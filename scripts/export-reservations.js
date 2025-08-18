@@ -224,119 +224,143 @@ async function findGridRoot(page) {
 }
 
 async function openExportMenu(root) {
-  console.log("→ Looking for Facility DataGrid card and gear button...");
+  console.log("→ Looking for Facility DataGrid table and its header gear button...");
   
-  // Find the Facility DataGrid card - try multiple approaches
-  let card = null;
-  const cardCandidates = [
-    root.locator('div:has-text("Facility DataGrid")').first(),
-    root.locator('[class*="card"]:has-text("Facility DataGrid")').first(),
-    root.locator('div:has(> div:has-text("Facility DataGrid"))').first(),
-    root.locator('div:has(> .v-card-title:has-text("Facility DataGrid"))').first()
+  // First, find the actual data table (not the sidebar)
+  let dataTableArea = null;
+  const tableCandidates = [
+    // Look for the table specifically with the facility data
+    root.locator('table:has(th:has-text("Fac Class"))'),
+    root.locator('table:has(th:has-text("Fac Location"))'),
+    root.locator('table:has(th:has-text("Fac Code"))'),
+    root.locator('table:has(tbody tr:has(td:has-text("GMCC")))'),
+    
+    // Look for the container that has both "Facility DataGrid" header AND a table
+    root.locator('div:has-text("Facility DataGrid"):has(table)'),
+    root.locator('[class*="card"]:has-text("Facility DataGrid"):has(table)'),
   ];
   
-  for (const candidate of cardCandidates) {
+  for (const candidate of tableCandidates) {
     if (await candidate.isVisible({ timeout: 1000 }).catch(() => false)) {
-      card = candidate;
-      console.log("→ Found Facility DataGrid card");
+      dataTableArea = candidate;
+      console.log("→ Found data table area");
       break;
     }
   }
   
-  if (!card) {
-    console.log("→ Could not find Facility DataGrid card, trying whole root");
-    card = root;
+  if (!dataTableArea) {
+    // Fallback: find any table and work from there
+    dataTableArea = root.locator('table').first();
+    if (await dataTableArea.isVisible({ timeout: 1000 }).catch(() => false)) {
+      console.log("→ Using fallback table");
+    } else {
+      console.log("→ No table found, using whole root");
+      dataTableArea = root;
+    }
   }
 
-  // Look for gear/settings button with multiple strategies
-  console.log("→ Looking for gear/settings button...");
+  // Now find the container/card that holds this table AND has the "Facility DataGrid" header
+  let gridCard = null;
+  const gridCardCandidates = [
+    // Navigate up from table to find the card with the header
+    dataTableArea.locator('xpath=ancestor::div[contains(., "Facility DataGrid")]').first(),
+    dataTableArea.locator('xpath=ancestor::*[contains(@class, "card")]').first(),
+    
+    // Direct search for cards containing both header and table
+    root.locator('div:has-text("Facility DataGrid"):has(table)'),
+    root.locator('[class*="card"]:has-text("Facility DataGrid"):has(table)'),
+    
+    // Broader search
+    root.locator('div:has-text("Facility DataGrid")').first()
+  ];
+  
+  for (const candidate of gridCardCandidates) {
+    if (await candidate.isVisible({ timeout: 1000 }).catch(() => false)) {
+      gridCard = candidate;
+      console.log("→ Found Facility DataGrid container");
+      break;
+    }
+  }
+  
+  if (!gridCard) {
+    gridCard = dataTableArea;
+    console.log("→ Using data table area as grid card");
+  }
+
+  // Look specifically for gear button in the header area (top part of the card, near "Facility DataGrid" text)
+  console.log("→ Looking for gear/settings button in DataGrid header...");
   const gearCandidates = [
-    // Common gear icon patterns
-    card.locator('button:has(i[class*="mdi-cog"])'),
-    card.locator('button:has(i[class*="gear"])'),
-    card.locator('button:has(svg[class*="cog"])'),
-    card.locator('button:has(svg[class*="gear"])'),
+    // Look for buttons specifically near the "Facility DataGrid" text (in header)
+    gridCard.locator('div:has-text("Facility DataGrid")').locator('button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('div:has-text("Facility DataGrid")').locator('button:has(svg)').first(),
     
-    // Aria label patterns
-    card.getByRole("button", { name: /settings/i }),
-    card.locator('button[aria-label*="Settings" i]'),
-    card.locator('button[title*="Settings" i]'),
+    // Look in what appears to be a header/toolbar area
+    gridCard.locator('[class*="header"]').locator('button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('[class*="toolbar"]').locator('button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('[class*="card-title"]').locator('button').first(),
     
-    // Generic button patterns near the header
-    card.locator('div:has-text("Facility DataGrid") ~ button').first(),
-    card.locator('div:has-text("Facility DataGrid") button').first(),
+    // Gear icons that are siblings or children of the title
+    gridCard.locator('div:has-text("Facility DataGrid") ~ button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('div:has-text("Facility DataGrid") button:has(i[class*="mdi-cog"])').first(),
     
-    // Icon-based patterns
-    card.locator('i[class*="mdi-cog"]').locator('xpath=ancestor::button[1]'),
-    card.locator('svg[class*="cog"]').locator('xpath=ancestor::button[1]')
+    // Generic gear buttons in the upper area (exclude those in the table body)
+    gridCard.locator('button:has(i[class*="mdi-cog"])').first(),
+    gridCard.locator('button:has(svg[class*="cog"])').first(),
+    
+    // Fallback: any button that's not in the table body or right sidebar
+    gridCard.locator('button').not(gridCard.locator('tbody button')).not(gridCard.locator('div:has-text("Additional Criteria") button')).first()
   ];
 
   let gearFound = false;
   for (const gear of gearCandidates) {
     try {
       if (await gear.isVisible({ timeout: 1000 }).catch(() => false)) {
-        console.log("→ Found gear button, clicking...");
+        console.log("→ Found gear button in header, clicking...");
         await gear.click({ timeout: 3000 });
         gearFound = true;
+        
+        // Wait for dropdown menu to appear
+        await root.waitForTimeout(1500);
         break;
       }
     } catch (e) {
       console.log(`→ Gear candidate failed: ${e.message}`);
     }
   }
-  
-  if (!gearFound) {
-    console.log("→ No specific gear found, trying first button in card");
-    try {
-      const firstButton = card.locator("button").first();
-      if (await firstButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await firstButton.click({ timeout: 2000 });
-        gearFound = true;
-      }
-    } catch (e) {
-      console.log(`→ First button fallback failed: ${e.message}`);
-    }
-  }
 
   if (!gearFound) {
     await saveFailureArtifacts(root.page ? root.page() : root, "no-gear-button");
-    throw new Error('Could not find the gear/settings button in Facility DataGrid.');
+    throw new Error('Could not find the gear/settings button in Facility DataGrid header.');
   }
 
-  // Wait a moment for menu to appear
-  await root.waitForTimeout(1000);
-
-  // Look for export menu item with multiple strategies
-  console.log("→ Looking for Export Comma Delimited menu item...");
+  // Look for export menu item - focus on dropdown menus that appear after clicking gear
+  console.log("→ Looking for Export Comma Delimited in dropdown menu...");
   const menuCandidates = [
-    // Role-based menu items
-    root.getByRole("menuitem", { name: /export.*comma/i }),
+    // Standard dropdown menu items
+    root.getByRole("menuitem", { name: /export.*comma.*delimited/i }),
     root.getByRole("menuitem", { name: /comma.*delimited/i }),
-    root.getByRole("menuitem", { name: /export/i }),
+    root.getByRole("menuitem", { name: /export.*csv/i }),
     
-    // Text-based selections
-    root.getByText(/export.*comma.*delimited/i),
-    root.getByText(/comma.*delimited/i),
-    root.getByText(/export.*csv/i),
-    root.getByText(/export/i),
+    // Dropdown list items
+    root.locator('[role="menu"] >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('[role="listbox"] >> text=/Export.*Comma.*Delimited/i'),
+    root.locator('ul >> text=/Export.*Comma.*Delimited/i'),
     
-    // Menu structure patterns
-    root.locator('div[role="menu"] >> text=/Export.*Comma.*Delimited/i'),
-    root.locator('[role="menu"] >> text=/comma.*delimited/i'),
-    root.locator('[role="menuitem"]:has-text("Export")'),
+    // Generic dropdown items (avoid sidebar elements)
+    root.locator('div[role="menu"]:visible').getByText(/export.*comma.*delimited/i).first(),
+    root.locator('.dropdown-menu:visible').getByText(/export.*comma.*delimited/i).first(),
+    root.locator('[class*="menu"]:visible').getByText(/export.*comma.*delimited/i).first(),
     
-    // Generic clickable elements with export text
-    root.locator('div:has-text("Export"):visible'),
-    root.locator('li:has-text("Export"):visible'),
-    root.locator('a:has-text("Export"):visible')
+    // Broader search but exclude sidebar
+    root.locator('div:has-text("Export"):visible').not(root.locator('div:has-text("Additional Criteria") div')).first()
   ];
 
   let menuClicked = false;
   for (const menuItem of menuCandidates) {
     try {
-      if (await menuItem.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-        console.log("→ Found export menu item, clicking...");
-        await menuItem.first().click({ timeout: 3000 });
+      if (await menuItem.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log("→ Found export menu item in dropdown, clicking...");
+        await menuItem.click({ timeout: 3000 });
         menuClicked = true;
         break;
       }
@@ -347,7 +371,7 @@ async function openExportMenu(root) {
 
   if (!menuClicked) {
     await saveFailureArtifacts(root.page ? root.page() : root, "no-export-menu");
-    throw new Error('Could not find the "Export Comma Delimited" menu item.');
+    throw new Error('Could not find the "Export Comma Delimited" menu item in dropdown.');
   }
   
   console.log("→ Successfully clicked export menu item");
