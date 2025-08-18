@@ -17,11 +17,6 @@ const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;     // ...#/login
 // Optional: a deep link that *sometimes* loads a blank panel. We'll still try it first.
 const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL || "";
 
-// Derived home route (works even if LOGIN_URL lacks "#/login")
-const HOME_URL  = LOGIN_URL?.includes("#/login")
-  ? LOGIN_URL.replace("#/login", "#/home")
-  : (LOGIN_URL?.split("#")[0] || LOGIN_URL) + "#/home";
-
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
@@ -31,6 +26,73 @@ const OP_TIMEOUT  = 90_000;  // general UI ops
 const LONG_WAIT   = 30_000;
 
 /* ========= UTIL ========= */
+
+// ---- CSV capture helpers ----
+const csvHits = []; // store any csv-ish responses we see
+
+function looksCsvish(resp) {
+  const url = resp.url();
+  const h = resp.headers();
+  const ct = (h["content-type"] || "").toLowerCase();
+  const cd = (h["content-disposition"] || "").toLowerCase();
+
+  // Heuristics: common content types + filename hints + url hints
+  const ctCsv = /\bcsv\b/.test(ct) || /\bexcel\b/.test(ct) || /text\/plain/.test(ct) || /octet-stream/.test(ct);
+  const cdCsv = /filename=.*\.csv/.test(cd);
+  const urlCsv = /\.csv(\?|$)/i.test(url) || /export|report|download/i.test(url);
+
+  return resp.ok() && (ctCsv || cdCsv || urlCsv);
+}
+
+function installCsvSniffer(context) {
+  context.on("response", async (resp) => {
+    try {
+      if (!looksCsvish(resp)) return;
+      const buf = await resp.body().catch(() => null);
+      console.log(`→ Captured CSV-ish response:
+  url=${resp.url()}
+  ct=${resp.headers()["content-type"] || ""}
+  cd=${resp.headers()["content-disposition"] || ""}
+  bytes=${buf?.length ?? 0}`);
+      if (buf?.length) csvHits.push({ buf, url: resp.url(), headers: resp.headers() });
+    } catch {}
+  });
+}
+
+async function flushCsvHitToS3() {
+  if (!csvHits.length) return false;
+  const { buf } = csvHits[csvHits.length - 1];
+
+  // Filter using your existing pipeline
+  const csvText = buf.toString("utf8");
+  const filtered = filterDownloadedCsv(csvText);
+  const outText = filtered.length
+    ? toCsv(filtered)
+    : (toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n");
+
+  await uploadCsvBufferToS3(Buffer.from(outText, "utf8"), "gmcc-week.csv");
+  return true;
+}
+
+// ---- UI overlay cleanup (unblocks the bell click) ----
+async function nukeOverlays(page) {
+  // Work on page + any frames
+  const roots = [page, ...page.frames()];
+  for (const r of roots) {
+    try { await r.keyboard.press("Escape"); } catch {}
+    try {
+      await r.locator('.ui-dialog .ui-dialog-titlebar-close, .ui-dialog button:has-text("Close"), [role="dialog"] button:has-text("Close"), [role="dialog"] button:has-text("OK")')
+            .first().click({ timeout: 1000 });
+    } catch {}
+    try {
+      await r.evaluate(() => {
+        document.querySelectorAll('.ui-widget-overlay, .ui-widget-overlay.skipwidget')
+          .forEach(el => el.remove());
+      });
+    } catch {}
+  }
+}
+
 async function saveFailureArtifacts(pageLike, label) {
   const page = pageLike.page ? pageLike.page() : pageLike;
   try {
@@ -52,19 +114,6 @@ await s3.send(new PutObjectCommand({
 console.log(`→ Uploaded to s3://${S3_BUCKET}/${key}`);
 }
 
-function csvy(resp) {
-const url = resp.url().toLowerCase();
-const ct  = (resp.headers()["content-type"] || "").toLowerCase();
-const cd  = (resp.headers()["content-disposition"] || "").toLowerCase();
-return resp.ok() && (ct.includes("text/csv") || cd.includes(".csv") || url.endsWith(".csv"));
-}
-
-async function waitForCsvResponse(context, timeoutMs = 120_000) {
-try {
-    return await context.waitForResponse(csvy, { timeout: timeoutMs });
-} catch { return null; }
-}  
-
 async function waitOutSpinner(root) {
   const spinner = root.locator('text=/Please\\s+Wait/i').first();
   if (await spinner.isVisible({ timeout: 800 }).catch(() => false)) {
@@ -81,6 +130,44 @@ async function clickIfResumePrompt(root) {
   }
 }
 
+async function chooseRelativeDate(root, fieldLabel, optionText) {
+    // Find the container that owns the label
+    const container = root.locator('div').filter({
+      has: root.locator(`label:has-text("${fieldLabel}")`)
+    }).first();
+  
+    // The “Actual Date” dropdown trigger inside that container
+    const trigger = container.locator('button.ui-datetime-date-option, button:has-text("Actual Date")').first();
+  
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    await trigger.click();                     // open the jQuery-UI menu
+  
+    // jQuery-UI renders one global menu; grab the most recently opened one
+    const pageLike = root.page ? root.page() : root;
+    const menu = pageLike.locator('ul.ui-menu').last();
+    await menu.waitFor({ state: 'visible', timeout: 5000 });
+  
+    // Prefer ARIA role if present, fall back to text match
+    let item = menu.getByRole('menuitem', { name: new RegExp(`^${optionText}$`, 'i') });
+    if (!(await item.isVisible().catch(() => false))) {
+      item = menu.locator('li[role="menuitem"], .ui-menu-item')
+                 .filter({ hasText: new RegExp(`^${optionText}$`, 'i') })
+                 .first();
+    }
+  
+    await item.click();                        // select
+    await pageLike.waitForTimeout(150);        // let the menu close
+  
+    // Verify selection: reopen and ensure active item is the one we wanted
+    await trigger.click();
+    const active = menu.locator('[aria-selected="true"], .ui-state-active').first();
+    const activeText = (await active.textContent().catch(() => '')).trim().toLowerCase();
+    if (!activeText.includes(optionText.toLowerCase())) {
+      await item.click();                      // pick again if needed
+    }
+    await pageLike.keyboard.press('Escape').catch(() => {}); // close menu cleanly
+  }
+  
 function parseCsv(text) {
   const rows = [];
   let i = 0, field = "", inQ = false, row = [];
@@ -413,357 +500,19 @@ async function accessNotificationCenter(page) {
 }
 
 async function setDateRanges(root) {
-  console.log("→ Setting date ranges: Begin Date to 'Today', End Date to 'End of Month'...");
-  
-  // Based on the HTML structure, look for jQuery UI datetime components
-  // The structure is: label "Begin Date" -> div with ui-datetime components -> button with "Actual Date"
-  
-  // Find Begin Date dropdown button - it's the button inside the ui-datetime component after "Begin Date" label
-  const beginDateButton = root.locator('label:has-text("Begin Date")').locator('xpath=following-sibling::div').locator('button[class*="ui-datetime-date-option"][class*="ui-state-default"]').first();
-  
-  // Find End Date dropdown button - it's the button inside the ui-datetime component after "End Date" label  
-  const endDateButton = root.locator('label:has-text("End Date")').locator('xpath=following-sibling::div').locator('button[class*="ui-datetime-date-option"][class*="ui-state-default"]').first();
-  
-  // Alternative selectors based on the HTML structure
-  const beginDateAlternatives = [
-    // Target the specific button ID pattern from HTML
-    root.locator('button[id*="facilityreservationinterface_begindate"][class*="ui-datetime-date-option"]').first(),
-    
-    // Target by the ui-datetime structure
-    root.locator('div[class*="ui-datetime"]:has(label:has-text("Begin Date"))').locator('button[class*="ui-datetime-date-option"]').first(),
-    
-    // Look for button with "Actual Date" text near "Begin Date"
-    root.locator('div:has(label:has-text("Begin Date"))').locator('button:has-text("Actual Date")').first(),
-    
-    // Generic fallback for first "Actual Date" button
-    root.locator('button[class*="ui-datetime-date-option"]:has-text("Actual Date")').first()
-  ];
-  
-  const endDateAlternatives = [
-    // Target the specific button ID pattern from HTML  
-    root.locator('button[id*="facilityreservationinterface_enddate"][class*="ui-datetime-date-option"]').first(),
-    
-    // Target by the ui-datetime structure
-    root.locator('div[class*="ui-datetime"]:has(label:has-text("End Date"))').locator('button[class*="ui-datetime-date-option"]').first(),
-    
-    // Look for button with "Actual Date" text near "End Date"
-    root.locator('div:has(label:has-text("End Date"))').locator('button:has-text("Actual Date")').first(),
-    
-    // Generic fallback for second "Actual Date" button
-    root.locator('button[class*="ui-datetime-date-option"]:has-text("Actual Date")').nth(1)
-  ];
-  
-  // Set Begin Date to "Today"
-  let beginDateSet = false;
-  console.log("→ Setting Begin Date to 'Today'...");
-  
-  // Try main selector first
-  if (await beginDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    try {
-      console.log("→ Found Begin Date button, clicking to open dropdown...");
-      await beginDateButton.click();
-      await root.waitForTimeout(1000); // Wait for dropdown to appear
-      
-      // Look for "Today" option in the jQuery UI dropdown menu
-      // Try multiple selector approaches for robustness
-      const todaySelectors = [
-        'ul.ui-menu li:has-text("Today")',
-        'div.ui-menu-item:has-text("Today")', 
-        'li[role="menuitem"]:has-text("Today")',
-        'li:has-text("Today")',  // Simpler pattern
-        'div:has-text("Today")', // Even simpler
-        '*:has-text("Today")'    // Most generic
-      ];
-      
-      let foundToday = false;
-      for (const selector of todaySelectors) {
-        const todayOption = root.locator(selector).first();
-        if (await todayOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-          console.log(`→ Found 'Today' option using selector: ${selector}, clicking...`);
-          await todayOption.click();
-          beginDateSet = true;
-          foundToday = true;
-          console.log("→ Successfully set Begin Date to 'Today'");
-          break;
-        }
-      }
-      
-      if (!foundToday) {
-        console.log("→ Could not find 'Today' option in dropdown menu, debugging available options...");
-        // Debug: log all visible menu items
-        const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
-        const itemCount = await allMenuItems.count();
-        console.log(`→ Found ${itemCount} menu items total`);
-        for (let j = 0; j < Math.min(itemCount, 10); j++) {
-          const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
-          console.log(`→ Menu item ${j}: "${itemText}"`);
-        }
-        
-        // Try clicking by index since we know it's item 1 based on the debug output
-        console.log("→ Attempting to click menu item 1 (Today) by index...");
-        const menuItem1 = allMenuItems.nth(1);
-        if (await menuItem1.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await menuItem1.click();
-          beginDateSet = true;
-          console.log("→ Successfully clicked menu item 1 (Today)");
-        }
-      }
-    } catch (e) {
-      console.log(`→ Failed to set Begin Date with main selector: ${e.message}`);
-    }
-  }
-  
-  // Try alternative selectors
-  if (!beginDateSet) {
-    for (let i = 0; i < beginDateAlternatives.length; i++) {
-      const dropdown = beginDateAlternatives[i];
-      if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
-        try {
-          console.log(`→ Trying Begin Date alternative ${i}...`);
-          await dropdown.click();
-          await root.waitForTimeout(1000);
-          
-          // Look for "Today" option in various dropdown menu formats
-          const todayOptions = [
-            root.locator('ul.ui-menu li:has-text("Today")').first(),
-            root.locator('div.ui-menu-item:has-text("Today")').first(),
-            root.locator('li[role="menuitem"]:has-text("Today")').first(),
-            root.locator('div[role="option"]:has-text("Today")').first(),
-            root.locator('div:visible:has-text("Today")').filter({ hasNotText: 'Begin Date' }).first(),
-            root.locator('a:has-text("Today")').first()
-          ];
-          
-          for (const todayOpt of todayOptions) {
-            if (await todayOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
-              console.log(`→ Found 'Today' option, clicking...`);
-              await todayOpt.click();
-              beginDateSet = true;
-              console.log(`→ Successfully set Begin Date to 'Today' using alternative ${i}`);
-              break;
-            }
-          }
-          
-          if (beginDateSet) break;
-        } catch (e) {
-          console.log(`→ Alternative ${i} failed: ${e.message}`);
-        }
-      }
-    }
-  }
-  
+    console.log("→ Setting Begin Date = Today, End Date = Today …");
 
-  // Set End Date to "Today"
-    let endDateSet = false;
-    console.log("→ Setting End Date to 'Today'...");
+    try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
 
-    // Try main selector first
-    if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    try {
-        console.log("→ Found End Date button, clicking to open dropdown...");
-        await endDateButton.click();
-        await root.waitForTimeout(1000); // Wait for dropdown to appear
-        
-        // Look for "Today" option in the jQuery UI dropdown menu
-        // Try multiple selector approaches for robustness
-        const todaySelectors = [
-        'ul.ui-menu li:has-text("Today")',
-        'div.ui-menu-item:has-text("Today")', 
-        'li[role="menuitem"]:has-text("Today")',
-        'li:has-text("Today")',  // Simpler pattern
-        'div:has-text("Today")', // Even simpler
-        '*:has-text("Today")'    // Most generic
-        ];
-        
-        let foundToday = false;
-        for (const selector of todaySelectors) {
-        const todayOption = root.locator(selector).first();
-        if (await todayOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-            console.log(`→ Found 'Today' option using selector: ${selector}, clicking...`);
-            await todayOption.click();
-            endDateSet = true;
-            foundToday = true;
-            console.log("→ Successfully set End Date to 'Today'");
-            break;
-        }
-        }
-        
-        if (!foundToday) {
-        console.log("→ Could not find 'Today' option in dropdown menu, debugging available options...");
-        // Debug: log all visible menu items
-        const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
-        const itemCount = await allMenuItems.count();
-        console.log(`→ Found ${itemCount} menu items total`);
-        for (let j = 0; j < Math.min(itemCount, 10); j++) {
-            const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
-            console.log(`→ Menu item ${j}: "${itemText}"`);
-        }
-        
-        // Try clicking by index since we know it's item 1 based on the debug output
-        console.log("→ Attempting to click menu item 1 (Today) by index...");
-        const menuItem1 = allMenuItems.nth(1);
-        if (await menuItem1.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await menuItem1.click();
-            endDateSet = true;
-            console.log("→ Successfully clicked menu item 1 (Today)");
-        }
-        }
-    } catch (e) {
-        console.log(`→ Failed to set End Date with main selector: ${e.message}`);
-    }
-    }
+    await chooseRelativeDate(root, "Begin Date", "Today");
+    await chooseRelativeDate(root, "End Date",   "Today");
 
-    // Try alternative selectors
-    if (!endDateSet) {
-    for (let i = 0; i < endDateAlternatives.length; i++) {
-        const dropdown = endDateAlternatives[i];
-        if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
-        try {
-            console.log(`→ Trying End Date alternative ${i}...`);
-            await dropdown.click();
-            await root.waitForTimeout(1000);
-            
-            // Look for "Today" option in various dropdown menu formats
-            const todayOptions = [
-            root.locator('ul.ui-menu li:has-text("Today")').first(),
-            root.locator('div.ui-menu-item:has-text("Today")').first(),
-            root.locator('li[role="menuitem"]:has-text("Today")').first(),
-            root.locator('div[role="option"]:has-text("Today")').first(),
-            root.locator('div:visible:has-text("Today")').filter({ hasNotText: 'Begin Date' }).first(),
-            root.locator('a:has-text("Today")').first()
-            ];
-            
-            for (const todayOpt of todayOptions) {
-            if (await todayOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
-                console.log(`→ Found 'Today' option, clicking...`);
-                await todayOpt.click();
-                endDateSet = true;
-                console.log(`→ Successfully set End Date to 'Today' using alternative ${i}`);
-                break;
-            }
-            }
-            
-            if (endDateSet) break;
-        } catch (e) {
-            console.log(`→ Alternative ${i} failed: ${e.message}`);
-        }
-        }
-    }
-    }
-
-
-
-//   // Set End Date to "End of Month"
-//   let endDateSet = false;
-//   console.log("→ Setting End Date to 'End of Month'...");
+    await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
+    await root.waitForTimeout(300);
+}  
   
-//   // Try main selector first
-//   if (await endDateButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-//     try {
-//       console.log("→ Found End Date button, clicking to open dropdown...");
-//       await endDateButton.click();
-//       await root.waitForTimeout(1000); // Wait for dropdown to appear
-      
-//       // Look for "End of Month" option in the jQuery UI dropdown menu
-//       // Try multiple selector approaches since debug shows the item exists
-//       const endOfMonthSelectors = [
-//         'ul.ui-menu li:has-text("End of Month")',
-//         'div.ui-menu-item:has-text("End of Month")', 
-//         'li[role="menuitem"]:has-text("End of Month")',
-//         'li:has-text("End of Month")',  // Simpler pattern
-//         'div:has-text("End of Month")', // Even simpler
-//         '*:has-text("End of Month")'    // Most generic
-//       ];
-      
-//       let foundEndOfMonth = false;
-//       for (const selector of endOfMonthSelectors) {
-//         const endOfMonthOption = root.locator(selector).first();
-//         if (await endOfMonthOption.isVisible({ timeout: 2000 }).catch(() => false)) {
-//           console.log(`→ Found 'End of Month' option using selector: ${selector}, clicking...`);
-//           await endOfMonthOption.click();
-//           endDateSet = true;
-//           foundEndOfMonth = true;
-//           console.log("→ Successfully set End Date to 'End of Month'");
-//           break;
-//         }
-//       }
-      
-//       if (!foundEndOfMonth) {
-//         console.log("→ Could not find 'End of Month' option in dropdown menu, debugging available options...");
-//         // Debug: log all visible menu items
-//         const allMenuItems = root.locator('ul.ui-menu li, div.ui-menu-item, li[role="menuitem"], div[role="option"]');
-//         const itemCount = await allMenuItems.count();
-//         console.log(`→ Found ${itemCount} menu items total`);
-//         for (let j = 0; j < Math.min(itemCount, 10); j++) {
-//           const itemText = await allMenuItems.nth(j).textContent().catch(() => 'ERROR');
-//           console.log(`→ Menu item ${j}: "${itemText}"`);
-//         }
-        
-//         // Try clicking by index since we know it's item 3
-//         console.log("→ Attempting to click menu item 3 (End of Month) by index...");
-//         const menuItem3 = allMenuItems.nth(3);
-//         if (await menuItem3.isVisible({ timeout: 1000 }).catch(() => false)) {
-//           await menuItem3.click();
-//           endDateSet = true;
-//           console.log("→ Successfully clicked menu item 3 (End of Month)");
-//         }
-//       }
-//     } catch (e) {
-//       console.log(`→ Failed to set End Date with main selector: ${e.message}`);
-//     }
-//   }
-  
-//   // Try alternative selectors
-//   if (!endDateSet) {
-//     for (let i = 0; i < endDateAlternatives.length; i++) {
-//       const dropdown = endDateAlternatives[i];
-//       if (await dropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
-//         try {
-//           console.log(`→ Trying End Date alternative ${i}...`);
-//           await dropdown.click();
-//           await root.waitForTimeout(1000);
-          
-//           // Look for "End of Month" option in various dropdown menu formats
-//           const endOfMonthOptions = [
-//             root.locator('ul.ui-menu li:has-text("End of Month")').first(),
-//             root.locator('div.ui-menu-item:has-text("End of Month")').first(),
-//             root.locator('li[role="menuitem"]:has-text("End of Month")').first(),
-//             root.locator('div[role="option"]:has-text("End of Month")').first(),
-//             root.locator('div:visible:has-text("End of Month")').filter({ hasNotText: 'End Date' }).first(),
-//             root.locator('a:has-text("End of Month")').first(),
-//             // Try shorter patterns in case of text wrapping
-//             root.locator('li[role="menuitem"]:has-text("End")').first(),
-//             root.locator('div:visible:has-text("Month")').filter({ hasNotText: 'End Date' }).first()
-//           ];
-          
-//           for (const endOfMonthOpt of endOfMonthOptions) {
-//             if (await endOfMonthOpt.isVisible({ timeout: 1000 }).catch(() => false)) {
-//               console.log(`→ Found 'End of Month' option, clicking...`);
-//               await endOfMonthOpt.click();
-//               endDateSet = true;
-//               console.log(`→ Successfully set End Date to 'End of Month' using alternative ${i}`);
-//               break;
-//             }
-//           }
-          
-//           if (endDateSet) break;
-//         } catch (e) {
-//           console.log(`→ Alternative ${i} failed: ${e.message}`);
-//         }
-//       }
-//     }
-//   }
-
-
-
-  
-  if (!beginDateSet || !endDateSet) {
-    console.log(`→ Warning: Could not set all dates (Begin: ${beginDateSet}, End: ${endDateSet})`);
-    await saveFailureArtifacts(root.page ? root.page() : root, "date-setting-failed");
-  }
-  
-  // Wait a moment for the date changes to take effect
-  await root.waitForTimeout(2000);
-}
+// Wait a moment for the date changes to take effect
+await root.waitForTimeout(2000);
 
 async function processExport(root) {
   console.log("→ Looking for Process button to trigger export...");
@@ -1032,6 +781,7 @@ function filterDownloadedCsv(csvText) {
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
   });
+  installCsvSniffer(context);
   context.setDefaultNavigationTimeout(NAV_TIMEOUT);
   context.setDefaultTimeout(OP_TIMEOUT);
 
@@ -1064,21 +814,15 @@ function filterDownloadedCsv(csvText) {
     await processExport(root);
 
     // Try to catch the CSV bytes directly from the network and upload to S3
-    console.log("→ Waiting for CSV network response …");
-    const csvResp = await waitForCsvResponse(context, 120_000);
-
-    if (csvResp) {
-    const csvBuf = await csvResp.body();
-    const csvText = csvBuf.toString("utf8");
-
-    console.log("→ Filtering locally to target facilities …");
-    const filtered = filterDownloadedCsv(csvText);
-    const outText = filtered.length
-        ? toCsv(filtered)
-        : (toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n");
-
-    await uploadCsvBufferToS3(Buffer.from(outText, "utf8"), "gmcc-week.csv");
-    return; // we're done; skip download/notification fallback
+    // Give the server a moment to kick off the job
+    console.log("→ Polling for captured CSV network response …");
+    const csvDeadline = Date.now() + 120_000;
+    while (Date.now() < csvDeadline && csvHits.length === 0) {
+    await workPage.waitForTimeout(500);
+    }
+    if (await flushCsvHitToS3()) {
+    console.log("→ Uploaded CSV from network capture. Done.");
+    return;
     }
 
     // Wait longer for server-side processing to complete
@@ -1108,6 +852,7 @@ function filterDownloadedCsv(csvText) {
       
       if (!download) {
         console.log("→ Attempting to retrieve document from notification center...");
+        await nukeOverlays(workPage);
         download = await accessNotificationCenter(workPage);
       }
       
