@@ -36,7 +36,7 @@ async function saveFailureArtifacts(pageLike, label) {
 
 const isLogin = (url) => /#\/login/i.test(url);
 const isHome  = (url) => /#\/home/i.test(url);
-const isFacilityInterface = (url) => /facility.*reservation|reservation.*facility/i.test(url);
+const isFacilityInterface = (url) => /facility.*reservation|reservation.*facility|#\/panel\/.*\/legacy/i.test(url);
 
 // More robust state detection functions
 async function detectPageState(page) {
@@ -51,9 +51,20 @@ async function detectPageState(page) {
   const hasLoginPrompt = await page.getByText(/Login Prompts/i).first()
     .isVisible({ timeout: 1000 }).catch(() => false);
   
-  // Check for facility grid elements
-  const hasFacilityGrid = await page.getByText(/Facility.*DataGrid|Facility Reservation Interface/i).first()
-    .isVisible({ timeout: 2000 }).catch(() => false);
+  // Check for facility grid elements - multiple patterns
+  let hasFacilityGrid = false;
+  try {
+    const checks = await Promise.allSettled([
+      page.getByText(/Facility.*DataGrid|Facility Reservation Interface/i).first().isVisible({ timeout: 1500 }),
+      page.locator('div:has-text("Facility DataGrid")').first().isVisible({ timeout: 1000 }),
+      page.locator('[class*="grid"], [class*="data-grid"], table').first().isVisible({ timeout: 1000 }),
+      page.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first().isVisible({ timeout: 1000 }),
+      page.locator('button:has(i[class*="mdi-cog"])').first().isVisible({ timeout: 1000 }) // settings gear button
+    ]);
+    hasFacilityGrid = checks.some(result => result.status === 'fulfilled' && result.value === true);
+  } catch (e) {
+    hasFacilityGrid = false;
+  }
   
   // Check for home page elements (favorites, main dashboard)
   const hasHomeFavorites = await page.getByText(/facility reservation interface/i).first()
@@ -73,6 +84,31 @@ async function detectPageState(page) {
     if (isLogin(url)) state = 'login_form';
     else if (isHome(url)) state = 'home_page';
     else if (isFacilityInterface(url)) state = 'facility_interface';
+    else if (url.includes('/panel/') && url.includes('/legacy')) {
+      // Special case: panel/legacy URLs are likely facility interface even if content isn't loaded yet
+      console.log('→ Detected panel/legacy URL pattern, waiting for content to load...');
+      await page.waitForTimeout(3000); // Give legacy interface time to load
+      
+      // Re-check for facility grid content after waiting
+      try {
+        const delayedGridCheck = await Promise.allSettled([
+          page.getByText(/Facility.*DataGrid|Facility Reservation Interface/i).first().isVisible({ timeout: 2000 }),
+          page.locator('input[aria-label*="Short Description"], input[placeholder*="Short"]').first().isVisible({ timeout: 2000 }),
+          page.locator('button:has(i[class*="mdi-cog"])').first().isVisible({ timeout: 2000 })
+        ]);
+        const hasDelayedGrid = delayedGridCheck.some(result => result.status === 'fulfilled' && result.value === true);
+        
+        if (hasDelayedGrid) {
+          console.log('→ Confirmed facility grid content after delay');
+        } else {
+          console.log('→ No facility grid content found even after delay, but URL suggests facility interface');
+        }
+      } catch (e) {
+        console.log('→ Error checking delayed grid content, but URL suggests facility interface');
+      }
+      
+      state = 'facility_interface';
+    }
   }
   
   console.log(`Detected state: ${state} (hasLoginForm: ${hasLoginForm}, hasLoginPrompt: ${hasLoginPrompt}, hasFacilityGrid: ${hasFacilityGrid}, hasHomeFavorites: ${hasHomeFavorites})`);
