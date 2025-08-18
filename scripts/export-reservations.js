@@ -4,44 +4,53 @@ import fs from "fs";
 import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-/* ========= ENV / AWS ========= */
+/* ======== ENV / S3 ======== */
 const S3_BUCKET = process.env.S3_BUCKET || "";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
 const s3 = new S3Client({ region: AWS_REGION });
 
-/* ========= CONFIG ========= */
+/* ======== CONFIG ======== */
 const FAC_TERMS = ["Community Lounge", "Multi-use Pool", "Full A+B"];
 
 // Required
-const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;     // ...#/login
-// Optional deep link to the Facility panel launcher (sometimes blank)
+const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;          // …#/login
+// Optional deep link to the facility panel
 const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL || "";
 
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
-/* ========= TIMEOUTS ========= */
-const NAV_TIMEOUT = 120_000; // first paint / route changes
-const OP_TIMEOUT  = 90_000;  // general UI ops
+/* ======== TIMEOUTS ======== */
+const NAV_TIMEOUT = 120_000;
+const OP_TIMEOUT  = 90_000;
 const LONG_WAIT   = 30_000;
 
-/* ========= UTIL ========= */
+/* ======== UTIL ======== */
 
-async function uploadCsvBufferToS3(buf, key) {
-  if (!S3_BUCKET) return;
+async function uploadBufferToS3(buf, key, contentType = "text/plain") {
+  if (!S3_BUCKET) return; // optional
   await s3.send(new PutObjectCommand({
     Bucket: S3_BUCKET,
     Key: key,
     Body: buf,
-    ContentType: "text/csv",
+    ContentType: contentType,
     CacheControl: "no-cache",
   }));
   console.log(`→ Uploaded to s3://${S3_BUCKET}/${key}`);
 }
 
+async function uploadFileToS3(localPath, key, fallbackCT = "text/plain") {
+  if (!S3_BUCKET) return;
+  const buf = fs.readFileSync(localPath);
+  // crude CT guess
+  const ct = localPath.endsWith(".csv") ? "text/csv" :
+             localPath.endsWith(".pdf") ? "application/pdf" :
+             localPath.endsWith(".txt") ? "text/plain" : fallbackCT;
+  await uploadBufferToS3(buf, key, ct);
+}
+
 async function saveFailureArtifacts(pageLike, label) {
-  const page = pageLike?.page ? pageLike.page() : pageLike;
-  if (!page) return;
+  const page = pageLike.page ? pageLike.page() : pageLike;
   try {
     await page.screenshot({ path: `playwright-${label}.png`, fullPage: true });
     fs.writeFileSync(`playwright-${label}.html`, await page.content(), "utf8");
@@ -65,125 +74,7 @@ async function clickIfResumePrompt(root) {
   }
 }
 
-function addDays(d, days) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + days);
-  return x;
-}
-function formatUS(d) {
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${mm}/${dd}/${d.getFullYear()}`;
-}
-
-/** Pick a relative date option (e.g., "Today") for a field by label. */
-async function chooseRelativeDate(root, fieldLabel, optionText) {
-  // Find the container that owns the label
-  const container = root.locator('div').filter({
-    has: root.locator(`label:has-text("${fieldLabel}")`)
-  }).first();
-
-  // The “Actual Date/Today/etc.” trigger button inside that container
-  const trigger = container.locator('button.ui-datetime-date-option, button:has-text("Actual Date"), button').first();
-
-  await trigger.scrollIntoViewIfNeeded().catch(() => {});
-  await trigger.click({ force: true }).catch(() => {});
-
-  // jQuery-UI menu (prefer within same frame)
-  let menu = root.locator('ul.ui-menu[aria-hidden="false"]').first();
-
-  // If not visible yet, scan page + frames
-  if (!(await menu.isVisible({ timeout: 800 }).catch(() => false))) {
-    const pageLike = root.page ? root.page() : null;
-    const scopes = pageLike ? [pageLike, ...pageLike.frames()] : [];
-    for (const s of scopes) {
-      const m = s.locator('ul.ui-menu[aria-hidden="false"]').first();
-      if (await m.isVisible({ timeout: 300 }).catch(() => false)) { menu = m; break; }
-    }
-  }
-
-  if (await menu.isVisible({ timeout: 800 }).catch(() => false)) {
-    let item = menu.getByRole('menuitem', { name: new RegExp(`^${optionText}$`, 'i') }).first();
-    if (!(await item.isVisible().catch(() => false))) {
-      item = menu.locator('li[role="menuitem"], .ui-menu-item')
-                 .filter({ hasText: new RegExp(`^${optionText}$`, 'i') })
-                 .first();
-    }
-    await item.click().catch(() => {});
-    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
-    await root.waitForTimeout(120);
-    return;
-  }
-
-  // Fallback: set the text input directly to today's date
-  const input = container.locator('input[type="text"], input').first();
-  const todayText = formatUS(new Date());
-  await input.fill(todayText).catch(() => {});
-  await input.blur().catch(() => {});
-  await root.waitForTimeout(120);
-}
-
-/** Force a field's mode to "Actual Date" and fill its text box. */
-async function setActualDate(root, fieldLabel, dateObj) {
-  const container = root.locator('div').filter({
-    has: root.locator(`label:has-text("${fieldLabel}")`)
-  }).first();
-
-  const trigger = container.locator('button.ui-datetime-date-option, button').first();
-  const current = (await trigger.textContent().catch(() => '') || '').toLowerCase();
-
-  if (!current.includes('actual')) {
-    await trigger.click().catch(() => {});
-    const menu = root.locator('ul.ui-menu[aria-hidden="false"]').last();
-    if (await menu.isVisible({ timeout: 1500 }).catch(() => false)) {
-      const item = menu.getByRole('menuitem', { name: /Actual Date/i }).first();
-      if (await item.isVisible().catch(() => false)) await item.click().catch(() => {});
-    }
-    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
-  }
-
-  const candidates = [
-    container.locator('input[aria-label*="date" i]').first(),
-    container.locator('input[placeholder*="/" i]').first(),
-    container.locator('input[type="text"]').last(),
-    container.locator('input').last(),
-  ];
-  let input = null;
-  for (const c of candidates) {
-    if (await c.isVisible({ timeout: 500 }).catch(() => false)) { input = c; break; }
-  }
-  if (input) {
-    const value = formatUS(dateObj);
-    await input.click().catch(() => {});
-    await input.fill(value).catch(() => {});
-    await input.blur().catch(() => {});
-    console.log(`→ Set ${fieldLabel} to Actual Date ${value}`);
-  } else {
-    console.log(`→ Could not locate input for ${fieldLabel}`);
-  }
-}
-
-/** Basic overlay cleanup to unblock UI. */
-async function nukeOverlays(page) {
-  const roots = [page, ...page.frames()];
-  for (const r of roots) {
-    try { await r.keyboard.press("Escape"); } catch {}
-    try {
-      await r.locator(
-        '.ui-dialog .ui-dialog-titlebar-close, .ui-dialog button:has-text("Close"), ' +
-        '[role="dialog"] button:has-text("Close"), [role="dialog"] button:has-text("OK")'
-      ).first().click({ timeout: 800 });
-    } catch {}
-    try {
-      await r.evaluate(() => {
-        document.querySelectorAll('.ui-widget-overlay, .ui-widget-overlay.skipwidget')
-          .forEach(el => el.remove());
-      });
-    } catch {}
-  }
-}
-
-/* ========= CSV HELPERS ========= */
+/* ======== CSV helpers (filter) ======== */
 function parseCsv(text) {
   const rows = [];
   let i = 0, field = "", inQ = false, row = [];
@@ -214,17 +105,12 @@ function toCsv(rows) {
 function filterDownloadedCsv(csvText) {
   const rows = parseCsv(csvText);
   if (!rows.length) return [];
-
   const headers = rows[0];
-  const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h) || /short.*desc/i.test(h));
+  const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h));
   const idxClass = headers.findIndex(h => /fac.*class/i.test(h));
   const idxLoc   = headers.findIndex(h => /fac.*loc/i.test(h));
   const idxCode  = headers.findIndex(h => /fac.*code/i.test(h));
   const idxStat  = headers.findIndex(h => /status/i.test(h));
-
-  console.log("→ Header map:",
-    JSON.stringify({ idxShort, idxClass, idxLoc, idxCode, idxStat })
-  );
 
   const wanted = FAC_TERMS.map(s => s.toLowerCase());
   const out = [];
@@ -245,7 +131,7 @@ function filterDownloadedCsv(csvText) {
   return out;
 }
 
-/* ========= LOGIN / NAV ========= */
+/* ======== Login / Nav ======== */
 async function gotoWithRetries(page, url, label) {
   for (let i = 1; i <= 3; i++) {
     try {
@@ -276,8 +162,7 @@ async function fullyLogin(page) {
     if (!page.url().includes('#/login')) break;
 
     const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 3000 }).catch(() => false);
-
+    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(() => false);
     if (hasLogin) {
       await userField.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
@@ -287,8 +172,7 @@ async function fullyLogin(page) {
       ]);
       continue;
     }
-
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(800);
   }
 
   if (page.url().includes('#/login')) {
@@ -298,13 +182,16 @@ async function fullyLogin(page) {
 }
 
 async function openFacilityPanel(context, page) {
-  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
+  if (GRID_URL) {
+    await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  }
   await clickIfResumePrompt(page);
   for (const f of page.frames()) await clickIfResumePrompt(f);
 
-  // Some tenants open a legacy popup
+  // Pre-arm for possible popup
   const waitPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
 
+  // Try common launchers
   const candidates = [
     page.getByRole('button', { name: /data\s*grid/i }),
     page.getByRole('link', { name: /facility reservation interface/i }),
@@ -332,7 +219,7 @@ async function openFacilityDataGrid(page) {
   await waitOutSpinner(page);
   await clickIfResumePrompt(page);
 
-  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 800 }).catch(() => false)) return;
+  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(() => false)) return;
 
   const candidates = [
     page.getByRole('button', { name: /data\s*grid/i }),
@@ -352,6 +239,99 @@ async function openFacilityDataGrid(page) {
   }
 }
 
+/* ======== Date helpers ======== */
+function addDays(d, days) { const x = new Date(d); x.setDate(x.getDate() + days); return x; }
+function formatUS(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+// Click the small left-hand mode button and pick "Actual Date" if needed,
+// then fill the text input next to it.
+async function setActualDate(root, fieldLabel, dateObj) {
+  const container = root.locator('div').filter({
+    has: root.locator(`label:has-text("${fieldLabel}")`)
+  }).first();
+
+  const trigger = container.locator('button.ui-datetime-date-option, button').first();
+  const current = (await trigger.textContent().catch(() => '') || '').toLowerCase();
+  if (!current.includes('actual')) {
+    await trigger.click().catch(() => {});
+    const menu = root.locator('ul.ui-menu[aria-hidden="false"]').last();
+    if (await menu.isVisible({ timeout: 1500 }).catch(() => false)) {
+      const item = menu.getByRole('menuitem', { name: /Actual Date/i }).first();
+      if (await item.isVisible().catch(() => false)) await item.click().catch(() => {});
+    }
+    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
+  }
+
+  // Fill the input
+  const candidates = [
+    container.locator('input[aria-label*="date" i]').first(),
+    container.locator('input[placeholder*="/" i]').first(),
+    container.locator('input[type="text"]').last(),
+    container.locator('input').last(),
+  ];
+  let input = null;
+  for (const c of candidates) {
+    if (await c.isVisible({ timeout: 500 }).catch(() => false)) { input = c; break; }
+  }
+  if (input) {
+    const value = formatUS(dateObj);
+    await input.click().catch(() => {});
+    await input.fill(value).catch(() => {});
+    await input.blur().catch(() => {});
+    // Read back
+    const readBack = (await input.inputValue().catch(() => "")) || "";
+    console.log(`→ End Date input now shows: "${readBack}"`);
+  } else {
+    console.log(`→ Could not locate input for ${fieldLabel}`);
+  }
+}
+
+async function chooseRelativeToday(root, fieldLabel) {
+  const container = root.locator('div').filter({
+    has: root.locator(`label:has-text("${fieldLabel}")`)
+  }).first();
+
+  // Mode button -> choose "Today"
+  const trigger = container.locator('button.ui-datetime-date-option, button').first();
+  await trigger.click({ force: true }).catch(() => {});
+  let menu = root.locator('ul.ui-menu[aria-hidden="false"]').first();
+  if (await menu.isVisible({ timeout: 800 }).catch(() => false)) {
+    const item = menu.getByRole('menuitem', { name: /^Today$/i }).first();
+    await item.click().catch(() => {});
+  } else {
+    // fallback: just ensure blurs
+    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
+  }
+
+  // There is usually a small numeric offset next to "Today"
+  const offset = container.locator('input[type="number"], input[aria-label*="offset" i]').first();
+  if (await offset.isVisible({ timeout: 500 }).catch(() => false)) {
+    await offset.fill("0").catch(() => {});
+    await offset.blur().catch(() => {});
+    const readBack = (await offset.inputValue().catch(() => "")) || "";
+    console.log(`→ Begin Date offset now shows: "${readBack}"`);
+  }
+}
+
+async function setDateRanges(root) {
+  console.log("→ Setting date range …");
+  await chooseRelativeToday(root, "Begin Date");
+  await setActualDate(root, "End Date", addDays(new Date(), 13));
+
+  // Focused screenshot of the Additional Criteria block for verification
+  const crit = root.getByText(/Additional Criteria/i).locator("..");
+  try {
+    await crit.scrollIntoViewIfNeeded().catch(() => {});
+    const page = root.page ? root.page() : root;
+    await page.screenshot({ path: "playwright-dates-confirm.png", fullPage: false });
+  } catch {}
+}
+
+/* ======== Export ======== */
 async function findGridRoot(page) {
   const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
 
@@ -373,132 +353,81 @@ async function findGridRoot(page) {
       r = await tryRoot(f);
       if (r) return r;
     }
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(700);
   }
   return null;
 }
 
-/* ========= NOTIFICATION CENTER ========= */
-async function accessNotificationCenter(page) {
-  console.log("→ Opening Notification Center …");
-  try {
-    // Try to find a bell/notification button anywhere in the left sidebar
-    const notificationSelectors = [
-      'button[aria-label*="Notification" i]',
-      'button[title*="Notification" i]',
-      'button[class*="notification"]',
-      '.sidebar button:has(svg)',
-      'aside button, nav button, .sidebar button'
-    ];
-    let notificationButton = null;
-    for (const sel of notificationSelectors) {
-      const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) { notificationButton = btn; break; }
-    }
-    if (!notificationButton) return null;
-
-    await notificationButton.click().catch(() => {});
-    await page.waitForTimeout(1200);
-
-    // Panel & latest "Preview Document" for FacilityReservationInterface
-    const panel = page.locator('div:has-text("Notifications"), .notification-panel, .notifications-dropdown, [class*="notification"][class*="panel"]').first();
-    if (!(await panel.isVisible({ timeout: 4000 }).catch(() => false))) return null;
-
-    const latest = panel.locator('div:has-text("FacilityReservationInterface"), div:has-text("Process is Complete")').first();
-    const preview = latest.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
-
-    const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
-    if (await preview.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await preview.click().catch(() => {});
-      const dl = await downloadPromise;
-      console.log("→ Download started from Notification Center");
-      return dl;
-    }
-
-    // Fallback: clicking the latest item to expand
-    await latest.click().catch(() => {});
-    await page.waitForTimeout(600);
-    const preview2 = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
-    if (await preview2.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await preview2.click().catch(() => {});
-      const dl = await downloadPromise;
-      console.log("→ Download started from Notification Center");
-      return dl;
-    }
-
-    return null;
-  } catch (e) {
-    console.log("→ Notification Center error:", e?.message || e);
-    return null;
-  }
-}
-
-/* ========= EXPORT FLOW ========= */
-async function setDateRanges(root) {
-  console.log("→ Setting date range: Begin = Today (0), End = Actual Date (today + 13) …");
-  try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
-
-  // Begin = Today (relative)
-  await chooseRelativeDate(root, "Begin Date", "Today").catch(() => {});
-
-  // End = Actual Date (today + 13) → 14-day window inclusive
-  await setActualDate(root, "End Date", addDays(new Date(), 13));
-  await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
-  await root.waitForTimeout(250);
-}
-
 async function clickProcess(root) {
-  const processCandidates = [
-    root.locator('button:has-text("Process")').first(),
-    root.locator('input[type="button"][value="Process"]').first(),
-    root.locator('input[type="submit"][value="Process"]').first(),
-    root.locator('button[value="Process"]').first(),
-  ];
-  for (const c of processCandidates) {
-    if (await c.isVisible({ timeout: 800 }).catch(() => false)) {
-      await c.click({ timeout: 3000 }).catch(() => {});
-      await root.waitForTimeout(1200);
-      return true;
-    }
+  const btn = root.locator('button:has-text("Process"), input[type="button"][value="Process"], input[type="submit"][value="Process"]').first();
+  await btn.scrollIntoViewIfNeeded().catch(() => {});
+  await btn.click({ timeout: 6_000 }).catch(() => {});
+  await waitOutSpinner(root);
+
+  // close any “Success / sent to server” dialog
+  const closeBtn = root.locator('.ui-dialog button:has-text("Close"), .ui-dialog .ui-dialog-titlebar-close, [role="dialog"] button:has-text("OK")').first();
+  if (await closeBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await closeBtn.click().catch(() => {});
   }
-  return false;
 }
 
-async function processExport(root) {
-  console.log("→ Preparing export …");
-  await setDateRanges(root);
-
-  // Screenshot before pressing Process
-  await saveFailureArtifacts(root.page ? root.page() : root, "before-process-button");
-
-  const ok = await clickProcess(root);
-  if (!ok) {
-    await saveFailureArtifacts(root.page ? root.page() : root, "no-process-button");
-    throw new Error("Could not find the Process button.");
-  }
-
-  // Close any modal "sent to server / success" dialog
-  const closeBtns = [
-    root.locator('.ui-dialog').locator('button:has-text("Close")'),
-    root.locator('.ui-dialog').locator('button:has-text("OK")'),
-    root.locator('.ui-dialog .ui-dialog-titlebar-close'),
-    root.locator('[role="dialog"]').locator('button:has-text("Close")'),
+async function openNotificationCenter(page) {
+  // Try several likely sidebar buttons
+  const guesses = [
+    'button[aria-label*="Notification" i]',
+    'button[title*="Notification" i]',
+    'button[class*="notification" i]',
+    '.sidebar button:has(svg)',
+    'aside button', 'nav button'
   ];
-  for (const b of closeBtns) {
-    if (await b.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await b.click().catch(() => {});
-      await root.waitForTimeout(600);
+  for (const sel of guesses) {
+    const cand = page.locator(sel).first();
+    if (await cand.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await cand.click().catch(() => {});
+      await page.waitForTimeout(800);
       break;
     }
   }
 
-  // Look in notification center for the finished document
-  const pageLike = root.page ? root.page() : root;
-  await nukeOverlays(pageLike);
-  return await accessNotificationCenter(pageLike);
+  // Look for the panel and the latest FacilityReservationInterface entry
+  const panel = page.locator('div:has-text("Notifications"), .notification-panel, .notifications-dropdown').first();
+  if (!(await panel.isVisible({ timeout: 4000 }).catch(() => false))) return null;
+
+  const latest = panel.locator('div:has-text("FacilityReservationInterface"), div:has-text("Process is Complete")').first();
+  if (!(await latest.isVisible({ timeout: 2000 }).catch(() => false))) return null;
+
+  // Prefer a “Preview Document” button
+  let preview = latest.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+  if (!(await preview.isVisible({ timeout: 1000 }).catch(() => false))) {
+    await latest.click().catch(() => {});
+    await page.waitForTimeout(500);
+    preview = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+  }
+  if (await preview.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const downloadPromise = page.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
+    await preview.click().catch(() => {});
+    return await downloadPromise;
+  }
+  return null;
 }
 
-/* ========= MAIN ========= */
+async function processExport(root, page) {
+  console.log("→ Preparing export …");
+  // 1) Dates first
+  await setDateRanges(root);
+
+  // 2) Now click Process
+  console.log("→ Clicking Process …");
+  await clickProcess(root);
+
+  // 3) Get the file via Notification Center
+  console.log("→ Opening Notification Center …");
+  const download = await openNotificationCenter(page);
+  if (!download) throw new Error("Could not retrieve the exported document from Notification Center.");
+  return download;
+}
+
+/* ======== MAIN ======== */
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -526,66 +455,44 @@ async function processExport(root) {
     const root = await findGridRoot(workPage);
     if (!root) {
       await saveFailureArtifacts(workPage, 'no-grid');
-      throw new Error('Could not find the Facilities grid (panel loaded but DataGrid never appeared).');
+      throw new Error('Could not find the Facilities grid.');
     }
 
     console.log("→ Processing export …");
-    const download = await processExport(root);
-    if (!download) {
-      await saveFailureArtifacts(workPage, "no-download");
-      console.log("→ No download detected—check Notification Center manually.");
-      return;
-    }
+    const download = await processExport(root, workPage);
 
-    // Persist downloaded file (path may be ephemeral)
-    let tmpPath = await download.path();
-    if (!tmpPath) {
-      const alt = path.resolve(`./${download.suggestedFilename() || "rectrac-export.csv"}`);
-      await download.saveAs(alt);
-      tmpPath = alt;
-    }
-    const csvText = fs.readFileSync(tmpPath, "utf8");
-
-    // Save & (optionally) upload RAW export
-    const rawPath = path.resolve("gmcc-week-raw.csv");
-    fs.writeFileSync(rawPath, csvText, "utf8");
+    // Save raw exactly as delivered
+    let suggested = download.suggestedFilename() || "rectrac-export";
+    if (!/\.[a-z0-9]{2,5}$/i.test(suggested)) suggested += ".csv";
+    const rawPath = path.resolve(`gmcc-week-raw${path.extname(suggested) ? path.extname(suggested) : ".csv"}`);
+    await download.saveAs(rawPath);
     console.log(`→ Saved raw export to ${rawPath}`);
-    try {
-      await uploadCsvBufferToS3(Buffer.from(csvText, "utf8"), "gmcc-week-raw.csv");
-      if (S3_BUCKET) console.log("→ Also uploaded raw export to S3 as gmcc-week-raw.csv");
-    } catch (e) {
-      console.log("→ Raw upload skipped/failed:", e?.message || e);
-    }
 
-    // Inspect headers & counts
-    const parsed = parseCsv(csvText);
-    const header = parsed[0] || [];
-    console.log("→ Export headers:", header.join(" | "));
-    console.log(`→ Raw export rows (including header): ${parsed.length}`);
+    // Read and log some stats
+    const rawText = fs.readFileSync(rawPath, "utf8");
+    const rows = parseCsv(rawText);
+    const header = rows[0] ? rows[0].join(",") : "";
+    console.log(`→ Export headers: ${header}`);
+    console.log(`→ Raw export rows (including header): ${rows.length}`);
 
-    // Filter to targets and write filtered CSV
-    console.log("→ Filtering locally to target facilities …");
-    const filtered = filterDownloadedCsv(csvText);
-    const outPath = path.resolve("gmcc-week.csv");
+    // Produce filtered CSV for the GMCC calendar
+    const filtered = filterDownloadedCsv(rawText);
+    const filteredPath = path.resolve("gmcc-week.csv");
     if (filtered.length) {
-      fs.writeFileSync(outPath, toCsv(filtered), "utf8");
-      console.log(`→ Wrote ${filtered.length} matching rows to ${outPath}`);
-      try {
-        await uploadCsvBufferToS3(Buffer.from(toCsv(filtered), "utf8"), "gmcc-week.csv");
-      } catch (e) {
-        console.log("→ Filtered upload skipped/failed:", e?.message || e);
-      }
+      fs.writeFileSync(filteredPath, toCsv(filtered), "utf8");
+      console.log(`→ Wrote ${filtered.length} matching rows to ${filteredPath}`);
     } else {
-      // Preserve header-only file for downstream expectations
-      const headerOnly = toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n";
-      fs.writeFileSync(outPath, headerOnly, "utf8");
-      console.log(`→ Wrote 0 matching rows to ${outPath}`);
-      try {
-        await uploadCsvBufferToS3(Buffer.from(headerOnly, "utf8"), "gmcc-week.csv");
-      } catch (e) {
-        console.log("→ Filtered upload skipped/failed:", e?.message || e);
-      }
+      fs.writeFileSync(
+        filteredPath,
+        toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n",
+        "utf8"
+      );
+      console.log(`→ Wrote 0 matching rows to ${filteredPath}`);
     }
+
+    // Upload both (optional but recommended for Vercel)
+    await uploadFileToS3(rawPath, "gmcc-week-raw.csv", "text/csv");
+    await uploadFileToS3(filteredPath, "gmcc-week.csv", "text/csv");
 
   } catch (err) {
     console.error("Scrape failed:", err);
