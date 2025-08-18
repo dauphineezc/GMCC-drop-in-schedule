@@ -71,35 +71,50 @@ function toCsv(rows) {
 
 /* ---------------- login & navigation ---------------- */
 async function fullyLogin(page) {
-  const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
-  const passSel = 'input[name="password"], #password, input[type="password"]';
+  const userSel   = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
+  const passSel   = 'input[name="password"], #password, input[type="password"]';
   const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Sign In")';
 
-  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+  // ---- robust initial navigation with retries ----
+  const attempts = 3;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      // Return as soon as response is committed (don’t wait for DOM yet)
+      await page.goto(LOGIN_URL, { waitUntil: 'commit', timeout: NAV_TIMEOUT });
+      // Now wait for DOM, but don’t fail the run if it’s a bit slow
+      await page.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => {});
+      break; // success
+    } catch (e) {
+      await saveFailureArtifacts(page, `goto-timeout-${i}`);
+      if (i === attempts) throw e;          // bubble up on final failure
+      await page.waitForTimeout(1500);      // brief backoff and try again
+    }
+  }
 
+  // Login loop: up to 90s handle spinner/prompt and submit form if visible
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     await clickIfResumePrompt(page);
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
 
-    // If we’ve moved off the login route, we’re done
+    // If we navigated off the #/login route, we’re done
     if (!page.url().includes('#/login')) return;
 
-    // Try to submit the form if visible
+    // If the form is there, submit it
     const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 1500 }).catch(() => false);
-    if (hasLogin) {
+    if (await userField.isVisible({ timeout: 2000 }).catch(() => false)) {
       await userField.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
       await Promise.all([
         page.waitForLoadState('networkidle').catch(() => {}),
-        page.click(submitSel).catch(() => {})
+        page.click(submitSel).catch(() => {}),
       ]);
       continue;
     }
 
-    await page.waitForTimeout(600);
+    // Nothing actionable yet
+    await page.waitForTimeout(700);
   }
 
   await saveFailureArtifacts(page, 'login-stuck');
@@ -266,12 +281,21 @@ function filterDownloadedCsv(csvText) {
 }
 
 /* ---------------- main ---------------- */
-(async () => {
-  const browser = await chromium.launch({ headless: true });
-  // acceptDownloads is required to capture the CSV
-  const context = await browser.newContext({ acceptDownloads: true });
-  const page = await context.newPage();
-  page.setDefaultTimeout(TIMEOUT);
+const NAV_TIMEOUT = 120000;   // 2 min for first navigation
+const OP_TIMEOUT  = 90000;    // general ops
+
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext({
+  acceptDownloads: true,
+  locale: 'en-US',
+  timezoneId: 'America/Detroit',
+  userAgent:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+});
+context.setDefaultNavigationTimeout(NAV_TIMEOUT);
+context.setDefaultTimeout(OP_TIMEOUT);
+
+const page = await context.newPage();
 
   try {
     // 1) Login
