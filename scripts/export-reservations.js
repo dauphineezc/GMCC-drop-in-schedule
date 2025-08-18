@@ -5,8 +5,8 @@ import path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 /* ========= ENV / AWS ========= */
-const S3_BUCKET = process.env.S3_BUCKET;
-const AWS_REGION = process.env.AWS_REGION;
+const S3_BUCKET = process.env.S3_BUCKET || "";
+const AWS_REGION = process.env.AWS_REGION || "us-east-1";
 const s3 = new S3Client({ region: AWS_REGION });
 
 /* ========= CONFIG ========= */
@@ -14,7 +14,7 @@ const FAC_TERMS = ["Community Lounge", "Multi-use Pool", "Full A+B"];
 
 // Required
 const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;     // ...#/login
-// Optional: a deep link that *sometimes* loads a blank panel. We'll still try it first.
+// Optional deep link to the Facility panel launcher (sometimes blank)
 const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL || "";
 
 const USERNAME  = process.env.RECTRAC_USER;
@@ -27,8 +27,8 @@ const LONG_WAIT   = 30_000;
 
 /* ========= UTIL ========= */
 
-async function uploadCsvBufferToS3(buf, key = "gmcc-week.csv") {
-  if (!S3_BUCKET) return; // optional
+async function uploadCsvBufferToS3(buf, key) {
+  if (!S3_BUCKET) return;
   await s3.send(new PutObjectCommand({
     Bucket: S3_BUCKET,
     Key: key,
@@ -39,26 +39,9 @@ async function uploadCsvBufferToS3(buf, key = "gmcc-week.csv") {
   console.log(`→ Uploaded to s3://${S3_BUCKET}/${key}`);
 }
 
-async function nukeOverlays(page) {
-  const roots = [page, ...page.frames()];
-  for (const r of roots) {
-    try { await r.keyboard.press("Escape"); } catch {}
-    try {
-      await r.locator(
-        '.ui-dialog .ui-dialog-titlebar-close, .ui-dialog button:has-text("Close"), [role="dialog"] button:has-text("Close"), [role="dialog"] button:has-text("OK")'
-      ).first().click({ timeout: 1000 });
-    } catch {}
-    try {
-      await r.evaluate(() => {
-        document.querySelectorAll('.ui-widget-overlay, .ui-widget-overlay.skipwidget')
-          .forEach(el => el.remove());
-      });
-    } catch {}
-  }
-}
-
 async function saveFailureArtifacts(pageLike, label) {
-  const page = pageLike.page ? pageLike.page() : pageLike;
+  const page = pageLike?.page ? pageLike.page() : pageLike;
+  if (!page) return;
   try {
     await page.screenshot({ path: `playwright-${label}.png`, fullPage: true });
     fs.writeFileSync(`playwright-${label}.html`, await page.content(), "utf8");
@@ -82,81 +65,88 @@ async function clickIfResumePrompt(root) {
   }
 }
 
-/* ---- Date helpers ---- */
-function addDays(d, days) { const x = new Date(d); x.setDate(x.getDate() + days); return x; }
+function addDays(d, days) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
 function formatUS(d) {
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
   return `${mm}/${dd}/${d.getFullYear()}`;
 }
 
-// Select a relative option like "Today" from the jQuery-UI date menu.
-// Falls back to typing today's date if the menu doesn't appear.
+/** Pick a relative date option (e.g., "Today") for a field by label. */
 async function chooseRelativeDate(root, fieldLabel, optionText) {
-  const container = root.locator("div").filter({
+  // Find the container that owns the label
+  const container = root.locator('div').filter({
     has: root.locator(`label:has-text("${fieldLabel}")`)
   }).first();
 
-  const trigger = container.locator('button.ui-datetime-date-option, button:has-text("Actual Date")').first();
-  await trigger.scrollIntoViewIfNeeded().catch(() => {});
-  await trigger.click({ force: true });
+  // The “Actual Date/Today/etc.” trigger button inside that container
+  const trigger = container.locator('button.ui-datetime-date-option, button:has-text("Actual Date"), button').first();
 
-  let menu = root.locator('ul.ui-menu[aria-hidden="false"], ul.ui-menu:visible').first();
-  if (!(await menu.isVisible({ timeout: 400 }).catch(() => false))) {
-    const page = root.page ? root.page() : null;
-    const scopes = page ? [page, ...page.frames()] : [];
+  await trigger.scrollIntoViewIfNeeded().catch(() => {});
+  await trigger.click({ force: true }).catch(() => {});
+
+  // jQuery-UI menu (prefer within same frame)
+  let menu = root.locator('ul.ui-menu[aria-hidden="false"]').first();
+
+  // If not visible yet, scan page + frames
+  if (!(await menu.isVisible({ timeout: 800 }).catch(() => false))) {
+    const pageLike = root.page ? root.page() : null;
+    const scopes = pageLike ? [pageLike, ...pageLike.frames()] : [];
     for (const s of scopes) {
-      const m = s.locator('ul.ui-menu[aria-hidden="false"], ul.ui-menu:visible').first();
-      if (await m.isVisible({ timeout: 150 }).catch(() => false)) { menu = m; break; }
+      const m = s.locator('ul.ui-menu[aria-hidden="false"]').first();
+      if (await m.isVisible({ timeout: 300 }).catch(() => false)) { menu = m; break; }
     }
   }
 
-  if (await menu.isVisible({ timeout: 150 }).catch(() => false)) {
-    let item = menu.getByRole("menuitem", { name: new RegExp(`^${optionText}$`, "i") }).first();
+  if (await menu.isVisible({ timeout: 800 }).catch(() => false)) {
+    let item = menu.getByRole('menuitem', { name: new RegExp(`^${optionText}$`, 'i') }).first();
     if (!(await item.isVisible().catch(() => false))) {
       item = menu.locator('li[role="menuitem"], .ui-menu-item')
-                 .filter({ hasText: new RegExp(`^${optionText}$`, "i") }).first();
+                 .filter({ hasText: new RegExp(`^${optionText}$`, 'i') })
+                 .first();
     }
     await item.click().catch(() => {});
-    await (root.page ? root.page() : root).keyboard.press("Escape").catch(() => {});
+    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
     await root.waitForTimeout(120);
     return;
   }
 
-  // Fallback: type today's date
+  // Fallback: set the text input directly to today's date
   const input = container.locator('input[type="text"], input').first();
   const todayText = formatUS(new Date());
-  await input.fill(todayText);
-  await input.dispatchEvent("input").catch(() => {});
-  await input.dispatchEvent("change").catch(() => {});
+  await input.fill(todayText).catch(() => {});
   await input.blur().catch(() => {});
   await root.waitForTimeout(120);
 }
 
-// Force a field's mode to "Actual Date" and fill its text box.
+/** Force a field's mode to "Actual Date" and fill its text box. */
 async function setActualDate(root, fieldLabel, dateObj) {
-  const container = root.locator("div").filter({
+  const container = root.locator('div').filter({
     has: root.locator(`label:has-text("${fieldLabel}")`)
   }).first();
 
-  const trigger = container.locator("button.ui-datetime-date-option, button").first();
-  const current = (await trigger.textContent().catch(() => "") || "").toLowerCase();
-  if (!current.includes("actual")) {
+  const trigger = container.locator('button.ui-datetime-date-option, button').first();
+  const current = (await trigger.textContent().catch(() => '') || '').toLowerCase();
+
+  if (!current.includes('actual')) {
     await trigger.click().catch(() => {});
     const menu = root.locator('ul.ui-menu[aria-hidden="false"]').last();
     if (await menu.isVisible({ timeout: 1500 }).catch(() => false)) {
-      const item = menu.getByRole("menuitem", { name: /Actual Date/i }).first();
+      const item = menu.getByRole('menuitem', { name: /Actual Date/i }).first();
       if (await item.isVisible().catch(() => false)) await item.click().catch(() => {});
     }
-    await (root.page ? root.page() : root).keyboard.press("Escape").catch(() => {});
+    await (root.page ? root.page() : root).keyboard.press('Escape').catch(() => {});
   }
 
-  // Fill the date input near the trigger
   const candidates = [
     container.locator('input[aria-label*="date" i]').first(),
     container.locator('input[placeholder*="/" i]').first(),
     container.locator('input[type="text"]').last(),
-    container.locator("input").last(),
+    container.locator('input').last(),
   ];
   let input = null;
   for (const c of candidates) {
@@ -173,32 +163,27 @@ async function setActualDate(root, fieldLabel, dateObj) {
   }
 }
 
-// If there's a numeric offset for "Begin Date = Today", ensure it's 0.
-async function ensureBeginOffsetZero(root, fieldLabel = "Begin Date") {
-  const container = root.locator("div").filter({
-    has: root.locator(`label:has-text("${fieldLabel}")`)
-  }).first();
-
-  const offset = container.locator('input[type="number"], input[aria-label*="offset" i]').first();
-  if (await offset.isVisible({ timeout: 500 }).catch(() => false)) {
-    await offset.fill("0").catch(() => {});
-    await offset.blur().catch(() => {});
+/** Basic overlay cleanup to unblock UI. */
+async function nukeOverlays(page) {
+  const roots = [page, ...page.frames()];
+  for (const r of roots) {
+    try { await r.keyboard.press("Escape"); } catch {}
+    try {
+      await r.locator(
+        '.ui-dialog .ui-dialog-titlebar-close, .ui-dialog button:has-text("Close"), ' +
+        '[role="dialog"] button:has-text("Close"), [role="dialog"] button:has-text("OK")'
+      ).first().click({ timeout: 800 });
+    } catch {}
+    try {
+      await r.evaluate(() => {
+        document.querySelectorAll('.ui-widget-overlay, .ui-widget-overlay.skipwidget')
+          .forEach(el => el.remove());
+      });
+    } catch {}
   }
 }
 
-async function setDateRanges(root) {
-  console.log("→ Setting date range: Begin = Today (0), End = Actual Date (today + 13) …");
-  try { await (root.page ? root.page() : root).keyboard.press("Escape"); } catch {}
-
-  await chooseRelativeDate(root, "Begin Date", "Today").catch(() => {});
-  await ensureBeginOffsetZero(root).catch(() => {});
-  await setActualDate(root, "End Date", addDays(new Date(), 13)); // 2 weeks inclusive
-
-  await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
-  await root.waitForTimeout(300);
-}
-
-/* ---- CSV helpers ---- */
+/* ========= CSV HELPERS ========= */
 function parseCsv(text) {
   const rows = [];
   let i = 0, field = "", inQ = false, row = [];
@@ -231,11 +216,15 @@ function filterDownloadedCsv(csvText) {
   if (!rows.length) return [];
 
   const headers = rows[0];
-  const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h));
+  const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h) || /short.*desc/i.test(h));
   const idxClass = headers.findIndex(h => /fac.*class/i.test(h));
   const idxLoc   = headers.findIndex(h => /fac.*loc/i.test(h));
   const idxCode  = headers.findIndex(h => /fac.*code/i.test(h));
   const idxStat  = headers.findIndex(h => /status/i.test(h));
+
+  console.log("→ Header map:",
+    JSON.stringify({ idxShort, idxClass, idxLoc, idxCode, idxStat })
+  );
 
   const wanted = FAC_TERMS.map(s => s.toLowerCase());
   const out = [];
@@ -284,40 +273,41 @@ async function fullyLogin(page) {
     for (const f of page.frames()) await clickIfResumePrompt(f);
     await waitOutSpinner(page);
 
-    if (!page.url().includes("#/login")) break;
+    if (!page.url().includes('#/login')) break;
 
     const userField = page.locator(userSel).first();
-    const hasLogin = await userField.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasLogin = await userField.isVisible({ timeout: 3000 }).catch(() => false);
 
     if (hasLogin) {
       await userField.fill(USERNAME);
       await page.locator(passSel).first().fill(PASSWORD);
       await Promise.all([
-        page.waitForLoadState("networkidle").catch(() => {}),
+        page.waitForLoadState('networkidle').catch(() => {}),
         page.click(submitSel).catch(() => {})
       ]);
       continue;
     }
-    await page.waitForTimeout(800);
+
+    await page.waitForTimeout(600);
   }
 
-  if (page.url().includes("#/login")) {
-    await saveFailureArtifacts(page, "login-stuck");
-    throw new Error("Login did not complete.");
+  if (page.url().includes('#/login')) {
+    await saveFailureArtifacts(page, 'login-stuck');
+    throw new Error('Login did not complete.');
   }
 }
 
 async function openFacilityPanel(context, page) {
-  await page.goto(GRID_URL, { waitUntil: "domcontentloaded" });
-
+  await page.goto(GRID_URL, { waitUntil: 'domcontentloaded' });
   await clickIfResumePrompt(page);
   for (const f of page.frames()) await clickIfResumePrompt(f);
 
-  const waitPopup = context.waitForEvent("page", { timeout: 15000 }).catch(() => null);
+  // Some tenants open a legacy popup
+  const waitPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
 
   const candidates = [
-    page.getByRole("button", { name: /data\s*grid/i }),
-    page.getByRole("link", { name: /facility reservation interface/i }),
+    page.getByRole('button', { name: /data\s*grid/i }),
+    page.getByRole('link', { name: /facility reservation interface/i }),
     page.locator('a:has-text("Facility DataGrid")'),
     page.locator('button:has-text("DataGrid")'),
   ];
@@ -331,7 +321,7 @@ async function openFacilityPanel(context, page) {
 
   const popup = await waitPopup;
   if (popup) {
-    await popup.waitForLoadState("domcontentloaded");
+    await popup.waitForLoadState('domcontentloaded');
     await clickIfResumePrompt(popup);
     return popup;
   }
@@ -342,10 +332,10 @@ async function openFacilityDataGrid(page) {
   await waitOutSpinner(page);
   await clickIfResumePrompt(page);
 
-  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 1000 }).catch(() => false)) return;
+  if (await page.getByText(/Facility DataGrid/i).first().isVisible({ timeout: 800 }).catch(() => false)) return;
 
   const candidates = [
-    page.getByRole("button", { name: /data\s*grid/i }),
+    page.getByRole('button', { name: /data\s*grid/i }),
     page.locator('[title*="Data Grid" i]'),
     page.locator('[title*="DataGrid" i]'),
     page.locator('a:has-text("Facility DataGrid")'),
@@ -362,7 +352,6 @@ async function openFacilityDataGrid(page) {
   }
 }
 
-/* ========= GRID DETECTION / EXPORT ========= */
 async function findGridRoot(page) {
   const headerTexts = [/Facility Reservation Interface/i, /Facility DataGrid/i, /Facilities/i];
 
@@ -372,7 +361,7 @@ async function findGridRoot(page) {
     for (const rx of headerTexts) {
       if (await root.getByText(rx).first().isVisible({ timeout: 800 }).catch(() => false)) return root;
     }
-    if (await root.locator("table").first().isVisible({ timeout: 800 }).catch(() => false)) return root;
+    if (await root.locator('table').first().isVisible({ timeout: 800 }).catch(() => false)) return root;
     return null;
   };
 
@@ -384,95 +373,129 @@ async function findGridRoot(page) {
       r = await tryRoot(f);
       if (r) return r;
     }
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(600);
   }
   return null;
+}
+
+/* ========= NOTIFICATION CENTER ========= */
+async function accessNotificationCenter(page) {
+  console.log("→ Opening Notification Center …");
+  try {
+    // Try to find a bell/notification button anywhere in the left sidebar
+    const notificationSelectors = [
+      'button[aria-label*="Notification" i]',
+      'button[title*="Notification" i]',
+      'button[class*="notification"]',
+      '.sidebar button:has(svg)',
+      'aside button, nav button, .sidebar button'
+    ];
+    let notificationButton = null;
+    for (const sel of notificationSelectors) {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) { notificationButton = btn; break; }
+    }
+    if (!notificationButton) return null;
+
+    await notificationButton.click().catch(() => {});
+    await page.waitForTimeout(1200);
+
+    // Panel & latest "Preview Document" for FacilityReservationInterface
+    const panel = page.locator('div:has-text("Notifications"), .notification-panel, .notifications-dropdown, [class*="notification"][class*="panel"]').first();
+    if (!(await panel.isVisible({ timeout: 4000 }).catch(() => false))) return null;
+
+    const latest = panel.locator('div:has-text("FacilityReservationInterface"), div:has-text("Process is Complete")').first();
+    const preview = latest.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+
+    const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
+    if (await preview.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await preview.click().catch(() => {});
+      const dl = await downloadPromise;
+      console.log("→ Download started from Notification Center");
+      return dl;
+    }
+
+    // Fallback: clicking the latest item to expand
+    await latest.click().catch(() => {});
+    await page.waitForTimeout(600);
+    const preview2 = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+    if (await preview2.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await preview2.click().catch(() => {});
+      const dl = await downloadPromise;
+      console.log("→ Download started from Notification Center");
+      return dl;
+    }
+
+    return null;
+  } catch (e) {
+    console.log("→ Notification Center error:", e?.message || e);
+    return null;
+  }
+}
+
+/* ========= EXPORT FLOW ========= */
+async function setDateRanges(root) {
+  console.log("→ Setting date range: Begin = Today (0), End = Actual Date (today + 13) …");
+  try { await (root.page ? root.page() : root).keyboard.press('Escape'); } catch {}
+
+  // Begin = Today (relative)
+  await chooseRelativeDate(root, "Begin Date", "Today").catch(() => {});
+
+  // End = Actual Date (today + 13) → 14-day window inclusive
+  await setActualDate(root, "End Date", addDays(new Date(), 13));
+  await saveFailureArtifacts(root.page ? root.page() : root, "dates-after-set");
+  await root.waitForTimeout(250);
+}
+
+async function clickProcess(root) {
+  const processCandidates = [
+    root.locator('button:has-text("Process")').first(),
+    root.locator('input[type="button"][value="Process"]').first(),
+    root.locator('input[type="submit"][value="Process"]').first(),
+    root.locator('button[value="Process"]').first(),
+  ];
+  for (const c of processCandidates) {
+    if (await c.isVisible({ timeout: 800 }).catch(() => false)) {
+      await c.click({ timeout: 3000 }).catch(() => {});
+      await root.waitForTimeout(1200);
+      return true;
+    }
+  }
+  return false;
 }
 
 async function processExport(root) {
   console.log("→ Preparing export …");
   await setDateRanges(root);
 
-  // quick snapshot before clicking Process
+  // Screenshot before pressing Process
   await saveFailureArtifacts(root.page ? root.page() : root, "before-process-button");
 
-  // Click a visible Process button
-  const processBtn = root.locator([
-    'button:has-text("Process")',
-    'input[type="button"][value="Process"]',
-    'input[type="submit"][value="Process"]',
-    'button[value="Process"]'
-  ].join(", ")).first();
-
-  if (!(await processBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
+  const ok = await clickProcess(root);
+  if (!ok) {
     await saveFailureArtifacts(root.page ? root.page() : root, "no-process-button");
     throw new Error("Could not find the Process button.");
   }
 
-  await processBtn.click().catch(() => {});
-  await root.waitForTimeout(2000);
-
-  // Close any "Success / Process sent / Complete" dialog if present
-  const closeCandidates = [
-    root.locator('.ui-dialog button:has-text("Close")'),
-    root.locator('.ui-dialog button:has-text("OK")'),
-    root.locator(".ui-dialog .ui-dialog-titlebar-close")
+  // Close any modal "sent to server / success" dialog
+  const closeBtns = [
+    root.locator('.ui-dialog').locator('button:has-text("Close")'),
+    root.locator('.ui-dialog').locator('button:has-text("OK")'),
+    root.locator('.ui-dialog .ui-dialog-titlebar-close'),
+    root.locator('[role="dialog"]').locator('button:has-text("Close")'),
   ];
-  for (const c of closeCandidates) {
-    if (await c.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await c.click({ timeout: 2000 }).catch(() => {});
+  for (const b of closeBtns) {
+    if (await b.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await b.click().catch(() => {});
+      await root.waitForTimeout(600);
       break;
     }
   }
-}
 
-/* === Notification Center download === */
-async function accessNotificationCenter(page) {
-  console.log("→ Opening Notification Center …");
-
-  // Try a handful of bell-like/notification selectors
-  const selectors = [
-    'button[aria-label*="Notification" i]',
-    'button[title*="Notification" i]',
-    'button[class*="notification" i]',
-    '.sidebar button:has(svg)',
-    'aside button, nav button, .sidebar button'
-  ];
-
-  let bell = null;
-  for (const sel of selectors) {
-    const cand = page.locator(sel).first();
-    if (await cand.isVisible({ timeout: 1200 }).catch(() => false)) { bell = cand; break; }
-  }
-  if (!bell) { console.log("→ Could not find notification button"); return null; }
-
-  await bell.click().catch(() => {});
-  await page.waitForTimeout(1500);
-
-  // Find a "FacilityReservationInterface" item with "Preview Document"
-  const panel = page.locator('div:has-text("Notifications"), .notification-panel, .notifications-dropdown, [class*="notification"][class*="panel"]').first();
-  if (!(await panel.isVisible({ timeout: 4000 }).catch(() => false))) return null;
-
-  const entry = panel.locator('div:has-text("FacilityReservationInterface"), div:has-text("Process is Complete")').first();
-  if (!(await entry.isVisible({ timeout: 2000 }).catch(() => false))) return null;
-
-  let preview = entry.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
-  if (!(await preview.isVisible({ timeout: 2000 }).catch(() => false))) {
-    await entry.click().catch(() => {});
-    await page.waitForTimeout(700);
-    preview = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
-  }
-
-  if (await preview.isVisible({ timeout: 2000 }).catch(() => false)) {
-    const dl = page.waitForEvent("download", { timeout: 30_000 }).catch(() => null);
-    await preview.click().catch(() => {});
-    const download = await dl;
-    if (download) {
-      console.log("→ Download started from Notification Center");
-      return download;
-    }
-  }
-  return null;
+  // Look in notification center for the finished document
+  const pageLike = root.page ? root.page() : root;
+  await nukeOverlays(pageLike);
+  return await accessNotificationCenter(pageLike);
 }
 
 /* ========= MAIN ========= */
@@ -482,8 +505,7 @@ async function accessNotificationCenter(page) {
     acceptDownloads: true,
     locale: "en-US",
     timezoneId: "America/Detroit",
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
   });
   context.setDefaultNavigationTimeout(NAV_TIMEOUT);
   context.setDefaultTimeout(OP_TIMEOUT);
@@ -491,38 +513,31 @@ async function accessNotificationCenter(page) {
   const page = await context.newPage();
 
   try {
-    // 1) Login
     console.log("→ Logging in…");
     await fullyLogin(page);
 
-    // 2) Open the Facility panel (captures popup if RecTrac opens a legacy window)
     console.log("→ Opening Facility Reservation Interface …");
     const workPage = await openFacilityPanel(context, page);
 
-    // 3) If there is a left-toolbar DataGrid tool, click it
     console.log("→ Opening Facility DataGrid…");
     await openFacilityDataGrid(workPage);
 
-    // 4) Find the grid root (page or iframe)
     console.log("→ Locating Facility DataGrid …");
     const root = await findGridRoot(workPage);
     if (!root) {
-      await saveFailureArtifacts(workPage, "no-grid");
-      throw new Error("Could not find the Facilities grid. (Panel loaded but DataGrid never appeared.)");
+      await saveFailureArtifacts(workPage, 'no-grid');
+      throw new Error('Could not find the Facilities grid (panel loaded but DataGrid never appeared).');
     }
 
-    // 5) Kick off export and fetch the finished document via Notification Center
     console.log("→ Processing export …");
-    await processExport(root);
-    await nukeOverlays(workPage);
-
-    let download = await accessNotificationCenter(workPage);
+    const download = await processExport(root);
     if (!download) {
       await saveFailureArtifacts(workPage, "no-download");
-      throw new Error("Export finished but no download was captured from the Notification Center.");
+      console.log("→ No download detected—check Notification Center manually.");
+      return;
     }
 
-    // Read exported CSV
+    // Persist downloaded file (path may be ephemeral)
     let tmpPath = await download.path();
     if (!tmpPath) {
       const alt = path.resolve(`./${download.suggestedFilename() || "rectrac-export.csv"}`);
@@ -531,45 +546,47 @@ async function accessNotificationCenter(page) {
     }
     const csvText = fs.readFileSync(tmpPath, "utf8");
 
-    // After: const csvText = fs.readFileSync(tmpPath, "utf8");
-
-    // 1) Save raw export for debugging
+    // Save & (optionally) upload RAW export
     const rawPath = path.resolve("gmcc-week-raw.csv");
     fs.writeFileSync(rawPath, csvText, "utf8");
     console.log(`→ Saved raw export to ${rawPath}`);
     try {
-    if (S3_BUCKET) {
-        await uploadCsvBufferToS3(Buffer.from(csvText, "utf8"), "gmcc-week-raw.csv");
-        console.log("→ Also uploaded raw export to S3 as gmcc-week-raw.csv");
-    }
+      await uploadCsvBufferToS3(Buffer.from(csvText, "utf8"), "gmcc-week-raw.csv");
+      if (S3_BUCKET) console.log("→ Also uploaded raw export to S3 as gmcc-week-raw.csv");
     } catch (e) {
-    console.log("→ Raw-upload skipped/failed:", e?.message || e);
+      console.log("→ Raw upload skipped/failed:", e?.message || e);
     }
 
-    // 2) Inspect headers & counts
+    // Inspect headers & counts
     const parsed = parseCsv(csvText);
     const header = parsed[0] || [];
     console.log("→ Export headers:", header.join(" | "));
     console.log(`→ Raw export rows (including header): ${parsed.length}`);
 
-
-    // Filter down to the facilities we care about
+    // Filter to targets and write filtered CSV
     console.log("→ Filtering locally to target facilities …");
     const filtered = filterDownloadedCsv(csvText);
-
-    const outRows = filtered.length
-      ? filtered
-      : [{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }];
-
-    const outText = toCsv(outRows) + (outRows.length ? "" : "\n");
-
-    // Write to disk
     const outPath = path.resolve("gmcc-week.csv");
-    fs.writeFileSync(outPath, outText, "utf8");
-    console.log(`→ Wrote ${filtered.length} matching rows to ${outPath}`);
+    if (filtered.length) {
+      fs.writeFileSync(outPath, toCsv(filtered), "utf8");
+      console.log(`→ Wrote ${filtered.length} matching rows to ${outPath}`);
+      try {
+        await uploadCsvBufferToS3(Buffer.from(toCsv(filtered), "utf8"), "gmcc-week.csv");
+      } catch (e) {
+        console.log("→ Filtered upload skipped/failed:", e?.message || e);
+      }
+    } else {
+      // Preserve header-only file for downstream expectations
+      const headerOnly = toCsv([{ facClass:"", facLocation:"", facCode:"", facShortDesc:"", status:"" }]).trim() + "\n";
+      fs.writeFileSync(outPath, headerOnly, "utf8");
+      console.log(`→ Wrote 0 matching rows to ${outPath}`);
+      try {
+        await uploadCsvBufferToS3(Buffer.from(headerOnly, "utf8"), "gmcc-week.csv");
+      } catch (e) {
+        console.log("→ Filtered upload skipped/failed:", e?.message || e);
+      }
+    }
 
-    // Optional: mirror to S3
-    await uploadCsvBufferToS3(Buffer.from(outText, "utf8"), "gmcc-week.csv");
   } catch (err) {
     console.error("Scrape failed:", err);
     await saveFailureArtifacts(page, "error");
