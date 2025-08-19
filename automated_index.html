@@ -117,8 +117,8 @@
 
   <script>
 
-  // Test CSV file
-  const CSV_PATH = 'FRTest2extended.csv';
+  // S3 CSV location (single, stable file that gets overwritten daily)
+  const CSV_URL = 'https://gmcc-reservation-data.s3.us-east-2.amazonaws.com/gmcc-week.csv';
 
   /*** --------- CSV Data Management --------- ***/
   const PALETTE = {
@@ -208,10 +208,13 @@
   async function loadCSVData() {
     try {
       // Cache-buster so browsers don’t reuse yesterday’s file
-      const csvText = await fetch(CSV_PATH).then(r => r.text());
+      const url = `${CSV_URL}?t=${Date.now()}`;
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+      const csvText = await res.text();
       return parseCSV(csvText);
     } catch (error) {
-      console.error('Error loading CSV ', error);
+      console.error('Error loading CSV from S3:', error);
       // Fallback demo data so the UI still renders
       return {
         aquatics: { label: "Aquatics", events: [ev("Lap Swim","Pool",0,5,8,"blue"), ev("Rec Swim","Pool",0,5,8,"green")] },
