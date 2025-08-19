@@ -302,15 +302,11 @@
   }
 
   /*** --------- State & refs --------- ***/
+  // Use the user's local timezone to pick the current Monday
   const params = new URLSearchParams(location.search);
-  const START_OF_WEEK = new Date(2025, 7, 11, 0, 0, 0, 0); // Monday at midnight
+  const START_OF_WEEK = getMonday(new Date());
   let weekStart = params.get("w") ? new Date(params.get("w")) : START_OF_WEEK;
   if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
-  
-  // Force weekStart to our desired week if no valid URL parameter
-  if (!params.get("w")) {
-    weekStart = START_OF_WEEK;
-  }
 
   let CAL_KEYS = ['aquatics', 'courtSports', 'community'];
   let currentCal = CAL_KEYS.includes(params.get("cal")) ? params.get("cal") : CAL_KEYS[0];
@@ -649,12 +645,6 @@
 
   // Initialize app with CSV data
   async function initializeApp() {
-    // Clear any existing URL parameters to start fresh
-    if (location.search) {
-      history.replaceState(null, "", location.pathname);
-    }
-    weekStart = START_OF_WEEK; // Force to our desired week
-    
     ALL_EVENTS = await loadCSVData();
     updateCurrentWeekEvents();
     CAL_KEYS = Object.keys(CALS);
