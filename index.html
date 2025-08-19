@@ -62,6 +62,13 @@
     /* Extra wrapping tolerance for very narrow cards */
     .event-card p { word-break: break-word; overflow-wrap: break-word; hyphens: auto; }
   
+    /* Mobile list titles */
+    #listView .event-title { 
+      text-transform: uppercase; 
+      font-weight: 600; 
+      line-height: 1.15;
+    }
+
     /* Responsive tweaks */
     @media (max-width: 768px) {
       .event-card { padding: 0.25rem 0.5rem; font-size: .75rem; }
@@ -150,7 +157,7 @@
     'VOLLEYBALL': 'red',
     'PICKLEBALL': 'teal',
     'MAHJONG': 'pink',
-    'YOGA': 'cyan',
+    'BINGO': 'cyan',
     'DEFAULT': 'gray'
   };
 
@@ -634,7 +641,7 @@
         byDay[i].sort((a,b)=>a.start-b.start).forEach(e=>{
           const item = document.createElement("div");
           item.className = `mt-2 p-3 rounded-lg ${e.color.bg} ${e.color.text}`;
-          item.innerHTML = `<p class="font-semibold">${e.name}</p>
+          item.innerHTML = `<p class="event-title">${e.name}</p>
                             <p class="text-sm opacity-90">${formatTime(e.start)} – ${formatTime(e.end)}</p>
                             ${e.location ? `<p class="text-sm opacity-75">${e.location}</p>` : ''}`;
           els.list.appendChild(item);
