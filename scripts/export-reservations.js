@@ -13,7 +13,7 @@ const s3 = S3_BUCKET ? new S3Client({ region: AWS_REGION }) : null;
 const FAC_TERMS = ["Community Lounge", "Multi-use Pool", "Full A+B"];
 
 const LOGIN_URL = process.env.RECTRAC_LOGIN_URL;         // ...#/login
-const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL; // deep link to Facility Reservation Interface
+const GRID_URL  = process.env.RECTRAC_FACILITY_GRID_URL || ""; // deep-link if available
 const USERNAME  = process.env.RECTRAC_USER;
 const PASSWORD  = process.env.RECTRAC_PASS;
 
@@ -21,7 +21,7 @@ const PASSWORD  = process.env.RECTRAC_PASS;
 const NAV_TIMEOUT = 120_000;
 const OP_TIMEOUT  = 90_000;
 
-/* ========= Helpers ========= */
+/* ========= Small utils ========= */
 const addDays = (d, days) => { const x = new Date(d); x.setDate(x.getDate() + days); return x; };
 const fmtUS = (d) => {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -54,14 +54,13 @@ const filterDownloadedCsv = (csvText) => {
   if (!rows.length) return [];
   const headers = rows[0];
 
-  // Try to locate expected columns regardless of exact header captioning
   const idxShort = headers.findIndex(h => /fac.*short.*desc/i.test(h));
   const idxClass = headers.findIndex(h => /fac.*class/i.test(h));
   const idxLoc   = headers.findIndex(h => /fac.*loc/i.test(h));
   const idxCode  = headers.findIndex(h => /fac.*code/i.test(h));
   const idxStat  = headers.findIndex(h => /status/i.test(h));
 
-  if (idxShort < 0) return []; // wrong report selected → we can’t filter
+  if (idxShort < 0) return []; // wrong report → nothing to filter
 
   const wanted = FAC_TERMS.map(s => s.toLowerCase());
   const out = [];
@@ -100,12 +99,14 @@ async function saveArtifacts(page, label) {
 }
 
 async function reliableGoto(page, url, tag) {
+  if (!url) return;
   for (let i = 1; i <= 3; i++) {
     try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT }); return; }
     catch (e) { await saveArtifacts(page, `${tag}-goto-${i}`); if (i === 3) throw e; await page.waitForTimeout(800); }
   }
 }
 
+/* ========= Login ========= */
 async function login(page) {
   await reliableGoto(page, LOGIN_URL, "login");
   const userSel = 'input[name="username"], #username, input[type="text"][autocomplete*=username]';
@@ -122,33 +123,68 @@ async function login(page) {
   }
 }
 
-async function openInterface(page) {
+/* ========= Find/open the Facility Reservation Interface ========= */
+async function pageHasPanel(root) {
+  const hasAC = await root.getByText(/Additional Criteria/i).first().isVisible({ timeout: 400 }).catch(() => false);
+  const hasBegin = await root.locator('label:has-text("Begin Date")').first().isVisible({ timeout: 400 }).catch(() => false);
+  const hasProcess = await root.getByRole("button", { name: /^Process$/i }).first().isVisible({ timeout: 400 }).catch(() => false);
+  return hasAC || (hasBegin && hasProcess);
+}
+
+async function findPanelRoot(p) {
+  if (await pageHasPanel(p)) return p;
+  for (const f of p.frames()) {
+    try { if (await pageHasPanel(f)) return f; } catch {}
+  }
+  return null;
+}
+
+async function openInterface(context, page) {
+  // 1) Deep link, if provided
   await reliableGoto(page, GRID_URL, "grid");
-  // try likely launchers
-  const candidates = [
+
+  // 2) Listen for a popup in case RecTrac spawns one
+  const popupPromise = context.waitForEvent("page", { timeout: 15_000 }).catch(() => null);
+
+  // 3) Try visible launchers
+  const launchers = [
     page.getByRole("link",   { name: /Facility Reservation Interface/i }),
     page.getByRole("button", { name: /Facility Reservation Interface/i }),
     page.locator('a:has-text("Facility DataGrid")'),
     page.locator('button:has-text("DataGrid")'),
+    page.locator('a:has-text("Facility")'),
   ];
-  for (const c of candidates) {
-    const el = c.first();
-    if (await el.isVisible({ timeout: 2500 }).catch(() => false)) {
+  for (const l of launchers) {
+    const el = l.first();
+    if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
       await el.click().catch(() => {});
+      await page.waitForTimeout(700);
       break;
     }
   }
-  // Wait for the panel content to be present
-  await page.getByText(/Additional Criteria/i).first().waitFor({ state: "visible", timeout: 60_000 });
+
+  // 4) Prefer popup if it appeared
+  const popup = await popupPromise;
+  const candidates = [popup, page].filter(Boolean);
+
+  // 5) Search for the panel root on candidates and their iframes (up to 60s)
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    for (const p of candidates) {
+      const root = await findPanelRoot(p);
+      if (root) return { workPage: p, root };
+    }
+    await page.waitForTimeout(600);
+  }
+
+  await saveArtifacts(page, "no-panel");
+  throw new Error("Facility Reservation Interface did not appear.");
 }
 
-/* ---- Date helpers (robust) ---- */
-
+/* ========= Date & filter helpers (work on a page OR a frame) ========= */
 async function ensureActualMode(root, which /* 'Begin' | 'End' */) {
   const labelRx = new RegExp(`^${which}\\s*Date$`, "i");
   const container = root.locator("div").filter({ has: root.locator("label").filter({ hasText: labelRx }) }).first();
-
-  // Button that toggles the mode ("Actual Date", "Today", etc.)
   const modeBtn = container.locator('button.ui-datetime-date-option, button').first();
   if (await modeBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
     const txt = (await modeBtn.textContent().catch(() => "")).toLowerCase();
@@ -166,17 +202,13 @@ async function ensureActualMode(root, which /* 'Begin' | 'End' */) {
 async function setDateByLabel(root, which /* 'Begin' | 'End' */, dateObj) {
   const labelRx = new RegExp(`^${which}\\s*Date$`, "i");
   const container = root.locator("div").filter({ has: root.locator("label").filter({ hasText: labelRx }) }).first();
-
-  // Prefer the visible date input within the date wrapper
   const candidates = [
     container.locator(".ui-datetime-date-wrapper input").first(),
     container.locator('input[aria-label*="date" i]').first(),
     container.locator('input[placeholder*="/" i]').first(),
     container.locator('input[type="text"]:not([readonly])').first(),
-    // fallback: first non-hidden input after the label
     root.locator(`xpath=//label[normalize-space()="${which} Date"]/following::input[not(@type="hidden")][1]`).first(),
   ];
-
   let input = null;
   for (const c of candidates) {
     if (await c.isVisible({ timeout: 1200 }).catch(() => false)) { input = c; break; }
@@ -193,7 +225,6 @@ async function setDateByLabel(root, which /* 'Begin' | 'End' */, dateObj) {
 }
 
 async function setReservationStatusAll(root) {
-  // Try underlying <select> first (most reliable)
   const container = root.locator("div").filter({ has: root.locator('label:has-text("Reservation Status")') }).first();
   const select = container.locator("select").first();
   if (await select.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -207,13 +238,10 @@ async function setReservationStatusAll(root) {
       return;
     } catch {}
   }
-
-  // Fallback: open multiselect and check all boxes
   const btn = container.locator("button").first();
   if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
     await btn.click().catch(() => {});
     const menu = root.locator('.ui-multiselect-menu:visible, .ui-multiselect-checkboxes:visible').first();
-
     const checkAll = root.locator('a:has-text("Check All"), button:has-text("Check All"), a:has-text("Select All"), button:has-text("Select All")').first();
     if (await checkAll.isVisible({ timeout: 1000 }).catch(() => false)) {
       await checkAll.click().catch(() => {});
@@ -222,12 +250,12 @@ async function setReservationStatusAll(root) {
       const n = await boxes.count().catch(() => 0);
       for (let i = 0; i < n; i++) { try { await boxes.nth(i).check({ force: true }); } catch {} }
     }
-    // close menu
     await root.keyboard.press("Escape").catch(() => {});
     console.log("→ Reservation Status = All (via multiselect)");
   }
 }
 
+/* ========= Main ========= */
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -246,71 +274,62 @@ async function setReservationStatusAll(root) {
     await login(page);
 
     console.log("→ Opening Facility Reservation Interface…");
-    await openInterface(page);
+    const { workPage, root } = await openInterface(context, page);
 
-    // Prepare fields BEFORE clicking Process
     console.log("→ Setting date range (today .. +13 days), and making sure filters are sane…");
     const today = new Date();
 
-    await ensureActualMode(page, "Begin");
-    await ensureActualMode(page, "End");
+    await ensureActualMode(root, "Begin");
+    await ensureActualMode(root, "End");
 
-    await setDateByLabel(page, "Begin", today);
-    await setDateByLabel(page, "End", addDays(today, 13));
+    await setDateByLabel(root, "Begin", today);
+    await setDateByLabel(root, "End", addDays(today, 13));
 
-    await setReservationStatusAll(page);
+    await setReservationStatusAll(root);
 
-    // Export file name for clarity in the notification center
-    const exportName = page.locator('label:has-text("Export File Name")')
-      .locator("xpath=following-sibling::*//input").first();
+    const exportName = root.locator('label:has-text("Export File Name")').locator("xpath=following-sibling::*//input").first();
     if (await exportName.isVisible({ timeout: 1000 }).catch(() => false)) {
       await exportName.fill("gmcc-week.csv").catch(() => {});
     }
 
-    await saveArtifacts(page, "dates-confirm"); // visual proof pre-Process
+    await saveArtifacts(workPage, "dates-confirm");
 
-    // Run the export
     console.log("→ Clicking Process…");
-    const processBtn = page.getByRole("button", { name: /^Process$/i }).first();
+    const processBtn = root.getByRole("button", { name: /^Process$/i }).first();
     await processBtn.click();
 
-    // Close the “Success / Check notification center” dialog
-    const ok = page.locator('.ui-dialog button:has-text("Close"), .ui-dialog button:has-text("OK")').first();
+    const ok = workPage.locator('.ui-dialog button:has-text("Close"), .ui-dialog button:has-text("OK")').first();
     if (await ok.isVisible({ timeout: 15_000 }).catch(() => false)) await ok.click().catch(() => {});
 
-    // Open Notification Center and click “Preview Document”
     console.log("→ Opening Notification Center …");
     let download = null;
 
     const tryPreview = async () => {
-      const preview = page.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
+      const preview = workPage.locator('button:has-text("Preview Document"), a:has-text("Preview Document")').first();
       if (await preview.isVisible({ timeout: 1500 }).catch(() => false)) {
-        const dl = page.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
+        const dl = workPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
         await preview.click().catch(() => {});
         return await dl;
       }
       return null;
     };
 
-    // tap a few likely sidebar buttons until a preview appears
-    const sidebarButtons = page.locator("aside button, nav button, .sidebar button");
-    const count = await sidebarButtons.count();
+    const sidebarButtons = workPage.locator("aside button, nav button, .sidebar button");
+    const count = await sidebarButtons.count().catch(() => 0);
     for (let i = 0; i < Math.min(count, 8) && !download; i++) {
       await sidebarButtons.nth(i).click().catch(() => {});
       download = await tryPreview();
     }
     if (!download) {
-      // Fallback: any CSV link in the panel
-      const maybe = page.locator('a[href*=".csv"]').first();
+      const maybe = workPage.locator('a[href*=".csv"]').first();
       if (await maybe.isVisible({ timeout: 2000 }).catch(() => false)) {
-        const dl = page.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
+        const dl = workPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
         await maybe.click().catch(() => {});
         download = await dl;
       }
     }
     if (!download) throw new Error("Could not obtain the export from the notification center.");
 
-    // Persist raw CSV
     let tmp = await download.path();
     if (!tmp) {
       tmp = path.resolve(download.suggestedFilename() || "rectrac-export.csv");
@@ -323,7 +342,6 @@ async function setReservationStatusAll(root) {
     console.log(`→ Saved raw export to ${rawOut}`);
     console.log(`→ Raw export rows (including header): ${parseCsv(rawText).length}`);
 
-    // Filter + save filtered CSV
     console.log("→ Filtering locally to target facilities …");
     const filtered = filterDownloadedCsv(rawText);
     const filteredText = filtered.length
@@ -334,7 +352,6 @@ async function setReservationStatusAll(root) {
     fs.writeFileSync(outPath, filteredText, "utf8");
     console.log(`→ Wrote ${filtered.length} matching rows to ${outPath}`);
 
-    // Optional S3 publish (useful for Vercel to fetch a durable URL)
     if (S3_BUCKET) {
       await uploadToS3("gmcc-week-raw.csv", Buffer.from(rawText, "utf8"));
       await uploadToS3("gmcc-week.csv", Buffer.from(filteredText, "utf8"));
