@@ -1,4 +1,4 @@
-type,activity,location,date,start,end,intensity
+type,activity,location,date,start,end
 
 dropin,Lap Swim,Lap Lanes,08/25/2025,5:00 AM,8:00 AM
 dropin,Lap Swim,Lap Lanes,08/25/2025,9:00 AM,3:30 PM
