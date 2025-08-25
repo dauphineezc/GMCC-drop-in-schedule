@@ -28,10 +28,10 @@
       word-break: break-word; overflow-wrap: break-word;
       font-size: .8125rem; line-height: 1.2;
     }
-    .event-card .title   { font-weight:600; font-size: .875rem; line-height: 1.15; text-transform: uppercase; }
-    .event-card .subtext { font-size: .75rem;  opacity:.9;   line-height:1.15; }
-    .event-card .location{ font-size: .75rem;  opacity:.75;  line-height:1.15; }
-    .event-card.narrow .title { font-size: .8125rem; }
+    .event-card .title   { font-weight:500; font-size: .825rem; line-height: 1; text-transform: uppercase; }
+    .event-card .subtext { font-size: .7rem;  opacity:.9;   line-height:1; }
+    .event-card .location{ font-size: .7rem;  opacity:.75;  line-height:1; }
+    .event-card.narrow .title { font-size: .8rem; }
 
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot  { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
@@ -311,7 +311,7 @@
       // Parse times/dates
       const startHour = parseTime12h ? parseTime12h(startTime) : parseTime(startTime);
       const endHour   = parseTime12h ? parseTime12h(endTime)   : parseTime(endTime);
-      
+
       // Use flexible date parsing:
       const eventDate = parseDateFlexible(dateStr);
       const jsDay = eventDate.getDay();            // Sun = 0..Sat = 6
