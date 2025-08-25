@@ -100,7 +100,8 @@
   </main>
 
   <script>
-  const CSV_PATH = 'FRTest2extended.csv';
+  const CSV_PATH = 'FR.csv';
+  const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
   const PALETTE = {
@@ -123,7 +124,7 @@
     'MAHJONG':'pink','BINGO':'cyan','DEFAULT':'gray'
   };
 
-  // Group Fitness intensity mapping (optional; still supported)
+  // Group Fitness intensity mapping (still supported if present; not required)
   const INTENSITY_TO_COLOR = { LOW:'green', MODERATE:'teal', HIGH:'indigo' };
   const normIntensity = x => {
     if (!x) return null;
@@ -140,12 +141,7 @@
     return ACTIVITY_COLORS.DEFAULT;
   };
 
-  /** Data model:
-   * ALL_EVENTS = {
-   *   dropin:  { aquatics, courtSports, community },
-   *   fitness: { aquatics, studio1, studio2, mac }
-   * }
-   */
+  /** Data model */
   let ALL_EVENTS = {};
   let CURRENT_WEEK = {};
 
@@ -157,16 +153,16 @@
 
   /** Helpers */
   function parseTime12h(t){
-    const [time, ap] = t.trim().split(' ');
+    const [time, apRaw='AM'] = t.trim().split(' ');
     const [hh, mm='0'] = time.split(':').map(Number);
-    let h = hh % 12; if ((ap||'').toUpperCase()==='PM') h += 12;
+    let h = hh % 12; if (apRaw.toUpperCase()==='PM') h += 12;
     return h + (+mm/60);
   }
 
   function ev(name, location, dayIndex, start, end, colorKey, intensity=null, type='dropin', sub='aquatics'){
     const [bg,text,border] = PALETTE[colorKey];
     return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
-             color:{bg,text,border}, intensity, type, sub };
+             color:{bg,text,border}, intensity, type, sub, date:null };
   }
 
   function parseDateFlexible(s){
@@ -176,20 +172,24 @@
     return new Date(x);
   }
 
-  // Decide fitness sub by location (no sub column required)
+  function cleanLocation(loc){
+    if (!loc) return '';
+    // Remove trailing " (1234)" codes
+    return String(loc).replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();
+  }
+
   function fitnessSubFromLocation(loc){
-    const L=(loc||'').toLowerCase();
+    const L=cleanLocation(loc).toLowerCase();
     if (L.includes('pool') || L.includes('lap')) return 'aquatics';
-    if (L.includes('studio 1') || L.includes('studio1')) return 'studio1';
-    if (L.includes('studio 2') || L.includes('studio2')) return 'studio2';
-    if (L.includes('mac gym') || L === 'mac' || L.includes(' mac')) return 'mac';
+    if (L === 'studio 1') return 'studio1';
+    if (L === 'studio 2') return 'studio2';
+    if (L === 'mac gym' || L === 'mac') return 'mac';
     return null;
   }
 
-  // Fallback classifier for drop-in buckets
   function classifyDropIn(activity, location){
-    const A=activity.toUpperCase(), L=(location||'').toUpperCase();
-    if (A.includes('SWIM') || L.includes('POOL')) return 'aquatics';
+    const A=activity.toUpperCase(), L=cleanLocation(location).toUpperCase();
+    if (A.includes('SWIM') || L.includes('POOL') || L.includes('LAP')) return 'aquatics';
     if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT')) return 'courtSports';
     return 'community';
   }
@@ -200,8 +200,7 @@
       return parseCSV(csvText);
     }catch(err){
       console.error('CSV load failed:', err);
-      // minimal fallback
-      const today=getMonday(new Date());
+      // empty scaffolding so UI renders
       return {
         dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
         fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
@@ -209,82 +208,70 @@
     }
   }
 
+  /** NEW: RecTrac parser with strict GMCC filters */
   function parseCSV(csvText){
     const rows = csvText.replace(/\r/g,'').trim().split('\n');
-    const header = rows[0];
-    const hasHeader = /activity|location|date|start|end/i.test(header);
-    const lines = hasHeader ? rows.slice(1) : rows;
+    // Detect a header if the first line contains non-date words like "facility" or "Center"
+    const headerish = /facility|center|date|start|end|class/i.test(rows[0]);
+    const lines = headerish ? rows.slice(1) : rows;
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
 
-    let idx={};
-    if (hasHeader){
-      const cols=header.split(',').map(s=>s.trim().toLowerCase());
-      for (const k of ['type','sub','activity','location','date','start','end','intensity']) idx[k]=cols.indexOf(k);
-    }
+    for (const raw of lines){
+      if (!raw.trim()) continue;
+      const parts = raw.split(',').map(s=>s.trim());
+      if (parts.length < 9) continue;
 
-    for (const line of lines){
-      if (!line.trim()) continue;
-      const parts=line.split(',').map(s=>s.trim());
+      const facility = parts[0];
+      const locationRaw = parts[1];
+      const dateStr = parts[3];
+      const startTime = parts[4];
+      const endTime = parts[5];
+      const activity = parts[6];
+      const building = parts[7];
+      const reserver = parts[8];
 
-      let type=null, sub=null, activity, location, dateStr, startTime, endTime, intensityRaw=null;
+      // 1) Facility must be GMCC
+      if (!eqGMCC(facility)) continue;
+      // 2) Both building and reserver must be GMCC
+      if (!(eqGMCC(building) && eqGMCC(reserver))) continue;
 
-      if (hasHeader && idx.activity>=0){
-        type      = idx.type>=0 ? parts[idx.type] : null;       // optional in CSV
-        sub       = idx.sub>=0 ? parts[idx.sub] : null;         // optional; we’ll ignore for fitness
-        activity  = parts[idx.activity];
-        location  = idx.location>=0 ? parts[idx.location] : '';
-        dateStr   = parts[idx.date];
-        startTime = parts[idx.start];
-        endTime   = parts[idx.end];
-        intensityRaw = idx.intensity>=0 ? parts[idx.intensity] : null;
+      // Clean & route
+      const location = cleanLocation(locationRaw);
+
+      const startHour = parseTime12h(startTime);
+      const endHour   = parseTime12h(endTime);
+      const eventDate = parseDateFlexible(dateStr);
+      if (isNaN(+eventDate)) continue;
+
+      const jsDay = eventDate.getDay();
+      const dayIndex = (jsDay + 6) % 7;
+
+      // Fitness by location; otherwise drop-in buckets
+      let type='dropin', sub='community';
+      const maybeFitness = fitnessSubFromLocation(location);
+      if (maybeFitness){
+        type='fitness'; sub=maybeFitness;
       } else {
-        // Legacy 9-col (facility, location, _, date, start, end, activity, ...)
-        if (parts.length < 7) continue;
-        [, location, , dateStr, startTime, endTime, activity] = parts;
-        const maybe = parts[parts.length-1];
-        if (/low|moderate|high/i.test(maybe)) intensityRaw = maybe;
+        sub = classifyDropIn(activity, location);
       }
 
-      const startHour=parseTime12h(startTime);
-      const endHour=parseTime12h(endTime);
-      const eventDate=parseDateFlexible(dateStr);
-      const jsDay=eventDate.getDay();
-      const dayIndex=(jsDay+6)%7;
+      // Optional intensity reading (not present in this feed, but supported)
+      const intensity = null;
+      const colorKey = (type==='fitness' && intensity) ? INTENSITY_TO_COLOR[intensity] : getColorForActivity(activity);
 
-      // Decide bucket
-      let bucketType='dropin', bucketSub='community';
-
-      // If caller supplied "fitness" explicitly, respect it; otherwise infer
-      if (type && type.toLowerCase()==='fitness'){
-        bucketType='fitness';
-        bucketSub = fitnessSubFromLocation(location) || 'studio1';
-      } else {
-        // auto: try fitness by location first
-        const maybeFitness = fitnessSubFromLocation(location);
-        if (maybeFitness){
-          bucketType='fitness'; bucketSub=maybeFitness;
-        } else {
-          bucketType='dropin'; bucketSub=classifyDropIn(activity, location);
-        }
-      }
-
-      const intensity = normIntensity(intensityRaw);
-      const colorKey = (bucketType==='fitness' && intensity)
-        ? INTENSITY_TO_COLOR[intensity]
-        : getColorForActivity(activity);
-
-      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, bucketType, bucketSub);
-      e.date=eventDate;
-
-      store[bucketType][bucketSub].events.push(e);
+      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, type, sub);
+      e.date = eventDate;
+      store[type][sub].events.push(e);
     }
 
     return store;
   }
+
+  function eqGMCC(s){ return String(s||'').trim().toLowerCase() === GMCC.toLowerCase(); }
 
   /** Week filtering */
   function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
@@ -475,7 +462,7 @@
           card.style.width=`calc(100% - ${PAD*2}px)`; card.style.left=`${PAD}px`;
         }
 
-        // Title, with small abbreviation for crowded groups
+        // Title
         let name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
         if (n>1 && name.length>18){
           const map={'Aqua Fit Blast':'Aqua Blast','Silver Sneakers Splash':'Silver Splash','Open Basketball':'Basketball'};

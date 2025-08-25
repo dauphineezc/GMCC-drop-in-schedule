@@ -6,8 +6,8 @@ fitness,SilverSneakers Classic,Studio 1,08/25/2025,12:15 PM,1:00 PM,LOW
 fitness,Zumba,Studio 1,08/25/2025,5:30 PM,6:20 PM,MODERATE
 fitness,Yoga,Studio 1,08/25/2025,6:30 PM,7:15 PM,LOW
 
-fitness,Cycle/Fusion,Studio 2,08/25/2025,5:15 AM,6:10 AM,MODERATE
-fitness,Cycle,Studio 2,08/25/2025,8:30 AM,9:20 AM,MODERATE
+fitness,Cycle/Fusion,Studio 2,08/25/2025,5:15 AM,6:10 AM,HIGH
+fitness,Cycle,Studio 2,08/25/2025,8:30 AM,9:20 AM,HIGH
 fitness,Barre,Studio 2,08/25/2025,9:30 AM,10:20 AM,MODERATE
 fitness,PiYo,Studio 2,08/25/2025,5:30 PM,6:20 PM,MODERATE
 
@@ -27,8 +27,8 @@ fitness, Chair Yoga,Studio 1,08/26/2025,9:30 AM,10:20 AM,LOW
 fitness, TRX,Studio 1,08/26/2025,5:30 PM,6:15 PM,HIGH
 fitness, Strictly Strength,Studio 1,08/26/2025,6:30 PM,7:20 PM,HIGH
 
-fitness, Cycle,Studio 2,08/26/2025,9:30 AM,10:20 AM,MODERATE
-fitness, Cycle,Studio 2,08/26/2025,5:30 PM,6:20 PM,MODERATE
+fitness, Cycle,Studio 2,08/26/2025,9:30 AM,10:20 AM,HIGH
+fitness, Cycle,Studio 2,08/26/2025,5:30 PM,6:20 PM,HIGH
 fitness, SHiNE,Studio 2,08/26/2025,6:30 PM,7:20 PM,MODERATE
 
 fitness, Balanced In Motion,MAC Gym,08/26/2025,8:00 AM,8:50 AM,LOW
@@ -47,7 +47,7 @@ fitness, Bootcamp,Studio 1,08/27/2025,10:30 AM,11:15 AM,HIGH
 fitness, Zumba,Studio 1,08/27/2025,5:30 PM,6:20 PM,MODERATE
 fitness, Yoga,Studio 1,08/27/2025,6:30 PM,7:15 PM,LOW
 
-fitness, Cycle,Studio 2,08/27/2025,8:30 AM,9:20 AM,MODERATE
+fitness, Cycle,Studio 2,08/27/2025,8:30 AM,9:20 AM,HIGH
 fitness, Barre,Studio 2,08/27/2025,9:30 AM,10:20 AM,MODERATE
 
 fitness, Power Up,MAC Gym,08/27/2025,9:00 AM,9:50 AM,MODERATE
@@ -64,8 +64,8 @@ fitness, Body Blast,Studio 1,08/28/2025,8:30 AM,9:20 AM,HIGH
 fitness, Yoga,Studio 1,08/28/2025,9:30 AM,10:20 AM,LOW
 fitness, Strictly Strength,Studio 1,08/28/2025,6:30 PM,7:20 PM,HIGH
 
-fitness, Cycle,Studio 2,08/28/2025,9:30 AM,10:20 AM,MODERATE
-fitness, Cycle,Studio 2,08/28/2025,5:30 PM,6:30 PM,MODERATE
+fitness, Cycle,Studio 2,08/28/2025,9:30 AM,10:20 AM,HIGH
+fitness, Cycle,Studio 2,08/28/2025,5:30 PM,6:30 PM,HIGH
 fitness, SHiNE,Studio 2,08/28/2025,6:30 PM,7:20 PM,MODERATE
 
 fitness, Chair Yoga,MAC Gym,08/28/2025,8:00 AM,8:50 AM,LOW
@@ -76,7 +76,7 @@ fitness, Aqua Fit Blast, Pool, 08/28/2025, 9:00 AM, 9:50 AM, HIGH
 fitness, Aqua Fit, Pool, 08/28/2025, 10:00 AM, 10:50 AM, MODERATE
 fitness, Silversneakers Splash, Pool, 08/28/2025, 11:00 AM, 11:50 AM, LOW
 
-fitness, Cycle,Studio 1,08/29/2025,5:15 AM,6:10 AM,MODERATE
+fitness, Cycle,Studio 1,08/29/2025,5:15 AM,6:10 AM,HIGH
 fitness, Butts & Guts,Studio 1,08/29/2025,8:30 AM,9:15 AM,MODERATE
 fitness, TRX,Studio 1,08/29/2025,9:30 AM,10:15 AM,HIGH
 
@@ -93,4 +93,4 @@ fitness, Aqua Arthritis, Pool, 08/29/2025, 10:00 AM, 10:50 AM, LOW
 fitness, Bootcamp,Studio 1,08/30/2025,7:10 AM,7:55 AM,HIGH
 fitness, Zumba,Studio 1,08/30/2025,9:30 AM,10:20 AM,MODERATE
 
-fitness, Cycle,Studio 2,08/30/2025,8:00 AM,8:50 AM,MODERATE
+fitness, Cycle,Studio 2,08/30/2025,8:00 AM,8:50 AM,HIGH
