@@ -122,20 +122,29 @@
   const ACTIVITY_COLORS = {
     'LAP SWIM':'blue',
     'REC SWIM':'green',
-    'AQUA FIT':'purple',
-    'AQUA FIT BLAST':'purple',
-    'SILVER SNEAKERS SPLASH':'indigo',
     'OPEN BASKETBALL':'orange',
     'VOLLEYBALL':'red',
-    'PICKLEBALL':'teal',
+    'PICKLEBALL':'yellow',
     'MAHJONG':'pink',
     'BINGO':'cyan',
-    'YOGA':'pink',     // land examples
-    'PILATES':'cyan',
-    'ZUMBA':'orange',
-    'SPIN':'indigo',
     'DEFAULT':'gray'
   };
+
+  // Intensity → palette key (for Group Fitness only)
+  const INTENSITY_TO_COLOR = {
+    LOW: 'green',
+    MODERATE: 'teal',
+    HIGH: 'indigo'
+  };
+
+  function normIntensity(x) {
+    if (!x) return null;
+    const t = String(x).trim().toUpperCase();
+    if (t.startsWith('LOW')) return 'LOW';
+    if (t.startsWith('MOD')) return 'MODERATE';
+    if (t.startsWith('HIGH')) return 'HIGH';
+    return null;
+  }
 
   function getColorForActivity(activityName) {
     const upperName = activityName.toUpperCase();
@@ -170,7 +179,13 @@
   }
   function ev(name, location, dayIndex, start, end, colorKey){
     const [bg, text, border] = PALETTE[colorKey];
-    return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end, color:{bg,text,border} };
+    return {
+      id: `${name}-${dayIndex}-${start}`,
+      name, location, dayIndex, start, end,
+      color:{ bg, text, border },
+      intensity,      // ← store intensity string LOW/MODERATE/HIGH (or null)
+      type, sub       // ← keep which primary/sub this belongs to
+    };
   }
 
   // Decide primary & subcategory for a class
@@ -217,38 +232,82 @@
     }
   }
 
-  function parseCSV(text){
-    const rows = text.replace(/\r/g,'').trim().split('\n');
-    const hasHeader = /facility|date|start|end|activity/i.test(rows[0]);
+  function parseCSV(csvText) {
+    const rows = csvText.replace(/\r/g,'').trim().split('\n');
+    const headerLine = rows[0];
+    const hasHeader = /intensity|activity|date|start|end|type|sub/i.test(headerLine);
     const lines = hasHeader ? rows.slice(1) : rows;
 
+    // Storage for both primaries
     const store = {
       dropin:  { aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness: { aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
     };
 
-    for (const line of lines){
+    // If a header exists, detect column indices
+    let idx = {};
+    if (hasHeader) {
+      const cols = headerLine.split(',').map(s=>s.trim().toLowerCase());
+      const want = ['type','sub','activity','location','date','start','end','intensity'];
+      want.forEach(k => idx[k] = cols.indexOf(k)); // -1 if missing
+    }
+
+    for (const line of lines) {
       if (!line.trim()) continue;
-      const parts = line.split(',').map(s=>s.trim());
-      if (parts.length < 7) continue;
+      const parts = line.split(',').map(s => s.trim());
 
-      const [, location, , dateStr, startTime, endTime, activity] = parts;
+      // Two formats supported:
+      // (1) “Our legacy 9-col” -> [, location, , date, start, end, activity, ... , (maybe intensity last)]
+      // (2) Headered: type,sub,activity,location,date,start,end,intensity
+      let type=null, sub=null, activity, location, dateStr, startTime, endTime, intensityRaw=null;
 
-      const startHour = parseTime12h(startTime);
-      const endHour   = parseTime12h(endTime);
+      if (hasHeader && idx.activity >= 0) {
+        type      = idx.type      >= 0 ? parts[idx.type]      : null;
+        sub       = idx.sub       >= 0 ? parts[idx.sub]       : null;
+        activity  = parts[idx.activity];
+        location  = idx.location  >= 0 ? parts[idx.location]  : '';
+        dateStr   = parts[idx.date];
+        startTime = parts[idx.start];
+        endTime   = parts[idx.end];
+        intensityRaw = idx.intensity >= 0 ? parts[idx.intensity] : null;
+      } else {
+        // legacy format you showed before
+        // facility, location, (blank), date, start_time, end_time, activity, facility_dup, category [, intensity]
+        if (parts.length < 7) continue;
+        [, location, , dateStr, startTime, endTime, activity] = parts;
+        // if there is a trailing “intensity” field, pick it up
+        const maybe = parts[parts.length-1];
+        if (/low|moderate|high/i.test(maybe)) intensityRaw = maybe;
+      }
+
+      // Determine primary/sub if not explicitly supplied
+      let where;
+      if (type && sub) {
+        where = { type: type.toLowerCase(), sub: sub.toLowerCase() };
+      } else {
+        where = classify(activity, location); // your existing classifier
+      }
+
+      // Parse times/dates
+      const startHour = parseTime12h ? parseTime12h(startTime) : parseTime(startTime);
+      const endHour   = parseTime12h ? parseTime12h(endTime)   : parseTime(endTime);
 
       const [mm, dd, yyyy] = dateStr.split('/').map(Number);
-      const d = new Date(yyyy, mm-1, dd);
-      const jsDay = d.getDay();             // 0=Sun
-      const dayIndex = (jsDay + 6) % 7;     // 0=Mon
+      const eventDate = new Date(yyyy, mm - 1, dd);
+      const jsDay = eventDate.getDay();
+      const dayIndex = (jsDay + 6) % 7; // Mon=0
 
-      const {type, sub} = classify(activity, location);
-      const colorKey = getColorForActivity(activity);
+      // Intensity normalization + color choice
+      const intensity = normIntensity(intensityRaw);
+      const colorKey =
+        (where.type === 'fitness' && intensity) ? INTENSITY_TO_COLOR[intensity]
+                                                : getColorForActivity(activity);
 
-      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey);
-      e.date = d;
-      store[type][sub].events.push(e);
+      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, where.type, where.sub);
+      e.date = eventDate;
+      store[where.type][where.sub].events.push(e);
     }
+
     return store;
   }
 
