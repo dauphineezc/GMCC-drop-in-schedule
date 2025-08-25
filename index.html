@@ -26,7 +26,7 @@
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
       padding:0.45rem 0.6rem; z-index:10;
-      font-size:.8rem; line-height:1.1;
+      font-size:.8rem; line-height:1;
       cursor: pointer;
       user-select:none;
       pointer-events:auto;
@@ -489,7 +489,7 @@
         let timeLine = `<p class="subtext leading-tight">${formatTime(e.start)} – ${formatTime(e.end)}`;
         if (duration <= 0.5 && e.location) {
           // show time + location inline
-          timeLine += `, ${e.location}</p>`;
+          timeLine += ` · ${e.location}</p>`;
         } else {
           timeLine += `</p>`;
           if (e.location) {
