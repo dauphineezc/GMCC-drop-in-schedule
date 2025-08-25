@@ -21,20 +21,21 @@
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
 
-    /* Cards */
+    /* ===== Event cards ===== */
     .event-card{
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
       padding:0.5rem 0.75rem; z-index:10;
-      overflow:hidden; /* prevent spill below the card */
+      overflow:hidden;                         /* no spill below card */
       font-size:.8125rem;
-      cursor:pointer;
+      cursor:pointer; user-select:none;
+      pointer-events:auto;
     }
     /* single-line truncation + tight line-height for every row */
     .event-line{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .event-tight{ line-height:1; }
 
-    .event-card .title{ font-weight:600; font-size:.825rem; text-transform:uppercase; }
+    .event-card .title{ font-weight:700; font-size:.825rem; text-transform:uppercase; }
     .event-card .subtext{ font-size:.7rem; opacity:.9; }
     .event-card .location{ font-size:.7rem; opacity:.75; }
     .event-card.narrow .title{ font-size:.8rem; }
@@ -49,11 +50,11 @@
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* Popup bubble */
-    .popup-backdrop{
-      position:fixed; inset:0; background:transparent; z-index:60;
+    /* ===== Popover (always on top) ===== */
+    .popover-backdrop{
+      position:fixed; inset:0; background:transparent; z-index:9998;
     }
-    .popup{
+    .popover{
       position:absolute; z-index:9999;
       min-width:240px; max-width:320px;
       background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
@@ -86,7 +87,7 @@
       <div class="text-sm text-gray-500 tz-hide">Times shown in <span id="tzLabel"></span></div>
     </div>
 
-    <!-- PRIMARY tabs (segmented) -->
+    <!-- PRIMARY tabs -->
     <div class="mb-3 flex items-center justify-between flex-wrap gap-3">
       <div id="primaryTabs" class="seg" role="tablist" aria-label="Primary calendars"></div>
     </div>
@@ -113,7 +114,8 @@
   </main>
 
   <script>
-  const CSV_PATH = 'FR.csv';
+  /* =================== Config & Colors =================== */
+  const CSV_PATH = 'FR.csv'; // RecTrac export
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
@@ -178,57 +180,39 @@
     'DEFAULT':'gray'
   };
 
-  // Optional intensity mapping (kept for compatibility)
-  const INTENSITY_TO_COLOR = { LOW:'green', MODERATE:'teal', HIGH:'indigo' };
-  const normIntensity = x => {
-    if (!x) return null;
-    const t = String(x).trim().toUpperCase();
-    if (t.startsWith('LOW')) return 'LOW';
-    if (t.startsWith('MOD')) return 'MODERATE';
-    if (t.startsWith('HIGH')) return 'HIGH';
-    return null;
-  };
-
   const getColorForActivity = (name) => {
-    const upper = name.toUpperCase();
+    const upper = String(name).toUpperCase();
     for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (upper.includes(k)) return c;
     return ACTIVITY_COLORS.DEFAULT;
   };
 
-  /** Data model */
+  /* =================== Model & Tabs =================== */
   let ALL_EVENTS = {};
   let CURRENT_WEEK = {};
 
-  // Primary + sub tabs
   const PRIMARY = {
     dropin:  { label:'Drop-In',      subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community' } },
     fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', studio1:'Studio 1', studio2:'Studio 2', mac:'MAC Gym' } }
   };
 
-  /** Helpers */
+  /* =================== Helpers =================== */
   function parseTime12h(t){
-    const [time, apRaw='AM'] = t.trim().split(' ');
+    const [time, apRaw='AM'] = String(t).trim().split(' ');
     const [hh, mm='0'] = time.split(':').map(Number);
     let h = hh % 12; if (apRaw.toUpperCase()==='PM') h += 12;
     return h + (+mm/60);
   }
 
-  function ev(name, location, dayIndex, start, end, colorKey, intensity=null, type='dropin', sub='aquatics'){
-    const [bg,text,border] = PALETTE[colorKey];
-    return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
-             color:{bg,text,border}, intensity, type, sub, date:null };
-  }
-
   function parseDateFlexible(s){
     const x=String(s).trim();
-    if (x.includes('/')){ const [mm,dd,yy]=x.split('/').map(Number); return new Date(yy,mm-1,dd); }
-    if (x.includes('-')){ const [yy,mm,dd]=x.split('-').map(Number); return new Date(yy,mm-1,dd); }
+    if (x.includes('/')){ const [mm,dd,yyyy]=x.split('/').map(Number); return new Date(yyyy,mm-1,dd); }
+    if (x.includes('-')){ const [yyyy,mm,dd]=x.split('-').map(Number); return new Date(yyyy,mm-1,dd); }
     return new Date(x);
   }
 
   function cleanLocation(loc){
     if (!loc) return '';
-    return String(loc).replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();
+    return String(loc).replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim(); // remove codes: " (2020)"
   }
 
   function fitnessSubFromLocation(loc){
@@ -241,18 +225,28 @@
   }
 
   function classifyDropIn(activity, location){
-    const A=activity.toUpperCase(), L=cleanLocation(location).toUpperCase();
+    const A=String(activity).toUpperCase(), L=cleanLocation(location).toUpperCase();
     if (A.includes('SWIM') || L.includes('POOL') || L.includes('LAP')) return 'aquatics';
     if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT')) return 'courtSports';
     return 'community';
   }
 
+  function ev(name, location, dayIndex, start, end, colorKey, type='dropin', sub='aquatics'){
+    const [bg,text,border] = PALETTE[colorKey];
+    return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
+             color:{bg,text,border}, type, sub, date:null };
+  }
+
+  function eqGMCC(s){ return String(s||'').trim().toLowerCase() === GMCC.toLowerCase(); }
+
+  /* =================== RecTrac CSV Parser =================== */
   async function loadCSVData(){
     try{
       const csvText = await fetch(CSV_PATH, {cache:'no-store'}).then(r=>r.text());
       return parseCSV(csvText);
     }catch(err){
       console.error('CSV load failed:', err);
+      // empty scaffolding so UI renders
       return {
         dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
         fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
@@ -260,11 +254,10 @@
     }
   }
 
-  /** RecTrac parser + GMCC filters */
   function parseCSV(csvText){
     const rows = csvText.replace(/\r/g,'').trim().split('\n');
-    const headerish = /facility|center|date|start|end|class/i.test(rows[0]);
-    const lines = headerish ? rows.slice(1) : rows;
+    // Assume first row is a header from RecTrac
+    const lines = rows.slice(1);
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
@@ -285,11 +278,11 @@
       const building = parts[7];
       const reserver = parts[8];
 
+      // Filters per your rules
       if (!eqGMCC(facility)) continue;
       if (!(eqGMCC(building) && eqGMCC(reserver))) continue;
 
       const location = cleanLocation(locationRaw);
-
       const startHour = parseTime12h(startTime);
       const endHour   = parseTime12h(endTime);
       const eventDate = parseDateFlexible(dateStr);
@@ -300,26 +293,31 @@
 
       let type='dropin', sub='community';
       const maybeFitness = fitnessSubFromLocation(location);
-      if (maybeFitness){ type='fitness'; sub=maybeFitness; }
-      else { sub = classifyDropIn(activity, location); }
+      if (maybeFitness){
+        type='fitness'; sub=maybeFitness;
+      } else {
+        sub = classifyDropIn(activity, location);
+      }
 
-      const intensity = null;
-      const colorKey = (type==='fitness' && intensity) ? INTENSITY_TO_COLOR[intensity] : getColorForActivity(activity);
-
-      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, type, sub);
+      const colorKey = getColorForActivity(activity);
+      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, type, sub);
       e.date = eventDate;
       store[type][sub].events.push(e);
     }
+
     return store;
   }
 
-  function eqGMCC(s){ return String(s||'').trim().toLowerCase() === GMCC.toLowerCase(); }
-
-  /** Week filtering */
+  /* =================== Week helpers =================== */
   function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
   function ymd(d){ return d.toISOString().slice(0,10); }
   function labelDate(d){ return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+  function formatTime(hour){
+    const h=Math.floor(hour), m=Math.round((hour-h)*60);
+    const h12=(h%12)||12, ap=h<12?'AM':'PM', mm=m===0?'00':String(m).padStart(2,'0');
+    return `${h12}:${mm} ${ap}`;
+  }
 
   function filterWeek(all, weekStart){
     const weekEnd = addDays(weekStart,6);
@@ -340,16 +338,7 @@
     return out;
   }
 
-  function formatTime(hour){
-    const h=Math.floor(hour);
-    const m=Math.round((hour-h)*60);
-    const h12=(h%12)||12;
-    const ap=h<12?'AM':'PM';
-    const mm=m===0?'00':String(m).padStart(2,'0');
-    return `${h12}:${mm} ${ap}`;
-  }
-
-  /** State */
+  /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
   const START_OF_WEEK = getMonday(new Date());
   let weekStart = params.get('w') ? new Date(params.get('w')) : START_OF_WEEK;
@@ -374,10 +363,63 @@
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   let dayOverlays=[];
-  let openpopupEl = null; // track the current popup
-  let backdropEl = null;
 
-  // Controls
+  /* ===== Popover state & functions ===== */
+  let openPopoverNodes = []; // [backdrop, popover]
+
+  function closePopover(){
+    openPopoverNodes.forEach(n => n.remove());
+    openPopoverNodes = [];
+    window.removeEventListener('keydown', escListener);
+  }
+  function escListener(e){ if (e.key === 'Escape') closePopover(); }
+
+  function openPopover(eventObj, cardEl){
+    closePopover();
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'popover-backdrop';
+    backdrop.addEventListener('click', closePopover);
+
+    const pop = document.createElement('div');
+    pop.className = 'popover';
+    pop.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="text-sm font-bold tracking-wide">${eventObj.name}</h3>
+      </div>
+      <div class="mt-1 text-sm text-gray-700">
+        ${formatTime(eventObj.start)} – ${formatTime(eventObj.end)}
+        (${Math.round((eventObj.end - eventObj.start) * 60)} min)
+      </div>
+      ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
+      <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
+    `;
+
+    // Position beside the card; clamp to grid viewport
+    const gridRect = els.gridBody.getBoundingClientRect();
+    const cardRect = cardEl.getBoundingClientRect();
+    const POP_W = 300, GAP = 12;
+
+    const showRight = cardRect.right + GAP + POP_W < window.innerWidth;
+    let left = showRight
+      ? (cardRect.right - gridRect.left + GAP)
+      : (cardRect.left  - gridRect.left - GAP - POP_W);
+
+    left = Math.max(8, Math.min(left, gridRect.width - POP_W - 8));
+
+    let top = cardRect.top - gridRect.top;
+    top = Math.max(8, Math.min(top, gridRect.height - 16));
+
+    pop.style.left = `${left}px`;
+    pop.style.top  = `${top}px`;
+
+    document.body.appendChild(backdrop);
+    els.gridBody.appendChild(pop);
+    openPopoverNodes = [backdrop, pop];
+    window.addEventListener('keydown', escListener);
+  }
+
+  /* =================== Controls =================== */
   els.prevBtn.onclick = () => changeWeek(-7);
   els.nextBtn.onclick = () => changeWeek(+7);
   els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
@@ -385,7 +427,7 @@
   function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
   function syncUrl(){ const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart)); history.replaceState(null,'',`?${p.toString()}`); }
 
-  /** Rendering */
+  /* =================== Rendering =================== */
   function renderPrimary(){
     els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
@@ -394,7 +436,11 @@
       btn.setAttribute('aria-pressed', String(type===currentType));
       btn.className='focus:outline-none';
       btn.textContent=PRIMARY[type].label;
-      btn.onclick=()=>{ currentType=type; if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0]; closepopup(); syncUrl(); render(); };
+      btn.onclick=()=>{
+        currentType=type;
+        if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0];
+        syncUrl(); render();
+      };
       els.primaryTabs.appendChild(btn);
     }
   }
@@ -407,12 +453,12 @@
       btn.className='tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
       btn.textContent=subs[key];
       if (key===currentSub) btn.classList.add('active');
-      btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); closepopup(); syncUrl(); renderBody(); };
+      btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); syncUrl(); renderBody(); };
       els.tabs.appendChild(btn);
     }
   }
 
-  function render(){ renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -437,7 +483,7 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closepopup();
+    closePopover(); // ensure previous popovers are gone
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -464,8 +510,7 @@
       const width=ref.clientWidth;
       const ov=document.createElement('div');
       ov.style.position='absolute'; ov.style.zIndex='5'; ov.style.top='0';
-      ov.style.left=`${left}px`; ov.style.width=`${width}px`; ov.style.height=`${totalH}px`;
-      ov.style.pointerEvents='auto'; /* allow clicks on cards */
+      ov.style.left=`${left}px`; ov.style.width=`${width}px`; ov.style.height=`${totalH}px`; ov.style.pointerEvents='none';
       els.gridBody.appendChild(ov);
       dayOverlays[day]=ov;
     }
@@ -508,14 +553,10 @@
           card.style.width=`calc(100% - ${PAD*2}px)`; card.style.left=`${PAD}px`;
         }
 
-        // Title
-        let name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
-        if (n>1 && name.length>18){
-          const map={'Aqua Fit Blast':'Aqua Blast','Silver Sneakers Splash':'Silver Splash','Open Basketball':'Basketball'};
-          name = map[name] || name;
-        }
+        // Title (Title Case)
+        const name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
 
-        // ≤ 30 min => time + location inline; else location on separate line
+        // <= 30 min → time + location on one line; else location on new line
         const duration = e.end - e.start;
         let timeAndLoc;
         if (duration <= 0.5 && e.location){
@@ -525,16 +566,16 @@
                        (e.location ? `<p class="event-line event-tight location">${e.location}</p>` : '');
         }
 
+        // Slightly tighter layout for very short cards
+        if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
+
         card.innerHTML = `
           <p class="event-line event-tight title">${name}</p>
           ${timeAndLoc}
         `;
 
-        // Click → popup
-        card.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          showpopup(e, card, dayOverlays[dayIndex]);
-        });
+        // Click -> popover
+        card.addEventListener('click', (ev) => { ev.stopPropagation(); openPopover(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
@@ -563,57 +604,6 @@
     const line=document.createElement('div'); line.className='now-line'; line.style.left='0'; line.style.right='0'; line.style.top=`${top}px`;
     const dot=document.createElement('div'); dot.className='now-dot';
     line.appendChild(dot); ov.appendChild(line);
-  }
-
-  // Popup helpers
-  function closepopup(){
-    if (openpopupEl){ openpopupEl.remove(); openpopupEl=null; }
-    if (backdropEl){ backdropEl.remove(); backdropEl=null; }
-    document.removeEventListener('keydown', escCloser);
-  }
-  function escCloser(e){ if (e.key === 'Escape') closepopup(); }
-
-  function showpopup(eventData, cardEl, overlayEl){
-    closepopup();
-
-    // Backdrop to catch outside clicks
-    backdropEl = document.createElement('div');
-    backdropEl.className = 'backdrop';
-    backdropEl.addEventListener('click', closepopup);
-    document.body.appendChild(backdropEl);
-
-    // popup content
-    const pop = document.createElement('div');
-    pop.className = 'popup';
-    const durMins = Math.round((eventData.end - eventData.start) * 60);
-    pop.innerHTML = `
-      <div class="text-sm font-semibold mb-1 ${eventData.color.text}">${eventData.name}</div>
-      <div class="text-sm mb-1">${formatTime(eventData.start)} – ${formatTime(eventData.end)} (${durMins} min)</div>
-      ${eventData.location ? `<div class="text-sm text-gray-600">${eventData.location}</div>` : ''}
-    `;
-    pop.addEventListener('click', e => e.stopPropagation());
-
-    // Position beside the card (prefer right, fall back left)
-    const ovRect = overlayEl.getBoundingClientRect();
-    const cardRect = cardEl.getBoundingClientRect();
-    const relTop = cardRect.top - ovRect.top;   // top within overlay
-    let left = (cardEl.offsetLeft + cardEl.offsetWidth + 8); // to the right of the card
-    const popWidth = 280;
-
-    if (left + popWidth > overlayEl.clientWidth){ // not enough room → place on left
-      left = Math.max(8, cardEl.offsetLeft - 8 - popWidth);
-    }
-    let top = Math.max(8, relTop);
-    const bottomLimit = overlayEl.clientHeight - 8;
-    if (top + pop.offsetHeight > bottomLimit) top = bottomLimit - pop.offsetHeight;
-
-    pop.style.left = `${left}px`;
-    pop.style.top = `${top}px`;
-
-    overlayEl.appendChild(pop);
-    openpopupEl = pop;
-
-    document.addEventListener('keydown', escCloser);
   }
 
   // Mobile list
@@ -649,16 +639,15 @@
   let resizeTimeout;
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout=setTimeout(()=>renderGrid(),100); });
 
-  /** Boot */
+  /* =================== Boot =================== */
   async function initialize(){
     ALL_EVENTS = await loadCSVData();
     CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
 
+    // ensure current sub is valid for selected type
     if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
 
     render(); syncUrl();
-    // Close popup if user clicks anywhere in the app layout
-    document.addEventListener('click', closepopup);
   }
   initialize();
   </script>
