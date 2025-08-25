@@ -50,14 +50,15 @@
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
     /* Popup bubble */
-    .popover{
-      position:absolute; z-index:60;
-      background:#fff; border:1px solid #e5e7eb; border-radius:0.5rem;
-      box-shadow:0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
-      padding:.75rem; width:280px;
+    .popup-backdrop{
+      position:fixed; inset:0; background:transparent; z-index:60;
     }
-    .backdrop{
-      position:fixed; inset:0; z-index:50; background:transparent;
+    .popup{
+      position:absolute; z-index:9999;
+      min-width:240px; max-width:320px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
+      box-shadow:0 10px 30px rgba(0,0,0,.15);
+      padding:.75rem .9rem;
     }
 
     /* Responsive tweaks */
@@ -161,7 +162,7 @@
   const ACTIVITY_COLORS = {
     'LAP SWIM':'blue','REC SWIM':'green',
     'BASKETBALL':'orange','VOLLEYBALL':'yellow','PICKLEBALL':'red',
-    'MAHJONG':'pink','BINGO':'cyan','LINE DANCING':'purple',
+    'MAH JONGG':'pink','EUCHRE':'cyan','LINE DANCING':'purple',
 
     'AQUA CIRCUIT':'blue','AQUA FIT':'teal','AQUA FIT BLAST':'indigo','AQUA BARRE':'purple',
     'AQUA ARTHRITIS':'cyan','SILVERSNEAKERS SPLASH':'green','AQUA ZUMBA':'pink','BALANCE AND CORE':'yellow',
@@ -373,7 +374,7 @@
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   let dayOverlays=[];
-  let openPopoverEl = null; // track the current popup
+  let openpopupEl = null; // track the current popup
   let backdropEl = null;
 
   // Controls
@@ -393,7 +394,7 @@
       btn.setAttribute('aria-pressed', String(type===currentType));
       btn.className='focus:outline-none';
       btn.textContent=PRIMARY[type].label;
-      btn.onclick=()=>{ currentType=type; if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0]; closePopover(); syncUrl(); render(); };
+      btn.onclick=()=>{ currentType=type; if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0]; closepopup(); syncUrl(); render(); };
       els.primaryTabs.appendChild(btn);
     }
   }
@@ -406,7 +407,7 @@
       btn.className='tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
       btn.textContent=subs[key];
       if (key===currentSub) btn.classList.add('active');
-      btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); closePopover(); syncUrl(); renderBody(); };
+      btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); closepopup(); syncUrl(); renderBody(); };
       els.tabs.appendChild(btn);
     }
   }
@@ -436,7 +437,7 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closePopover();
+    closepopup();
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -532,7 +533,7 @@
         // Click → popup
         card.addEventListener('click', (ev)=>{
           ev.stopPropagation();
-          showPopover(e, card, dayOverlays[dayIndex]);
+          showpopup(e, card, dayOverlays[dayIndex]);
         });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
@@ -565,25 +566,25 @@
   }
 
   // Popup helpers
-  function closePopover(){
-    if (openPopoverEl){ openPopoverEl.remove(); openPopoverEl=null; }
+  function closepopup(){
+    if (openpopupEl){ openpopupEl.remove(); openpopupEl=null; }
     if (backdropEl){ backdropEl.remove(); backdropEl=null; }
     document.removeEventListener('keydown', escCloser);
   }
-  function escCloser(e){ if (e.key === 'Escape') closePopover(); }
+  function escCloser(e){ if (e.key === 'Escape') closepopup(); }
 
-  function showPopover(eventData, cardEl, overlayEl){
-    closePopover();
+  function showpopup(eventData, cardEl, overlayEl){
+    closepopup();
 
     // Backdrop to catch outside clicks
     backdropEl = document.createElement('div');
     backdropEl.className = 'backdrop';
-    backdropEl.addEventListener('click', closePopover);
+    backdropEl.addEventListener('click', closepopup);
     document.body.appendChild(backdropEl);
 
-    // Popover content
+    // popup content
     const pop = document.createElement('div');
-    pop.className = 'popover';
+    pop.className = 'popup';
     const durMins = Math.round((eventData.end - eventData.start) * 60);
     pop.innerHTML = `
       <div class="text-sm font-semibold mb-1 ${eventData.color.text}">${eventData.name}</div>
@@ -610,7 +611,7 @@
     pop.style.top = `${top}px`;
 
     overlayEl.appendChild(pop);
-    openPopoverEl = pop;
+    openpopupEl = pop;
 
     document.addEventListener('keydown', escCloser);
   }
@@ -657,7 +658,7 @@
 
     render(); syncUrl();
     // Close popup if user clicks anywhere in the app layout
-    document.addEventListener('click', closePopover);
+    document.addEventListener('click', closepopup);
   }
   initialize();
   </script>
