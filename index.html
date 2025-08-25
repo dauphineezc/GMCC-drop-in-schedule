@@ -473,12 +473,32 @@
         // If card is very short (e.g., 30 min), reduce padding & font a touch
         if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
 
-        // Title case
-        const name = e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+        let duration = e.end - e.start;
+        let name = e.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
+        // shorten long names for overlapping narrow events
+        if (n > 1 && name.length > 18) {
+          const map = {
+            'Aqua Fit Blast': 'Aqua Blast',
+            'Silver Sneakers Splash': 'Silver Splash',
+            'Open Basketball': 'Basketball'
+          };
+          name = map[name] || name;
+        }
+
+        let timeLine = `<p class="subtext leading-tight">${formatTime(e.start)} – ${formatTime(e.end)}`;
+        if (duration <= 0.5 && e.location) {
+          // show time + location inline
+          timeLine += `, ${e.location}</p>`;
+        } else {
+          timeLine += `</p>`;
+          if (e.location) {
+            timeLine += `<p class="location leading-tight">${e.location}</p>`;
+          }
+        }
         card.innerHTML = `
-          <div class="title ellipsis">${name}</div>
-          <div class="meta ellipsis">${meta}</div>
+          <p class="title leading-tight">${name}</p>
+          ${timeLine}
         `;
 
         // Click -> popover with full details
