@@ -15,6 +15,12 @@ fitness,land,Seniors In Motion,MAC Gym,08/25/2025,9:00 AM,9:50 AM,LOW
 fitness,land,SilverSneakers Classic,MAC Gym,08/25/2025,10:00 AM,10:50 AM,LOW
 fitness,land,SilverSneakers Classic,MAC Gym,08/25/2025,11:00 AM,11:50 AM,LOW
 
+fitness, aquatics, Aqua Circuit, Lap Lanes, 08/25/2025, 8:00 AM, 8:30 AM, HIGH
+fitness, aquatics, Aqua Fit Blast, Lap Lanes, 08/25/2025, 8:30 AM, 9:00 AM, HIGH
+fitness, aquatics, Aqua Fit, Pool, 08/25/2025, 9:00 AM, 9:50 AM, MODERATE
+fitness, aquatics, Aqua Arthritis, Pool, 08/25/2025, 10:00 AM, 10:50 AM, LOW
+fitness, aquatics, Aqua Fit Blast, Pool, 08/25/2025, 7:30 PM, 8:20 PM, HIGH
+
 fitness,land,Body Sculpt,Studio 1,08/26/2025,5:15 AM,6:10 AM,HIGH
 fitness,land,Body Blast,Studio 1,08/26/2025,8:30 AM,9:20 AM,HIGH
 fitness,land,Chair Yoga,Studio 1,08/26/2025,9:30 AM,10:20 AM,LOW
@@ -29,6 +35,12 @@ fitness,land,Balanced In Motion,MAC Gym,08/26/2025,8:00 AM,8:50 AM,LOW
 fitness,land,Seniors In Motion,MAC Gym,08/26/2025,9:00 AM,9:50 AM,LOW
 fitness,land,Circuit,MAC Gym,08/26/2025,10:00 AM,10:45 AM,MODERATE
 
+fitness, aquatics, Aqua Fit Blast, Pool, 08/26/2025, 8:00 AM, 8:30 AM, HIGH
+fitness, aquatics, Balance and Core, Pool, 08/26/2025, 8:30 AM, 9:00 AM, MODERATE
+fitness, aquatics, Aqua Fit, Pool, 08/26/2025, 9:00 AM, 9:50 AM, MODERATE
+fitness, aquatics, Aqua Barre, Pool, 08/26/2025, 10:00 AM, 10:50 AM, MODERATE
+fitness, aquatics, Silversneakers Splash, Pool, 08/26/2025, 11:00 AM, 11:50 AM, LOW
+
 fitness,land,TRX,Studio 1,08/27/2025,8:30 AM,9:15 AM,HIGH
 fitness,land,Strictly Strength,Studio 1,08/27/2025,9:30 AM,10:20 AM,HIGH
 fitness,land,Bootcamp,Studio 1,08/27/2025,10:30 AM,11:15 AM,HIGH
@@ -42,6 +54,11 @@ fitness,land,Power Up,MAC Gym,08/27/2025,9:00 AM,9:50 AM,MODERATE
 fitness,land,SilverSneakers Classic,MAC Gym,08/27/2025,10:00 AM,10:50 AM,LOW
 fitness,land,Functional Fitness,MAC Gym,08/27/2025,11:00 AM,11:50 AM,MODERATE
 
+fitness, aquatics, Aqua Circuit, Lap Lanes, 08/27/2025, 8:00 AM, 8:50 AM, HIGH
+fitness, aquatics, Aqua Fit, Pool, 08/27/2025, 9:00 AM, 9:50 AM, MODERATE
+fitness, aquatics, Aqua Arthritis, Pool, 08/27/2025, 10:00 AM, 10:50 AM, LOW
+fitness, aquatics, Aqua Fit Blast, Pool, 08/27/2025, 7:30 PM, 8:20 PM, HIGH
+
 fitness,land,Body Sculpt,Studio 1,08/28/2025,5:15 AM,6:10 AM,HIGH
 fitness,land,Body Blast,Studio 1,08/28/2025,8:30 AM,9:20 AM,HIGH
 fitness,land,Yoga,Studio 1,08/28/2025,9:30 AM,10:20 AM,LOW
@@ -54,6 +71,11 @@ fitness,land,SHiNE,Studio 2,08/28/2025,6:30 PM,7:20 PM,MODERATE
 fitness,land,Chair Yoga,MAC Gym,08/28/2025,8:00 AM,8:50 AM,LOW
 fitness,land,Seniors In Motion,MAC Gym,08/28/2025,9:00 AM,9:50 AM,LOW
 
+fitness, aquatics, Aqua Fit, Pool, 08/28/2025, 8:00 AM, 8:50 AM, MODERATE
+fitness, aquatics, Aqua Fit Blast, Pool, 08/28/2025, 9:00 AM, 9:50 AM, HIGH
+fitness, aquatics, Aqua Fit, Pool, 08/28/2025, 10:00 AM, 10:50 AM, MODERATE
+fitness, aquatics, Silversneakers Splash, Pool, 08/28/2025, 11:00 AM, 11:50 AM, LOW
+
 fitness,land,Cycle,Studio 1,08/29/2025,5:15 AM,6:10 AM,MODERATE
 fitness,land,Butts & Guts,Studio 1,08/29/2025,8:30 AM,9:15 AM,MODERATE
 fitness,land,TRX,Studio 1,08/29/2025,9:30 AM,10:15 AM,HIGH
@@ -63,6 +85,10 @@ fitness,land,Zumba,Studio 2,08/29/2025,9:30 AM,10:20 AM,MODERATE
 fitness,land,Seniors In Motion,MAC Gym,08/29/2025,9:00 AM,9:50 AM,LOW
 fitness,land,SilverSneakers Classic,MAC Gym,08/29/2025,10:00 AM,10:50 AM,LOW
 fitness,land,SilverSneakers Classic,MAC Gym,08/29/2025,11:00 AM,11:50 AM,LOW
+
+fitness, aquatics, Aqua Zumba, Lap Lanes, 08/29/2025, 8:00 AM, 8:50 AM, MODERATE
+fitness, aquatics, Aqua Fit, Pool, 08/29/2025, 9:00 AM, 9:50 AM, MODERATE
+fitness, aquatics, Aqua Arthritis, Pool, 08/29/2025, 10:00 AM, 10:50 AM, LOW
 
 fitness,land,Bootcamp,Studio 1,08/30/2025,7:10 AM,7:55 AM,HIGH
 fitness,land,Zumba,Studio 1,08/30/2025,9:30 AM,10:20 AM,MODERATE
