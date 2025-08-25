@@ -21,17 +21,22 @@
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
 
-    .event-card {
+    /* --- Event cards --- */
+    .event-card{
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
-      padding:0.5rem 0.75rem; z-index:10;
-      word-break: break-word; overflow-wrap: break-word;
-      font-size: .8125rem; line-height: 1.2;
+      padding:0.45rem 0.6rem; z-index:10;
+      font-size:.8rem; line-height:1.1;
+      cursor: pointer;
+      user-select:none;
+      pointer-events:auto;
     }
-    .event-card .title   { font-weight:500; font-size: .825rem; line-height: 1; text-transform: uppercase; }
-    .event-card .subtext { font-size: .7rem;  opacity:.9;   line-height:1; }
-    .event-card .location{ font-size: .7rem;  opacity:.75;  line-height:1; }
-    .event-card.narrow .title { font-size: .8rem; }
+    /* single-line ellipsis helpers */
+    .ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .event-card .title{ font-weight:700; font-size:.82rem; line-height:1; text-transform:uppercase; }
+    .event-card .meta{ font-size:.72rem; opacity:.9; line-height:1; }
+    .event-card.narrow .title{ font-size:.8rem; }
 
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot  { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
@@ -39,22 +44,35 @@
     .tz-hide { display:none !important; }
 
     /* Primary segmented control */
-    .seg {
-      display:inline-flex; border:1px solid #e5e7eb; border-radius:9999px; padding:2px; background:#fff;
+    .seg{ display:inline-flex; border:1px solid #e5e7eb; border-radius:9999px; padding:2px; background:#fff; }
+    .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
+    .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
+
+    /* Popover */
+    .popover-backdrop{
+      position:fixed; inset:0; background:transparent; z-index:60;
     }
-    .seg button {
-      padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151;
+    .popover{
+      position:absolute; z-index:70;
+      min-width:240px; max-width:320px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
+      box-shadow:0 10px 30px rgba(0,0,0,.15);
+      padding:.75rem .9rem;
     }
-    .seg button[aria-pressed="true"] { background:#111827; color:#fff; }
+    .badge{
+      display:inline-block; font-size:.675rem; font-weight:700;
+      padding:.15rem .45rem; border-radius:9999px;
+      letter-spacing:.02em;
+    }
 
     /* Responsive tweaks */
-    @media (max-width: 768px) {
-      .event-card { padding: 0.25rem 0.5rem; font-size: .75rem; }
-      .event-card .title { font-size: .8125rem; }
+    @media (max-width: 768px){
+      .event-card{ padding:.25rem .45rem; font-size:.75rem; }
+      .event-card .title{ font-size:.8rem; }
     }
-    @media (max-width: 640px) {
-      .event-card { padding: 0.125rem 0.25rem; font-size: .6875rem; }
-      .event-card .title { font-size: .75rem; }
+    @media (max-width: 640px){
+      .event-card{ padding:.2rem .35rem; font-size:.6875rem; }
+      .event-card .title{ font-size:.75rem; }
     }
   </style>
 </head>
@@ -74,9 +92,7 @@
 
     <!-- PRIMARY tabs (segmented) -->
     <div class="mb-3 flex items-center justify-between flex-wrap gap-3">
-      <div id="primaryTabs" class="seg" role="tablist" aria-label="Primary calendars">
-        <!-- buttons injected -->
-      </div>
+      <div id="primaryTabs" class="seg" role="tablist" aria-label="Primary calendars"></div>
     </div>
 
     <!-- SUB tabs -->
@@ -101,10 +117,9 @@
   </main>
 
   <script>
-  // Path to CSV
+  /* =================== Data & Colors =================== */
   const CSV_PATH = 'FRTest2extended.csv';
 
-  /** === Colors === */
   const PALETTE = {
     blue:["bg-blue-100","text-blue-800","border-blue-500"],
     green:["bg-green-100","text-green-800","border-green-500"],
@@ -130,225 +145,160 @@
     'DEFAULT':'gray'
   };
 
-  // Intensity → palette key (for Group Fitness only)
-  const INTENSITY_TO_COLOR = {
-    LOW: 'green',
-    MODERATE: 'teal',
-    HIGH: 'indigo'
-  };
-
-  function normIntensity(x) {
+  const INTENSITY_TO_COLOR = { LOW:'green', MODERATE:'teal', HIGH:'indigo' };
+  const normIntensity = x => {
     if (!x) return null;
-    const t = String(x).trim().toUpperCase();
+    const t=String(x).trim().toUpperCase();
     if (t.startsWith('LOW')) return 'LOW';
     if (t.startsWith('MOD')) return 'MODERATE';
     if (t.startsWith('HIGH')) return 'HIGH';
     return null;
-  }
+  };
 
-  function getColorForActivity(activityName) {
-    const upperName = activityName.toUpperCase();
-    for (const [key, color] of Object.entries(ACTIVITY_COLORS)) {
-      if (upperName.includes(key)) return color;
-    }
+  function getColorForActivity(name){
+    const u=name.toUpperCase();
+    for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (u.includes(k)) return c;
     return ACTIVITY_COLORS.DEFAULT;
   }
 
-  /** === Data model ===
-   * ALL_EVENTS = {
-   *   dropin:  { aquatics:{...}, courtSports:{...}, community:{...} },
-   *   fitness: { aquatics:{...}, land:{...} }
-   * }
-   */
+  /* =================== Model =================== */
+  // ALL_EVENTS = { dropin:{aquatics,...}, fitness:{aquatics,land} }
   let ALL_EVENTS = {};
-  let CURRENT_WEEK = {}; // filtered by week
-  let CALS = {};         // pointer to CURRENT_WEEK[currentType]
+  let CURRENT_WEEK = {};
 
-  // Primary + sub tabs config
   const PRIMARY = {
-    dropin:  { label:'Drop-In',      subs: { aquatics:'Aquatics', courtSports:'Court Sports', community:'Community' } },
-    fitness: { label:'Group Fitness', subs: { aquatics:'Aquatics', land:'Land' } }
+    dropin:  { label:'Drop-In',      subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community' } },
+    fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', land:'Land' } }
   };
 
-  /** === Parsing helpers === */
-  function parseTime12h(t){ // "9:15 AM" -> 9.25
+  function parseTime12h(t){
     const [time, ap] = t.trim().split(' ');
     const [hh, mm='0'] = time.split(':').map(n=>+n);
-    let h = hh % 12; if (ap.toUpperCase()==='PM') h+=12;
+    let h = hh%12; if ((ap||'').toUpperCase()==='PM') h+=12;
     return h + (+mm/60);
   }
-  
-  function ev(name, location, dayIndex, start, end, colorKey, intensity = null, type = 'dropin', sub = 'aquatics'){
-    const [bg, text, border] = PALETTE[colorKey];
-    return {
-      id: `${name}-${dayIndex}-${start}`,
-      name,
-      location,
-      dayIndex,
-      start,
-      end,
-      color: { bg, text, border },
-      intensity,   // "LOW" | "MODERATE" | "HIGH" | null
-      type,        // "dropin" | "fitness"
-      sub          // e.g., "aquatics" | "land" | "community" | "courtSports"
-    };
+
+  function ev(name, location, dayIndex, start, end, colorKey, intensity=null, type='dropin', sub='aquatics'){
+    const [bg,text,border] = PALETTE[colorKey];
+    return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
+      color:{bg,text,border}, intensity, type, sub };
   }
 
-  // Decide primary & subcategory for a class
   function classify(activity, location){
-    const A = activity.toUpperCase();
-    const L = (location||'').toUpperCase();
-
-    // ----- Group Fitness (Aquatics) -----
-    if ((A.includes('AQUA') || A.includes('SPLASH')) && (A.includes('FIT') || L.includes('POOL'))) {
-      return { type:'fitness', sub:'aquatics' };
-    }
-    // ----- Group Fitness (Land) -----
-    const LAND_KEYS = ['YOGA','PILATES','ZUMBA','BOOT CAMP','BARRE','SPIN','CYCLE','BODY','CORE','STRENGTH','HIIT'];
-    if (LAND_KEYS.some(k=>A.includes(k))) {
-      return { type:'fitness', sub:'land' };
-    }
-
-    // ----- Drop-In buckets (fallbacks) -----
-    if (A.includes('SWIM') || L.includes('POOL'))                    return { type:'dropin', sub:'aquatics' };
-    if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT'))
-      return { type:'dropin', sub:'courtSports' };
-    return { type:'dropin', sub:'community' };
+    const A=activity.toUpperCase(), L=(location||'').toUpperCase();
+    if ((A.includes('AQUA')||A.includes('SPLASH')) && (A.includes('FIT')||L.includes('POOL')))
+      return {type:'fitness', sub:'aquatics'};
+    const LAND=['YOGA','PILATES','ZUMBA','BOOT CAMP','BARRE','SPIN','CYCLE','BODY','CORE','STRENGTH','HIIT'];
+    if (LAND.some(k=>A.includes(k))) return {type:'fitness', sub:'land'};
+    if (A.includes('SWIM')||L.includes('POOL')) return {type:'dropin', sub:'aquatics'};
+    if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k))||L.includes('COURT')) return {type:'dropin', sub:'courtSports'};
+    return {type:'dropin', sub:'community'};
   }
 
-  function parseDateFlexible(dateStr) {
-    const s = String(dateStr).trim();
-    if (s.includes('/')) {
-      const [mm, dd, yyyy] = s.split('/').map(Number);
-      return new Date(yyyy, mm - 1, dd);
-    }
-    if (s.includes('-')) {
-      const [yyyy, mm, dd] = s.split('-').map(Number);
-      return new Date(yyyy, mm - 1, dd);
-    }
-    // Fallback: let Date try (last resort)
+  function parseDateFlexible(s){
+    s=String(s).trim();
+    if (s.includes('/')){ const [m,d,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
+    if (s.includes('-')){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
     return new Date(s);
   }
 
   async function loadCSVData(){
     try{
-      const csvText = await fetch(CSV_PATH).then(r=>r.text());
-      return parseCSV(csvText);
-    }catch(err){
-      console.error('CSV load failed:', err);
-      // tiny fallback demo
-      const monday = new Date();
+      const csv = await fetch(CSV_PATH).then(r=>r.text());
+      return parseCSV(csv);
+    }catch{
+      // small fallback
+      const today = new Date();
       return {
-        dropin:{
-          aquatics:{label:'Aquatics',events:[ev('Lap Swim','Pool',0,5,8,'blue'),ev('Rec Swim','Pool',0,5,8,'green')]},
-          courtSports:{label:'Court Sports',events:[ev('Pickleball','Court',1,9,11,'teal')]},
-          community:{label:'Community',events:[ev('Mahjong','Lounge',2,10,11,'pink')]}
-        },
-        fitness:{
-          aquatics:{label:'Aquatics',events:[ev('Aqua Fit','Pool',2,9,10,'purple')]},
-          land:{label:'Land',events:[ev('Yoga','Studio',4,18,19,'pink')]}
-        }
+        dropin:{ aquatics:{label:'Aquatics',events:[ev('Lap Swim','Pool',0,5,8,'blue')]},
+                 courtSports:{label:'Court Sports',events:[ev('Pickleball','Court',1,9,11,'teal')]},
+                 community:{label:'Community',events:[]} },
+        fitness:{ aquatics:{label:'Aquatics',events:[ev('Aqua Fit','Pool',2,9,10,'purple')]},
+                  land:{label:'Land',events:[ev('Yoga','Studio 1',0,8,8.5,'green','LOW','fitness','land')]}}
       };
     }
   }
 
-  function parseCSV(csvText) {
-    const rows = csvText.replace(/\r/g,'').trim().split('\n');
-    const headerLine = rows[0];
-    const hasHeader = /intensity|activity|date|start|end|type|sub/i.test(headerLine);
+  function parseCSV(text){
+    const rows = text.replace(/\r/g,'').trim().split('\n');
+    const header = rows[0];
+    const hasHeader = /intensity|activity|date|start|end|type|sub/i.test(header);
     const lines = hasHeader ? rows.slice(1) : rows;
 
-    // Storage for both primaries
     const store = {
-      dropin:  { aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness: { aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
+      dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
+      fitness:{ aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
     };
 
-    // If a header exists, detect column indices
-    let idx = {};
-    if (hasHeader) {
-      const cols = headerLine.split(',').map(s=>s.trim().toLowerCase());
-      const want = ['type','sub','activity','location','date','start','end','intensity'];
-      want.forEach(k => idx[k] = cols.indexOf(k)); // -1 if missing
+    let idx={};
+    if (hasHeader){
+      const cols = header.split(',').map(s=>s.trim().toLowerCase());
+      for (const k of ['type','sub','activity','location','date','start','end','intensity'])
+        idx[k] = cols.indexOf(k);
     }
 
-    for (const line of lines) {
+    for (const line of lines){
       if (!line.trim()) continue;
-      const parts = line.split(',').map(s => s.trim());
+      const parts = line.split(',').map(s=>s.trim());
 
-      // Two formats supported:
-      // (1) “Our legacy 9-col” -> [, location, , date, start, end, activity, ... , (maybe intensity last)]
-      // (2) Headered: type,sub,activity,location,date,start,end,intensity
       let type=null, sub=null, activity, location, dateStr, startTime, endTime, intensityRaw=null;
 
-      if (hasHeader && idx.activity >= 0) {
-        type      = idx.type      >= 0 ? parts[idx.type]      : null;
-        sub       = idx.sub       >= 0 ? parts[idx.sub]       : null;
-        activity  = parts[idx.activity];
-        location  = idx.location  >= 0 ? parts[idx.location]  : '';
-        dateStr   = parts[idx.date];
+      if (hasHeader && idx.activity>=0){
+        type = idx.type>=0 ? parts[idx.type] : null;
+        sub  = idx.sub>=0 ? parts[idx.sub] : null;
+        activity = parts[idx.activity];
+        location = idx.location>=0 ? parts[idx.location] : '';
+        dateStr = parts[idx.date];
         startTime = parts[idx.start];
         endTime   = parts[idx.end];
-        intensityRaw = idx.intensity >= 0 ? parts[idx.intensity] : null;
-      } else {
-        // legacy format you showed before
-        // facility, location, (blank), date, start_time, end_time, activity, facility_dup, category [, intensity]
-        if (parts.length < 7) continue;
-        [, location, , dateStr, startTime, endTime, activity] = parts;
-        // if there is a trailing “intensity” field, pick it up
+        intensityRaw = idx.intensity>=0 ? parts[idx.intensity] : null;
+      }else{
+        // legacy: facility, location, , date, start, end, activity, ...
+        if (parts.length<7) continue;
+        [,location,,dateStr,startTime,endTime,activity] = parts;
         const maybe = parts[parts.length-1];
-        if (/low|moderate|high/i.test(maybe)) intensityRaw = maybe;
+        if (/low|moderate|high/i.test(maybe)) intensityRaw=maybe;
       }
 
-      // Determine primary/sub if not explicitly supplied
       let where;
-      if (type && sub) {
-        where = { type: type.toLowerCase(), sub: sub.toLowerCase() };
-      } else {
-        where = classify(activity, location); // your existing classifier
-      }
+      if (type&&sub) where={type:type.toLowerCase(), sub:sub.toLowerCase()};
+      else where = classify(activity, location);
 
-      // Parse times/dates
-      const startHour = parseTime12h ? parseTime12h(startTime) : parseTime(startTime);
-      const endHour   = parseTime12h ? parseTime12h(endTime)   : parseTime(endTime);
+      const startHr = parseTime12h(startTime);
+      const endHr   = parseTime12h(endTime);
+      const d = parseDateFlexible(dateStr);
+      const dayIndex = (d.getDay()+6)%7;
 
-      // Use flexible date parsing:
-      const eventDate = parseDateFlexible(dateStr);
-      const jsDay = eventDate.getDay();            // Sun = 0..Sat = 6
-      const dayIndex = (jsDay + 6) % 7;            // Mon = 0
-
-      // Intensity normalization + color choice
       const intensity = normIntensity(intensityRaw);
-      const colorKey =
-        (where.type === 'fitness' && intensity) ? INTENSITY_TO_COLOR[intensity]
-                                                : getColorForActivity(activity);
+      const colorKey = (where.type==='fitness' && intensity) ? INTENSITY_TO_COLOR[intensity] : getColorForActivity(activity);
 
-      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, where.type, where.sub);
-      e.date = eventDate;
+      const e = ev(activity, location, dayIndex, startHr, endHr, colorKey, intensity, where.type, where.sub);
+      e.date = d;
       store[where.type][where.sub].events.push(e);
     }
 
     return store;
   }
 
-  /** === Week filtering === */
-  function getMonday(d){ const x = new Date(d); const day = (x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
+  /* =================== Week & Time helpers =================== */
+  function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
   function ymd(d){ return d.toISOString().slice(0,10); }
   function labelDate(d){ return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+  function formatTime(hr){ const h=Math.floor(hr), m=Math.round((hr-h)*60); const h12=(h%12)||12; const ap=h<12?'AM':'PM'; return `${h12}:${String(m).padStart(2,'0')} ${ap}`; }
 
   function filterWeek(all, weekStart){
-    const weekEnd = addDays(weekStart, 6);
+    const weekEnd=addDays(weekStart,6);
     const out = {
-      dropin:  { aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness: { aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
+      dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
+      fitness:{ aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
     };
     for (const type of Object.keys(all)){
       for (const sub of Object.keys(all[type])){
         all[type][sub].events.forEach(e=>{
-          if (e.date >= weekStart && e.date <= weekEnd){
-            const daysDiff = Math.floor((e.date - weekStart)/(1000*60*60*24));
-            out[type][sub].events.push({...e, dayIndex:daysDiff});
+          if (e.date>=weekStart && e.date<=weekEnd){
+            const diff=Math.floor((e.date-weekStart)/(1000*60*60*24));
+            out[type][sub].events.push({...e, dayIndex:diff});
           }
         });
       }
@@ -356,16 +306,7 @@
     return out;
   }
 
-  function formatTime(hour){
-    const h = Math.floor(hour);
-    const m = Math.round((hour - h) * 60);
-    const h12 = (h % 12) || 12;
-    const ap = h < 12 ? "AM" : "PM";
-    const minutes = m === 0 ? "00" : m.toString().padStart(2, '0');
-    return `${h12}:${minutes} ${ap}`;
-  }
-
-  /** === State === */
+  /* =================== State & Refs =================== */
   const params = new URLSearchParams(location.search);
   const START_OF_WEEK = getMonday(new Date());
   let weekStart = params.get('w') ? new Date(params.get('w')) : START_OF_WEEK;
@@ -389,39 +330,31 @@
   };
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // overlays per day
   let dayOverlays = [];
+  let openPopoverNodes = []; // [backdrop, popover]
 
-  // Controls
+  /* =================== Controls =================== */
   els.prevBtn.onclick = () => changeWeek(-7);
   els.nextBtn.onclick = () => changeWeek(+7);
-  els.todayBtn.onclick = () => { weekStart = getMonday(new Date()); CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
+  els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS,weekStart); syncUrl(); render(); };
 
-  function changeWeek(delta){ weekStart = addDays(weekStart, delta); CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
+  function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS,weekStart); syncUrl(); render(); }
   function syncUrl(){
-    const p = new URLSearchParams();
-    p.set('type', currentType);
-    p.set('sub', currentSub);
-    p.set('w', ymd(weekStart));
+    const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart));
     history.replaceState(null,'',`?${p.toString()}`);
   }
 
-  /** === Rendering === */
+  /* =================== Rendering =================== */
   function renderPrimary(){
-    els.primaryTabs.innerHTML = '';
+    els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('role','tab');
-      btn.setAttribute('aria-pressed', String(type===currentType));
-      btn.className = 'focus:outline-none';
-      btn.textContent = PRIMARY[type].label;
-      btn.onclick = () => {
-        currentType = type;
-        // pick a stable first sub if current is not in this type
-        if (!PRIMARY[currentType].subs[currentSub]) {
-          currentSub = Object.keys(PRIMARY[currentType].subs)[0];
-        }
+      const btn=document.createElement('button');
+      btn.type='button'; btn.setAttribute('role','tab'); btn.setAttribute('aria-pressed',String(type===currentType));
+      btn.className='focus:outline-none';
+      btn.textContent=PRIMARY[type].label;
+      btn.onclick=()=>{
+        currentType=type;
+        if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0];
         syncUrl(); render();
       };
       els.primaryTabs.appendChild(btn);
@@ -429,43 +362,44 @@
   }
 
   function renderSubTabs(){
-    els.tabs.innerHTML = '';
-    const subs = PRIMARY[currentType].subs;
+    els.tabs.innerHTML='';
+    const subs=PRIMARY[currentType].subs;
     Object.keys(subs).forEach(key=>{
-      const btn = document.createElement('button');
-      btn.className = 'tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
-      btn.textContent = subs[key];
+      const btn=document.createElement('button');
+      btn.className='tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
+      btn.textContent=subs[key];
       if (key===currentSub) btn.classList.add('active');
-      btn.onclick = () => { currentSub = key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); syncUrl(); renderBody(); };
+      btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); syncUrl(); renderBody(); };
       els.tabs.appendChild(btn);
     });
   }
 
-  function render(){ renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
-    els.gridHeader.innerHTML = '';
-    const timeCell = document.createElement('div');
-    timeCell.className = 'p-2 border-r border-b border-gray-200 text-xs text-center font-semibold text-gray-500 flex items-center justify-center';
-    timeCell.textContent = 'EDT';
+    els.gridHeader.innerHTML='';
+    const timeCell=document.createElement('div');
+    timeCell.className='p-2 border-r border-b border-gray-200 text-xs text-center font-semibold text-gray-500 flex items-center justify-center';
+    timeCell.textContent='EDT';
     els.gridHeader.appendChild(timeCell);
 
     for (let i=0;i<7;i++){
-      const d = addDays(weekStart,i);
-      const h = document.createElement('div');
-      h.className = 'p-2 border-b border-gray-200 text-center';
-      const isToday = ymd(d) === ymd(new Date());
-      h.innerHTML = `<p class="text-sm font-semibold ${isToday?'text-blue-600':'text-gray-600'}">${['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</p>
-                     <p class="text-xs ${isToday?'font-semibold text-blue-600':'text-gray-700'}">${labelDate(d)}</p>`;
+      const d=addDays(weekStart,i);
+      const h=document.createElement('div');
+      h.className='p-2 border-b border-gray-200 text-center';
+      const isToday=ymd(d)===ymd(new Date());
+      h.innerHTML=`<p class="text-sm font-semibold ${isToday?'text-blue-600':'text-gray-600'}">${['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</p>
+                   <p class="text-xs ${isToday?'font-semibold text-blue-600':'text-gray-700'}">${labelDate(d)}</p>`;
       els.gridHeader.appendChild(h);
     }
-    const end = addDays(weekStart,6);
-    els.rangeLabel.textContent = `${labelDate(weekStart)} – ${labelDate(end)}`;
+    const end=addDays(weekStart,6);
+    els.rangeLabel.textContent=`${labelDate(weekStart)} – ${labelDate(end)}`;
   }
 
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
+    closePopover();
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -477,13 +411,11 @@
       els.gridBody.appendChild(t);
       for (let day=0; day<7; day++){
         const cell=document.createElement('div');
-        cell.className='border-r border-b border-gray-200 h-16 day-col';
-        cell.dataset.day=day;
+        cell.className='border-r border-b border-gray-200 h-16 day-col'; cell.dataset.day=day;
         els.gridBody.appendChild(cell);
       }
     }
 
-    // overlays per day
     const firstRow=[...els.gridBody.querySelectorAll('.day-col')].slice(0,7);
     const totalH=(endHour-startHour)*rowH;
     for (let day=0; day<7; day++){
@@ -497,13 +429,11 @@
       dayOverlays[day]=ov;
     }
 
-    // events for current type + sub
     const events = CURRENT_WEEK[currentType][currentSub].events;
-    const byDay = Array.from({length:7},()=>[]);
+    const byDay=Array.from({length:7},()=>[]);
     events.forEach(e=>byDay[e.dayIndex].push(e));
-
     for (let day=0; day<7; day++){
-      const list = byDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
+      const list=byDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
       placeEventsInDay(day, list);
     }
 
@@ -524,7 +454,8 @@
 
         const card=document.createElement('div');
         card.className=`event-card shadow-sm ${e.color.bg} ${e.color.text} ${e.color.border}`;
-        card.style.top=`${top}px`; card.style.height=`${height}px`; card.style.pointerEvents='auto';
+        card.style.top=`${top}px`; card.style.height=`${height}px`;
+        card.style.pointerEvents='auto';
 
         if (n>1){
           const GAP=8;
@@ -533,18 +464,25 @@
           card.style.width=width; card.style.left=left; card.classList.add('narrow');
         } else {
           const PAD=8;
-          card.style.width=`calc(100% - ${PAD*2}px)`;
-          card.style.left=`${PAD}px`;
+          card.style.width=`calc(100% - ${PAD*2}px)`; card.style.left=`${PAD}px`;
         }
 
-        let name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
-        if (n>1 && name.length>18){
-          const map={'Aqua Fit Blast':'Aqua Blast','Silver Sneakers Splash':'Silver Splash','Open Basketball':'Basketball'};
-          name = map[name] || name;
-        }
-        card.innerHTML = `<p class="title leading-tight">${name}</p>
-                          <p class="subtext leading-tight">${formatTime(e.start)} – ${formatTime(e.end)}</p>
-                          ${e.location?`<p class="location leading-tight">${e.location}</p>`:''}`;
+        // Single-line, compact meta row: "9:00–9:50 AM · Studio 1"
+        const meta = `${formatTime(e.start)} – ${formatTime(e.end)}${e.location ? ' · ' + e.location : ''}`;
+
+        // If card is very short (e.g., 30 min), reduce padding & font a touch
+        if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
+
+        // Title case
+        const name = e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+
+        card.innerHTML = `
+          <div class="title ellipsis">${name}</div>
+          <div class="meta ellipsis">${meta}</div>
+        `;
+
+        // Click -> popover with full details
+        card.addEventListener('click', (ev)=>{ ev.stopPropagation(); openPopover(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
@@ -562,6 +500,7 @@
     if (curr.length) groups.push(curr);
     return groups;
   }
+
   function positionNowLine(startHour,endHour){
     document.querySelectorAll('.now-line').forEach(n=>n.remove());
     const now=new Date(); const dow=(now.getDay()+6)%7; const h=now.getHours(), m=now.getMinutes();
@@ -574,7 +513,52 @@
     line.appendChild(dot); ov.appendChild(line);
   }
 
-  // Mobile list view
+  /* =================== Popover =================== */
+  function closePopover(){
+    openPopoverNodes.forEach(n=>n.remove());
+    openPopoverNodes = [];
+    window.removeEventListener('keydown', escListener);
+  }
+  function escListener(e){ if (e.key==='Escape') closePopover(); }
+
+  function openPopover(eventObj, cardEl){
+    closePopover();
+    const backdrop=document.createElement('div');
+    backdrop.className='popover-backdrop';
+    backdrop.addEventListener('click', closePopover);
+
+    const pop=document.createElement('div');
+    pop.className='popover';
+    const colorKey = (eventObj.intensity && eventObj.type==='fitness') ? INTENSITY_TO_COLOR[eventObj.intensity] : null;
+    const badgeHTML = eventObj.intensity ? `<span class="badge ${colorKey?'bg-' + colorKey + '-100 text-' + colorKey + '-800':''}">${eventObj.intensity}</span>` : '';
+
+    pop.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="text-sm font-bold tracking-wide">${eventObj.name}</h3>
+        ${badgeHTML}
+      </div>
+      <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)}</div>
+      ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
+      <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
+    `;
+
+    // Position popover next to card, staying within viewport
+    const gridRect = els.gridBody.getBoundingClientRect();
+    const cardRect = cardEl.getBoundingClientRect();
+    const preferRight = cardRect.right + 12 < window.innerWidth * 0.92;
+    const left = preferRight ? (cardRect.right - gridRect.left + 12) : (cardRect.left - gridRect.left - 12 - 280);
+    const top = Math.max(8, Math.min(cardRect.top - gridRect.top, gridRect.height - 20));
+
+    pop.style.left = `${left}px`;
+    pop.style.top  = `${top}px`;
+
+    document.body.appendChild(backdrop);
+    els.gridBody.appendChild(pop);
+    openPopoverNodes = [backdrop, pop];
+    window.addEventListener('keydown', escListener, { once:false });
+  }
+
+  /* =================== Mobile list =================== */
   function renderList(){
     els.list.innerHTML='';
     const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -603,21 +587,15 @@
     }
   }
 
-  // Resize: reflow event positions
+  // reflow on resize
   let resizeTimeout;
-  window.addEventListener('resize', ()=>{
-    clearTimeout(resizeTimeout);
-    resizeTimeout=setTimeout(()=>renderGrid(),100);
-  });
+  window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout=setTimeout(()=>renderGrid(),100); });
 
-  /** === Boot === */
+  /* =================== Boot =================== */
   async function initialize(){
     ALL_EVENTS = await loadCSVData();
     CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
-
-    // sanity: ensure currentSub is valid for currentType
     if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
-
     render(); syncUrl();
   }
   initialize();
