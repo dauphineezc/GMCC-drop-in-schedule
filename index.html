@@ -26,7 +26,7 @@
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
       padding:0.45rem 0.6rem; z-index:10;
-      font-size:.8rem; line-height:1;
+      font-size:.8rem;
       cursor: pointer;
       user-select:none;
       pointer-events:auto;
@@ -34,8 +34,8 @@
     /* single-line ellipsis helpers */
     .ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    .event-card .title{ font-weight:700; font-size:.82rem; line-height:1; text-transform:uppercase; }
-    .event-card .meta{ font-size:.72rem; opacity:.9; line-height:1; }
+    .event-card .title{ font-weight:700; font-size:.82rem; text-transform:uppercase; }
+    .event-card .meta{ font-size:.72rem; opacity:.9; }
     .event-card.narrow .title{ font-size:.8rem; }
 
     .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
@@ -64,6 +64,22 @@
       padding:.15rem .45rem; border-radius:9999px;
       letter-spacing:.02em;
     }
+
+    /* keep cards from showing overflowed text below the box */
+    .event-card { overflow: hidden; }
+
+    /* single-line, ellipsis truncation for each row of text */
+    .event-line {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* uniformly tight line-height for title, time, location */
+    .event-tight { line-height: 1; }
+
+    /* (optional) make sure previous wrap rules don't interfere */
+    .event-card p { word-break: normal; overflow-wrap: normal; hyphens: none; }
 
     /* Responsive tweaks */
     @media (max-width: 768px){
@@ -473,10 +489,14 @@
         // If card is very short (e.g., 30 min), reduce padding & font a touch
         if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
 
-        let duration = e.end - e.start;
-        let name = e.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        // ... inside placeEventsInDay, just before appending the card:
 
-        // shorten long names for overlapping narrow events
+        const duration = e.end - e.start;
+
+        // Normalize / optionally shorten the title for narrow overlaps (unchanged)
+        let name = e.name.split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
         if (n > 1 && name.length > 18) {
           const map = {
             'Aqua Fit Blast': 'Aqua Blast',
@@ -486,19 +506,25 @@
           name = map[name] || name;
         }
 
-        let timeLine = `<p class="subtext leading-tight">${formatTime(e.start)} – ${formatTime(e.end)}`;
+        let timeAndMaybeLocation;
         if (duration <= 0.5 && e.location) {
-          // show time + location inline
-          timeLine += ` · ${e.location}</p>`;
+          // ≤ 30 minutes: time + location on one line
+          timeAndMaybeLocation = `
+            <p class="event-line event-tight subtext">
+              ${formatTime(e.start)} – ${formatTime(e.end)}, ${e.location}
+            </p>`;
         } else {
-          timeLine += `</p>`;
-          if (e.location) {
-            timeLine += `<p class="location leading-tight">${e.location}</p>`;
-          }
+          // > 30 minutes: time line, then (optional) location line
+          timeAndMaybeLocation = `
+            <p class="event-line event-tight subtext">
+              ${formatTime(e.start)} – ${formatTime(e.end)}
+            </p>
+            ${e.location ? `<p class="event-line event-tight location">${e.location}</p>` : ''}`;
         }
+
         card.innerHTML = `
-          <p class="title leading-tight">${name}</p>
-          ${timeLine}
+          <p class="event-line event-tight title">${name}</p>
+          ${timeAndMaybeLocation}
         `;
 
         // Click -> popover with full details
