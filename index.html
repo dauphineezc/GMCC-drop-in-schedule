@@ -177,14 +177,20 @@
     let h = hh % 12; if (ap.toUpperCase()==='PM') h+=12;
     return h + (+mm/60);
   }
-  function ev(name, location, dayIndex, start, end, colorKey){
+  
+  function ev(name, location, dayIndex, start, end, colorKey, intensity = null, type = 'dropin', sub = 'aquatics'){
     const [bg, text, border] = PALETTE[colorKey];
     return {
       id: `${name}-${dayIndex}-${start}`,
-      name, location, dayIndex, start, end,
-      color:{ bg, text, border },
-      intensity,      // ← store intensity string LOW/MODERATE/HIGH (or null)
-      type, sub       // ← keep which primary/sub this belongs to
+      name,
+      location,
+      dayIndex,
+      start,
+      end,
+      color: { bg, text, border },
+      intensity,   // "LOW" | "MODERATE" | "HIGH" | null
+      type,        // "dropin" | "fitness"
+      sub          // e.g., "aquatics" | "land" | "community" | "courtSports"
     };
   }
 
@@ -208,6 +214,20 @@
     if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT'))
       return { type:'dropin', sub:'courtSports' };
     return { type:'dropin', sub:'community' };
+  }
+
+  function parseDateFlexible(dateStr) {
+    const s = String(dateStr).trim();
+    if (s.includes('/')) {
+      const [mm, dd, yyyy] = s.split('/').map(Number);
+      return new Date(yyyy, mm - 1, dd);
+    }
+    if (s.includes('-')) {
+      const [yyyy, mm, dd] = s.split('-').map(Number);
+      return new Date(yyyy, mm - 1, dd);
+    }
+    // Fallback: let Date try (last resort)
+    return new Date(s);
   }
 
   async function loadCSVData(){
@@ -291,11 +311,11 @@
       // Parse times/dates
       const startHour = parseTime12h ? parseTime12h(startTime) : parseTime(startTime);
       const endHour   = parseTime12h ? parseTime12h(endTime)   : parseTime(endTime);
-
-      const [mm, dd, yyyy] = dateStr.split('/').map(Number);
-      const eventDate = new Date(yyyy, mm - 1, dd);
-      const jsDay = eventDate.getDay();
-      const dayIndex = (jsDay + 6) % 7; // Mon=0
+      
+      // Use flexible date parsing:
+      const eventDate = parseDateFlexible(dateStr);
+      const jsDay = eventDate.getDay();            // Sun = 0..Sat = 6
+      const dayIndex = (jsDay + 6) % 7;            // Mon = 0
 
       // Intensity normalization + color choice
       const intensity = normIntensity(intensityRaw);
