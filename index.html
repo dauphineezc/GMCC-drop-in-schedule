@@ -21,73 +21,40 @@
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
 
-    /* --- Event cards --- */
+    /* Cards */
     .event-card{
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
-      padding:0.45rem 0.6rem; z-index:10;
-      font-size:.8rem;
-      cursor: pointer;
-      user-select:none;
-      pointer-events:auto;
+      padding:0.5rem 0.75rem; z-index:10;
+      overflow:hidden; /* prevent spill below the card */
+      font-size:.8125rem;
     }
-    /* single-line ellipsis helpers */
-    .ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* single-line truncation + tight line-height for every row */
+    .event-line{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .event-tight{ line-height:1; }
 
-    .event-card .title{ font-weight:700; font-size:.82rem; text-transform:uppercase; }
-    .event-card .meta{ font-size:.72rem; opacity:.9; }
+    .event-card .title{ font-weight:600; font-size:.825rem; text-transform:uppercase; }
+    .event-card .subtext{ font-size:.7rem; opacity:.9; }
+    .event-card .location{ font-size:.7rem; opacity:.75; }
     .event-card.narrow .title{ font-size:.8rem; }
 
-    .now-line { position:absolute; height:2px; background:#ef4444; z-index:30; }
-    .now-dot  { position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
+    .now-line{ position:absolute; height:2px; background:#ef4444; z-index:30; }
+    .now-dot{ position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
 
-    .tz-hide { display:none !important; }
+    .tz-hide{ display:none !important; }
 
     /* Primary segmented control */
     .seg{ display:inline-flex; border:1px solid #e5e7eb; border-radius:9999px; padding:2px; background:#fff; }
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* Popover */
-    .popover-backdrop{
-      position:fixed; inset:0; background:transparent; z-index:60;
-    }
-    .popover{
-      position:absolute; z-index:70;
-      min-width:240px; max-width:320px;
-      background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
-      box-shadow:0 10px 30px rgba(0,0,0,.15);
-      padding:.75rem .9rem;
-    }
-    .badge{
-      display:inline-block; font-size:.675rem; font-weight:700;
-      padding:.15rem .45rem; border-radius:9999px;
-      letter-spacing:.02em;
-    }
-
-    /* keep cards from showing overflowed text below the box */
-    .event-card { overflow: hidden; }
-
-    /* single-line, ellipsis truncation for each row of text */
-    .event-line {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* uniformly tight line-height for title, time, location */
-    .event-tight { line-height: 1; }
-
-    /* (optional) make sure previous wrap rules don't interfere */
-    .event-card p { word-break: normal; overflow-wrap: normal; hyphens: none; }
-
     /* Responsive tweaks */
     @media (max-width: 768px){
-      .event-card{ padding:.25rem .45rem; font-size:.75rem; }
-      .event-card .title{ font-size:.8rem; }
+      .event-card{ padding:.25rem .5rem; font-size:.75rem; }
+      .event-card .title{ font-size:.8125rem; }
     }
     @media (max-width: 640px){
-      .event-card{ padding:.2rem .35rem; font-size:.6875rem; }
+      .event-card{ padding:.125rem .25rem; font-size:.6875rem; }
       .event-card .title{ font-size:.75rem; }
     }
   </style>
@@ -95,7 +62,7 @@
 <body class="bg-gray-50 text-gray-800 antialiased">
   <main class="mx-auto max-w-none p-4 px-6">
 
-    <!-- Controls (date range centered across the full width) -->
+    <!-- Controls -->
     <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
       <div class="flex items-center gap-2">
         <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
@@ -133,9 +100,9 @@
   </main>
 
   <script>
-  /* =================== Data & Colors =================== */
   const CSV_PATH = 'FRTest2extended.csv';
 
+  /** Colors */
   const PALETTE = {
     blue:["bg-blue-100","text-blue-800","border-blue-500"],
     green:["bg-green-100","text-green-800","border-green-500"],
@@ -151,178 +118,209 @@
   };
 
   const ACTIVITY_COLORS = {
-    'LAP SWIM':'blue',
-    'REC SWIM':'green',
-    'OPEN BASKETBALL':'orange',
-    'VOLLEYBALL':'red',
-    'PICKLEBALL':'yellow',
-    'MAHJONG':'pink',
-    'BINGO':'cyan',
-    'DEFAULT':'gray'
+    'LAP SWIM':'blue','REC SWIM':'green',
+    'OPEN BASKETBALL':'orange','VOLLEYBALL':'red','PICKLEBALL':'yellow',
+    'MAHJONG':'pink','BINGO':'cyan','DEFAULT':'gray'
   };
 
+  // Group Fitness intensity mapping (optional; still supported)
   const INTENSITY_TO_COLOR = { LOW:'green', MODERATE:'teal', HIGH:'indigo' };
   const normIntensity = x => {
     if (!x) return null;
-    const t=String(x).trim().toUpperCase();
+    const t = String(x).trim().toUpperCase();
     if (t.startsWith('LOW')) return 'LOW';
     if (t.startsWith('MOD')) return 'MODERATE';
     if (t.startsWith('HIGH')) return 'HIGH';
     return null;
   };
 
-  function getColorForActivity(name){
-    const u=name.toUpperCase();
-    for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (u.includes(k)) return c;
+  const getColorForActivity = (name) => {
+    const upper = name.toUpperCase();
+    for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (upper.includes(k)) return c;
     return ACTIVITY_COLORS.DEFAULT;
-  }
+  };
 
-  /* =================== Model =================== */
-  // ALL_EVENTS = { dropin:{aquatics,...}, fitness:{aquatics,land} }
+  /** Data model:
+   * ALL_EVENTS = {
+   *   dropin:  { aquatics, courtSports, community },
+   *   fitness: { aquatics, studio1, studio2, mac }
+   * }
+   */
   let ALL_EVENTS = {};
   let CURRENT_WEEK = {};
 
+  // Primary + sub tabs
   const PRIMARY = {
     dropin:  { label:'Drop-In',      subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community' } },
-    fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', land:'Land' } }
+    fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', studio1:'Studio 1', studio2:'Studio 2', mac:'MAC Gym' } }
   };
 
+  /** Helpers */
   function parseTime12h(t){
     const [time, ap] = t.trim().split(' ');
-    const [hh, mm='0'] = time.split(':').map(n=>+n);
-    let h = hh%12; if ((ap||'').toUpperCase()==='PM') h+=12;
+    const [hh, mm='0'] = time.split(':').map(Number);
+    let h = hh % 12; if ((ap||'').toUpperCase()==='PM') h += 12;
     return h + (+mm/60);
   }
 
   function ev(name, location, dayIndex, start, end, colorKey, intensity=null, type='dropin', sub='aquatics'){
     const [bg,text,border] = PALETTE[colorKey];
     return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
-      color:{bg,text,border}, intensity, type, sub };
-  }
-
-  function classify(activity, location){
-    const A=activity.toUpperCase(), L=(location||'').toUpperCase();
-    if ((A.includes('AQUA')||A.includes('SPLASH')) && (A.includes('FIT')||L.includes('POOL')))
-      return {type:'fitness', sub:'aquatics'};
-    const LAND=['YOGA','PILATES','ZUMBA','BOOT CAMP','BARRE','SPIN','CYCLE','BODY','CORE','STRENGTH','HIIT'];
-    if (LAND.some(k=>A.includes(k))) return {type:'fitness', sub:'land'};
-    if (A.includes('SWIM')||L.includes('POOL')) return {type:'dropin', sub:'aquatics'};
-    if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k))||L.includes('COURT')) return {type:'dropin', sub:'courtSports'};
-    return {type:'dropin', sub:'community'};
+             color:{bg,text,border}, intensity, type, sub };
   }
 
   function parseDateFlexible(s){
-    s=String(s).trim();
-    if (s.includes('/')){ const [m,d,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
-    if (s.includes('-')){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
-    return new Date(s);
+    const x=String(s).trim();
+    if (x.includes('/')){ const [mm,dd,yy]=x.split('/').map(Number); return new Date(yy,mm-1,dd); }
+    if (x.includes('-')){ const [yy,mm,dd]=x.split('-').map(Number); return new Date(yy,mm-1,dd); }
+    return new Date(x);
+  }
+
+  // Decide fitness sub by location (no sub column required)
+  function fitnessSubFromLocation(loc){
+    const L=(loc||'').toLowerCase();
+    if (L.includes('pool') || L.includes('lap')) return 'aquatics';
+    if (L.includes('studio 1') || L.includes('studio1')) return 'studio1';
+    if (L.includes('studio 2') || L.includes('studio2')) return 'studio2';
+    if (L.includes('mac gym') || L === 'mac' || L.includes(' mac')) return 'mac';
+    return null;
+  }
+
+  // Fallback classifier for drop-in buckets
+  function classifyDropIn(activity, location){
+    const A=activity.toUpperCase(), L=(location||'').toUpperCase();
+    if (A.includes('SWIM') || L.includes('POOL')) return 'aquatics';
+    if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT')) return 'courtSports';
+    return 'community';
   }
 
   async function loadCSVData(){
     try{
-      const csv = await fetch(CSV_PATH).then(r=>r.text());
-      return parseCSV(csv);
-    }catch{
-      // small fallback
-      const today = new Date();
+      const csvText = await fetch(CSV_PATH, {cache:'no-store'}).then(r=>r.text());
+      return parseCSV(csvText);
+    }catch(err){
+      console.error('CSV load failed:', err);
+      // minimal fallback
+      const today=getMonday(new Date());
       return {
-        dropin:{ aquatics:{label:'Aquatics',events:[ev('Lap Swim','Pool',0,5,8,'blue')]},
-                 courtSports:{label:'Court Sports',events:[ev('Pickleball','Court',1,9,11,'teal')]},
-                 community:{label:'Community',events:[]} },
-        fitness:{ aquatics:{label:'Aquatics',events:[ev('Aqua Fit','Pool',2,9,10,'purple')]},
-                  land:{label:'Land',events:[ev('Yoga','Studio 1',0,8,8.5,'green','LOW','fitness','land')]}}
+        dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
+        fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
       };
     }
   }
 
-  function parseCSV(text){
-    const rows = text.replace(/\r/g,'').trim().split('\n');
+  function parseCSV(csvText){
+    const rows = csvText.replace(/\r/g,'').trim().split('\n');
     const header = rows[0];
-    const hasHeader = /intensity|activity|date|start|end|type|sub/i.test(header);
+    const hasHeader = /activity|location|date|start|end/i.test(header);
     const lines = hasHeader ? rows.slice(1) : rows;
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness:{ aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
+      fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
 
     let idx={};
     if (hasHeader){
-      const cols = header.split(',').map(s=>s.trim().toLowerCase());
-      for (const k of ['type','sub','activity','location','date','start','end','intensity'])
-        idx[k] = cols.indexOf(k);
+      const cols=header.split(',').map(s=>s.trim().toLowerCase());
+      for (const k of ['type','sub','activity','location','date','start','end','intensity']) idx[k]=cols.indexOf(k);
     }
 
     for (const line of lines){
       if (!line.trim()) continue;
-      const parts = line.split(',').map(s=>s.trim());
+      const parts=line.split(',').map(s=>s.trim());
 
       let type=null, sub=null, activity, location, dateStr, startTime, endTime, intensityRaw=null;
 
       if (hasHeader && idx.activity>=0){
-        type = idx.type>=0 ? parts[idx.type] : null;
-        sub  = idx.sub>=0 ? parts[idx.sub] : null;
-        activity = parts[idx.activity];
-        location = idx.location>=0 ? parts[idx.location] : '';
-        dateStr = parts[idx.date];
+        type      = idx.type>=0 ? parts[idx.type] : null;       // optional in CSV
+        sub       = idx.sub>=0 ? parts[idx.sub] : null;         // optional; we’ll ignore for fitness
+        activity  = parts[idx.activity];
+        location  = idx.location>=0 ? parts[idx.location] : '';
+        dateStr   = parts[idx.date];
         startTime = parts[idx.start];
         endTime   = parts[idx.end];
         intensityRaw = idx.intensity>=0 ? parts[idx.intensity] : null;
-      }else{
-        // legacy: facility, location, , date, start, end, activity, ...
-        if (parts.length<7) continue;
-        [,location,,dateStr,startTime,endTime,activity] = parts;
+      } else {
+        // Legacy 9-col (facility, location, _, date, start, end, activity, ...)
+        if (parts.length < 7) continue;
+        [, location, , dateStr, startTime, endTime, activity] = parts;
         const maybe = parts[parts.length-1];
-        if (/low|moderate|high/i.test(maybe)) intensityRaw=maybe;
+        if (/low|moderate|high/i.test(maybe)) intensityRaw = maybe;
       }
 
-      let where;
-      if (type&&sub) where={type:type.toLowerCase(), sub:sub.toLowerCase()};
-      else where = classify(activity, location);
+      const startHour=parseTime12h(startTime);
+      const endHour=parseTime12h(endTime);
+      const eventDate=parseDateFlexible(dateStr);
+      const jsDay=eventDate.getDay();
+      const dayIndex=(jsDay+6)%7;
 
-      const startHr = parseTime12h(startTime);
-      const endHr   = parseTime12h(endTime);
-      const d = parseDateFlexible(dateStr);
-      const dayIndex = (d.getDay()+6)%7;
+      // Decide bucket
+      let bucketType='dropin', bucketSub='community';
+
+      // If caller supplied "fitness" explicitly, respect it; otherwise infer
+      if (type && type.toLowerCase()==='fitness'){
+        bucketType='fitness';
+        bucketSub = fitnessSubFromLocation(location) || 'studio1';
+      } else {
+        // auto: try fitness by location first
+        const maybeFitness = fitnessSubFromLocation(location);
+        if (maybeFitness){
+          bucketType='fitness'; bucketSub=maybeFitness;
+        } else {
+          bucketType='dropin'; bucketSub=classifyDropIn(activity, location);
+        }
+      }
 
       const intensity = normIntensity(intensityRaw);
-      const colorKey = (where.type==='fitness' && intensity) ? INTENSITY_TO_COLOR[intensity] : getColorForActivity(activity);
+      const colorKey = (bucketType==='fitness' && intensity)
+        ? INTENSITY_TO_COLOR[intensity]
+        : getColorForActivity(activity);
 
-      const e = ev(activity, location, dayIndex, startHr, endHr, colorKey, intensity, where.type, where.sub);
-      e.date = d;
-      store[where.type][where.sub].events.push(e);
+      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, intensity, bucketType, bucketSub);
+      e.date=eventDate;
+
+      store[bucketType][bucketSub].events.push(e);
     }
 
     return store;
   }
 
-  /* =================== Week & Time helpers =================== */
+  /** Week filtering */
   function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
   function ymd(d){ return d.toISOString().slice(0,10); }
   function labelDate(d){ return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
-  function formatTime(hr){ const h=Math.floor(hr), m=Math.round((hr-h)*60); const h12=(h%12)||12; const ap=h<12?'AM':'PM'; return `${h12}:${String(m).padStart(2,'0')} ${ap}`; }
 
   function filterWeek(all, weekStart){
-    const weekEnd=addDays(weekStart,6);
+    const weekEnd = addDays(weekStart,6);
     const out = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness:{ aquatics:{label:'Aquatics',events:[]}, land:{label:'Land',events:[]} }
+      fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
     for (const type of Object.keys(all)){
       for (const sub of Object.keys(all[type])){
-        all[type][sub].events.forEach(e=>{
-          if (e.date>=weekStart && e.date<=weekEnd){
-            const diff=Math.floor((e.date-weekStart)/(1000*60*60*24));
-            out[type][sub].events.push({...e, dayIndex:diff});
+        for (const e of all[type][sub].events){
+          if (e.date >= weekStart && e.date <= weekEnd){
+            const daysDiff = Math.floor((e.date - weekStart)/(1000*60*60*24));
+            out[type][sub].events.push({...e, dayIndex:daysDiff});
           }
-        });
+        }
       }
     }
     return out;
   }
 
-  /* =================== State & Refs =================== */
+  function formatTime(hour){
+    const h=Math.floor(hour);
+    const m=Math.round((hour-h)*60);
+    const h12=(h%12)||12;
+    const ap=h<12?'AM':'PM';
+    const mm=m===0?'00':String(m).padStart(2,'0');
+    return `${h12}:${mm} ${ap}`;
+  }
+
+  /** State */
   const params = new URLSearchParams(location.search);
   const START_OF_WEEK = getMonday(new Date());
   let weekStart = params.get('w') ? new Date(params.get('w')) : START_OF_WEEK;
@@ -346,33 +344,26 @@
   };
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  let dayOverlays = [];
-  let openPopoverNodes = []; // [backdrop, popover]
+  let dayOverlays=[];
 
-  /* =================== Controls =================== */
+  // Controls
   els.prevBtn.onclick = () => changeWeek(-7);
   els.nextBtn.onclick = () => changeWeek(+7);
-  els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS,weekStart); syncUrl(); render(); };
+  els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
 
-  function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS,weekStart); syncUrl(); render(); }
-  function syncUrl(){
-    const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart));
-    history.replaceState(null,'',`?${p.toString()}`);
-  }
+  function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
+  function syncUrl(){ const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart)); history.replaceState(null,'',`?${p.toString()}`); }
 
-  /* =================== Rendering =================== */
+  /** Rendering */
   function renderPrimary(){
     els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
       const btn=document.createElement('button');
-      btn.type='button'; btn.setAttribute('role','tab'); btn.setAttribute('aria-pressed',String(type===currentType));
+      btn.type='button'; btn.setAttribute('role','tab');
+      btn.setAttribute('aria-pressed', String(type===currentType));
       btn.className='focus:outline-none';
       btn.textContent=PRIMARY[type].label;
-      btn.onclick=()=>{
-        currentType=type;
-        if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0];
-        syncUrl(); render();
-      };
+      btn.onclick=()=>{ currentType=type; if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0]; syncUrl(); render(); };
       els.primaryTabs.appendChild(btn);
     }
   }
@@ -380,17 +371,17 @@
   function renderSubTabs(){
     els.tabs.innerHTML='';
     const subs=PRIMARY[currentType].subs;
-    Object.keys(subs).forEach(key=>{
+    for (const key of Object.keys(subs)){
       const btn=document.createElement('button');
       btn.className='tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
       btn.textContent=subs[key];
       if (key===currentSub) btn.classList.add('active');
       btn.onclick=()=>{ currentSub=key; document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); syncUrl(); renderBody(); };
       els.tabs.appendChild(btn);
-    });
+    }
   }
 
-  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -415,7 +406,6 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closePopover();
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -427,11 +417,13 @@
       els.gridBody.appendChild(t);
       for (let day=0; day<7; day++){
         const cell=document.createElement('div');
-        cell.className='border-r border-b border-gray-200 h-16 day-col'; cell.dataset.day=day;
+        cell.className='border-r border-b border-gray-200 h-16 day-col';
+        cell.dataset.day=day;
         els.gridBody.appendChild(cell);
       }
     }
 
+    // overlays per day
     const firstRow=[...els.gridBody.querySelectorAll('.day-col')].slice(0,7);
     const totalH=(endHour-startHour)*rowH;
     for (let day=0; day<7; day++){
@@ -445,9 +437,10 @@
       dayOverlays[day]=ov;
     }
 
-    const events = CURRENT_WEEK[currentType][currentSub].events;
+    const events=CURRENT_WEEK[currentType][currentSub].events;
     const byDay=Array.from({length:7},()=>[]);
     events.forEach(e=>byDay[e.dayIndex].push(e));
+
     for (let day=0; day<7; day++){
       const list=byDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
       placeEventsInDay(day, list);
@@ -470,8 +463,7 @@
 
         const card=document.createElement('div');
         card.className=`event-card shadow-sm ${e.color.bg} ${e.color.text} ${e.color.border}`;
-        card.style.top=`${top}px`; card.style.height=`${height}px`;
-        card.style.pointerEvents='auto';
+        card.style.top=`${top}px`; card.style.height=`${height}px`; card.style.pointerEvents='auto';
 
         if (n>1){
           const GAP=8;
@@ -483,52 +475,27 @@
           card.style.width=`calc(100% - ${PAD*2}px)`; card.style.left=`${PAD}px`;
         }
 
-        // Single-line, compact meta row: "9:00–9:50 AM · Studio 1"
-        const meta = `${formatTime(e.start)} – ${formatTime(e.end)}${e.location ? ' · ' + e.location : ''}`;
-
-        // If card is very short (e.g., 30 min), reduce padding & font a touch
-        if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
-
-        // ... inside placeEventsInDay, just before appending the card:
-
-        const duration = e.end - e.start;
-
-        // Normalize / optionally shorten the title for narrow overlaps (unchanged)
-        let name = e.name.split(' ')
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' ');
-        if (n > 1 && name.length > 18) {
-          const map = {
-            'Aqua Fit Blast': 'Aqua Blast',
-            'Silver Sneakers Splash': 'Silver Splash',
-            'Open Basketball': 'Basketball'
-          };
+        // Title, with small abbreviation for crowded groups
+        let name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+        if (n>1 && name.length>18){
+          const map={'Aqua Fit Blast':'Aqua Blast','Silver Sneakers Splash':'Silver Splash','Open Basketball':'Basketball'};
           name = map[name] || name;
         }
 
-        let timeAndMaybeLocation;
-        if (duration <= 0.5 && e.location) {
-          // ≤ 30 minutes: time + location on one line
-          timeAndMaybeLocation = `
-            <p class="event-line event-tight subtext">
-              ${formatTime(e.start)} – ${formatTime(e.end)}, ${e.location}
-            </p>`;
+        // ≤ 30 min => time + location inline; else location on separate line
+        const duration = e.end - e.start;
+        let timeAndLoc;
+        if (duration <= 0.5 && e.location){
+          timeAndLoc = `<p class="event-line event-tight subtext">${formatTime(e.start)} – ${formatTime(e.end)}, ${e.location}</p>`;
         } else {
-          // > 30 minutes: time line, then (optional) location line
-          timeAndMaybeLocation = `
-            <p class="event-line event-tight subtext">
-              ${formatTime(e.start)} – ${formatTime(e.end)}
-            </p>
-            ${e.location ? `<p class="event-line event-tight location">${e.location}</p>` : ''}`;
+          timeAndLoc = `<p class="event-line event-tight subtext">${formatTime(e.start)} – ${formatTime(e.end)}</p>` +
+                       (e.location ? `<p class="event-line event-tight location">${e.location}</p>` : '');
         }
 
         card.innerHTML = `
           <p class="event-line event-tight title">${name}</p>
-          ${timeAndMaybeLocation}
+          ${timeAndLoc}
         `;
-
-        // Click -> popover with full details
-        card.addEventListener('click', (ev)=>{ ev.stopPropagation(); openPopover(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
@@ -559,52 +526,7 @@
     line.appendChild(dot); ov.appendChild(line);
   }
 
-  /* =================== Popover =================== */
-  function closePopover(){
-    openPopoverNodes.forEach(n=>n.remove());
-    openPopoverNodes = [];
-    window.removeEventListener('keydown', escListener);
-  }
-  function escListener(e){ if (e.key==='Escape') closePopover(); }
-
-  function openPopover(eventObj, cardEl){
-    closePopover();
-    const backdrop=document.createElement('div');
-    backdrop.className='popover-backdrop';
-    backdrop.addEventListener('click', closePopover);
-
-    const pop=document.createElement('div');
-    pop.className='popover';
-    const colorKey = (eventObj.intensity && eventObj.type==='fitness') ? INTENSITY_TO_COLOR[eventObj.intensity] : null;
-    const badgeHTML = eventObj.intensity ? `<span class="badge ${colorKey?'bg-' + colorKey + '-100 text-' + colorKey + '-800':''}">${eventObj.intensity}</span>` : '';
-
-    pop.innerHTML = `
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-sm font-bold tracking-wide">${eventObj.name}</h3>
-        ${badgeHTML}
-      </div>
-      <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)}</div>
-      ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
-      <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
-    `;
-
-    // Position popover next to card, staying within viewport
-    const gridRect = els.gridBody.getBoundingClientRect();
-    const cardRect = cardEl.getBoundingClientRect();
-    const preferRight = cardRect.right + 12 < window.innerWidth * 0.92;
-    const left = preferRight ? (cardRect.right - gridRect.left + 12) : (cardRect.left - gridRect.left - 12 - 280);
-    const top = Math.max(8, Math.min(cardRect.top - gridRect.top, gridRect.height - 20));
-
-    pop.style.left = `${left}px`;
-    pop.style.top  = `${top}px`;
-
-    document.body.appendChild(backdrop);
-    els.gridBody.appendChild(pop);
-    openPopoverNodes = [backdrop, pop];
-    window.addEventListener('keydown', escListener, { once:false });
-  }
-
-  /* =================== Mobile list =================== */
+  // Mobile list
   function renderList(){
     els.list.innerHTML='';
     const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -633,15 +555,18 @@
     }
   }
 
-  // reflow on resize
+  // Resize: reflow
   let resizeTimeout;
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout=setTimeout(()=>renderGrid(),100); });
 
-  /* =================== Boot =================== */
+  /** Boot */
   async function initialize(){
     ALL_EVENTS = await loadCSVData();
     CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
+
+    // ensure current sub is valid for selected type
     if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
+
     render(); syncUrl();
   }
   initialize();
