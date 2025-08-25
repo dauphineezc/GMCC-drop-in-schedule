@@ -92,3 +92,44 @@ dropin,Open Swim,Pool,08/31/2025,2:00 PM,5:00 PM
 dropin,Pickleball,Court,08/31/2025,10:00 AM,2:00 PM
 dropin,Basketball (Adult & Youth),Court,08/31/2025,1:00 PM,5:30 PM
 dropin,Volleyball (Adult & Youth),Court,08/31/2025,10:00 AM,2:00 PM
+
+
+
+
+// drop in aquatics schedule in rectrac format:
+
+Greater Midland Community Center,Lap Lanes (0001),,08/25/2025,5:00 AM,8:00 AM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/25/2025,9:00 AM,3:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/25/2025,7:30 PM,8:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/25/2025,5:00 AM,9:00 AM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/25/2025,11:00 AM,3:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/26/2025,5:00 AM,3:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/26/2025,7:30 PM,8:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/26/2025,5:00 AM,8:00 AM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/26/2025,12:00 PM,3:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/26/2025,7:30 PM,8:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/27/2025,5:00 AM,8:00 AM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/27/2025,9:00 AM,3:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/27/2025,7:30 PM,8:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/27/2025,5:00 AM,9:00 AM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/27/2025,11:00 AM,3:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/28/2025,5:00 AM,3:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/28/2025,5:00 AM,8:00 AM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/28/2025,12:00 PM,3:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/28/2025,6:00 PM,8:30 PM,Open Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/29/2025,5:00 AM,8:00 AM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Lap Lanes (0001),,08/29/2025,9:00 AM,3:30 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/29/2025,5:00 AM,9:00 AM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/29/2025,11:00 AM,3:30 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/29/2025,6:00 PM,8:30 PM,Open Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/30/2025,8:00 AM,1:00 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/30/2025,1:00 PM,7:00 PM,Open Swim,Greater Midland Community Center,Greater Midland Community Center
+
+Greater Midland Community Center,Lap Lanes (0001),,08/31/2025,11:00 AM,2:00 PM,Lap Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/31/2025,11:00 AM,2:00 PM,Rec Swim,Greater Midland Community Center,Greater Midland Community Center
+Greater Midland Community Center,Pool (0000),,08/31/2025,2:00 PM,5:00 PM,Open Swim,Greater Midland Community Center,Greater Midland Community Center
