@@ -383,15 +383,18 @@
 
     const pop = document.createElement('div');
     pop.className = 'popover';
+
+    const minutes = Math.round((eventObj.end - eventObj.start) * 60);
+    const titleColorClass = eventObj?.color?.text || 'text-gray-900';
+
     pop.innerHTML = `
       <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-bold tracking-wide ${eventObj.color.text}">
+        <h3 class="text-lg font-bold tracking-wide ${titleColorClass}">
           ${eventObj.name}
         </h3>
-        ${badgeHTML}
       </div>
       <div class="mt-1 text-sm text-gray-700">
-        ${formatTime(eventObj.start)} – ${formatTime(eventObj.end)}
+        ${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${minutes} min)
       </div>
       ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
       <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
@@ -406,7 +409,6 @@
     let left = showRight
       ? (cardRect.right - gridRect.left + GAP)
       : (cardRect.left  - gridRect.left - GAP - POP_W);
-
     left = Math.max(8, Math.min(left, gridRect.width - POP_W - 8));
 
     let top = cardRect.top - gridRect.top;
@@ -415,8 +417,8 @@
     pop.style.left = `${left}px`;
     pop.style.top  = `${top}px`;
 
-    document.body.appendChild(backdrop);
-    els.gridBody.appendChild(pop);
+    document.body.appendChild(backdrop);   // z-index 9998
+    els.gridBody.appendChild(pop);         // z-index 9999
     openPopoverNodes = [backdrop, pop];
     window.addEventListener('keydown', escListener);
   }
