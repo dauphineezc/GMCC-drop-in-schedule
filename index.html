@@ -50,11 +50,11 @@
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* ===== popup (always on top) ===== */
-    .popup-backdrop{
+    /* ===== Popover (always on top) ===== */
+    .popover-backdrop{
       position:fixed; inset:0; background:transparent; z-index:9998;
     }
-    .popup{
+    .popover{
       position:absolute; z-index:9999;
       min-width:240px; max-width:320px;
       background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
@@ -364,25 +364,25 @@
 
   let dayOverlays=[];
 
-  /* ===== popup state & functions ===== */
-  let openpopupNodes = []; // [backdrop, popup]
+  /* ===== Popover state & functions ===== */
+  let openPopoverNodes = []; // [backdrop, popover]
 
-  function closepopup(){
-    openpopupNodes.forEach(n => n.remove());
-    openpopupNodes = [];
+  function closePopover(){
+    openPopoverNodes.forEach(n => n.remove());
+    openPopoverNodes = [];
     window.removeEventListener('keydown', escListener);
   }
-  function escListener(e){ if (e.key === 'Escape') closepopup(); }
+  function escListener(e){ if (e.key === 'Escape') closePopover(); }
 
-  function openpopup(eventObj, cardEl){
-    closepopup();
+  function openPopover(eventObj, cardEl){
+    closePopover();
 
     const backdrop = document.createElement('div');
-    backdrop.className = 'popup-backdrop';
-    backdrop.addEventListener('click', closepopup);
+    backdrop.className = 'popover-backdrop';
+    backdrop.addEventListener('click', closePopover);
 
     const pop = document.createElement('div');
-    pop.className = 'popup';
+    pop.className = 'popover';
     pop.innerHTML = `
       <div class="flex items-start justify-between gap-3">
         <h3 class="text-lg font-bold tracking-wide ${eventObj.color.text}">
@@ -417,7 +417,7 @@
 
     document.body.appendChild(backdrop);
     els.gridBody.appendChild(pop);
-    openpopupNodes = [backdrop, pop];
+    openPopoverNodes = [backdrop, pop];
     window.addEventListener('keydown', escListener);
   }
 
@@ -460,7 +460,7 @@
     }
   }
 
-  function render(){ closepopup(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -485,7 +485,7 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closepopup(); // ensure previous popups are gone
+    closePopover(); // ensure previous popovers are gone
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -576,8 +576,8 @@
           ${timeAndLoc}
         `;
 
-        // Click -> popup
-        card.addEventListener('click', (ev) => { ev.stopPropagation(); openpopup(e, card); });
+        // Click -> popover
+        card.addEventListener('click', (ev) => { ev.stopPropagation(); openPopover(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
