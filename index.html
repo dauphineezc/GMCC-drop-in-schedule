@@ -223,7 +223,7 @@
     if (L.includes('pool') || L.includes('lap')) return 'aquatics';
     if (L === 'studio 1') return 'studio1';
     if (L === 'studio 2') return 'studio2';
-    if (L === 'mac gym' || L === 'mac') return 'mac';
+    if (L.includes('mac gym') || L === 'mac') return 'mac';
     return null;
   }
 
