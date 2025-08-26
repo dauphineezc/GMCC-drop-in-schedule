@@ -50,11 +50,11 @@
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* ===== Popover (always on top) ===== */
-    .popover-backdrop{
+    /* ===== popup (always on top) ===== */
+    .popup-backdrop{
       position:fixed; inset:0; background:transparent; z-index:9998;
     }
-    .popover{
+    .popup{
       position:absolute; z-index:9999;
       min-width:240px; max-width:320px;
       background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
@@ -115,7 +115,8 @@
 
   <script>
   /* =================== Config & Colors =================== */
-  const CSV_PATH = 'FR.csv'; // RecTrac export
+  const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
+  'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
@@ -364,25 +365,25 @@
 
   let dayOverlays=[];
 
-  /* ===== Popover state & functions ===== */
-  let openPopoverNodes = []; // [backdrop, popover]
+  /* ===== popup state & functions ===== */
+  let openpopupNodes = []; // [backdrop, popup]
 
-  function closePopover(){
-    openPopoverNodes.forEach(n => n.remove());
-    openPopoverNodes = [];
+  function closepopup(){
+    openpopupNodes.forEach(n => n.remove());
+    openpopupNodes = [];
     window.removeEventListener('keydown', escListener);
   }
-  function escListener(e){ if (e.key === 'Escape') closePopover(); }
+  function escListener(e){ if (e.key === 'Escape') closepopup(); }
 
-  function openPopover(eventObj, cardEl){
-    closePopover();
+  function openpopup(eventObj, cardEl){
+    closepopup();
 
     const backdrop = document.createElement('div');
-    backdrop.className = 'popover-backdrop';
-    backdrop.addEventListener('click', closePopover);
+    backdrop.className = 'popup-backdrop';
+    backdrop.addEventListener('click', closepopup);
 
     const pop = document.createElement('div');
-    pop.className = 'popover';
+    pop.className = 'popup';
 
     const minutes = Math.round((eventObj.end - eventObj.start) * 60);
     const titleColorClass = eventObj?.color?.text || 'text-gray-900';
@@ -419,7 +420,7 @@
 
     document.body.appendChild(backdrop);   // z-index 9998
     els.gridBody.appendChild(pop);         // z-index 9999
-    openPopoverNodes = [backdrop, pop];
+    openpopupNodes = [backdrop, pop];
     window.addEventListener('keydown', escListener);
   }
 
@@ -462,7 +463,7 @@
     }
   }
 
-  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closepopup(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -487,7 +488,7 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closePopover(); // ensure previous popovers are gone
+    closepopup(); // ensure previous popups are gone
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -578,8 +579,8 @@
           ${timeAndLoc}
         `;
 
-        // Click -> popover
-        card.addEventListener('click', (ev) => { ev.stopPropagation(); openPopover(e, card); });
+        // Click -> popup
+        card.addEventListener('click', (ev) => { ev.stopPropagation(); openpopup(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
