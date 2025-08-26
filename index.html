@@ -50,11 +50,11 @@
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* ===== Popover (always on top) ===== */
-    .popover-backdrop{
+    /* ===== popup (always on top) ===== */
+    .popup-backdrop{
       position:fixed; inset:0; background:transparent; z-index:9998;
     }
-    .popover{
+    .popup{
       position:absolute; z-index:9999;
       min-width:240px; max-width:320px;
       background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
@@ -364,32 +364,34 @@
 
   let dayOverlays=[];
 
-  /* ===== Popover state & functions ===== */
-  let openPopoverNodes = []; // [backdrop, popover]
+  /* ===== popup state & functions ===== */
+  let openpopupNodes = []; // [backdrop, popup]
 
-  function closePopover(){
-    openPopoverNodes.forEach(n => n.remove());
-    openPopoverNodes = [];
+  function closepopup(){
+    openpopupNodes.forEach(n => n.remove());
+    openpopupNodes = [];
     window.removeEventListener('keydown', escListener);
   }
-  function escListener(e){ if (e.key === 'Escape') closePopover(); }
+  function escListener(e){ if (e.key === 'Escape') closepopup(); }
 
-  function openPopover(eventObj, cardEl){
-    closePopover();
+  function openpopup(eventObj, cardEl){
+    closepopup();
 
     const backdrop = document.createElement('div');
-    backdrop.className = 'popover-backdrop';
-    backdrop.addEventListener('click', closePopover);
+    backdrop.className = 'popup-backdrop';
+    backdrop.addEventListener('click', closepopup);
 
     const pop = document.createElement('div');
-    pop.className = 'popover';
+    pop.className = 'popup';
     pop.innerHTML = `
       <div class="flex items-start justify-between gap-3">
-        <h3 class="text-sm font-bold tracking-wide">${eventObj.name}</h3>
+        <h3 class="text-lg font-bold tracking-wide ${eventObj.color.text}">
+          ${eventObj.name}
+        </h3>
+        ${badgeHTML}
       </div>
       <div class="mt-1 text-sm text-gray-700">
         ${formatTime(eventObj.start)} – ${formatTime(eventObj.end)}
-        (${Math.round((eventObj.end - eventObj.start) * 60)} min)
       </div>
       ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
       <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
@@ -415,7 +417,7 @@
 
     document.body.appendChild(backdrop);
     els.gridBody.appendChild(pop);
-    openPopoverNodes = [backdrop, pop];
+    openpopupNodes = [backdrop, pop];
     window.addEventListener('keydown', escListener);
   }
 
@@ -458,7 +460,7 @@
     }
   }
 
-  function render(){ closePopover(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closepopup(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -483,7 +485,7 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closePopover(); // ensure previous popovers are gone
+    closepopup(); // ensure previous popups are gone
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
@@ -574,8 +576,8 @@
           ${timeAndLoc}
         `;
 
-        // Click -> popover
-        card.addEventListener('click', (ev) => { ev.stopPropagation(); openPopover(e, card); });
+        // Click -> popup
+        card.addEventListener('click', (ev) => { ev.stopPropagation(); openpopup(e, card); });
 
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
