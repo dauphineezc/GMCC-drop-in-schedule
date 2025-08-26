@@ -115,8 +115,10 @@
 
   <script>
   /* =================== Config & Colors =================== */
-  const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
-  'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
+  // const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
+  // 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
+
+  const CSV_PATH = 'FR.csv'; // local file but actual format - just had to fix comma delimited activity names screwing up the parser
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
