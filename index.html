@@ -115,10 +115,10 @@
 
   <script>
   /* =================== Config & Colors =================== */
-   const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
-   'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
+  const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
+  'FR.csv';
 
-  // const CSV_PATH = 'FR.csv'; // local file but actual format - just had to fix comma delimited activity names screwing up the parser
+  // const CSV_PATH = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv'; // remote file
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
@@ -243,6 +243,14 @@
   }
   function isLikelyDropIn(activity){
     const a = String(activity || '').trim().toUpperCase();
+    
+    // Exclude known fitness activities that might be all caps
+    const fitnessActivities = ['TRX', 'YOGA', 'ZUMBA', 'BODY BLAST', 'CARDIO BLAST', 'BARRE', 'CYCLE', 'PILATES'];
+    if (fitnessActivities.includes(a)) return false;
+    
+    // Exclude aqua fitness activities
+    if (a.includes('AQUA')) return false;
+    
     return isAllCaps(activity) || 
            /\b(OPEN|DROP-?IN|LAP\s+SWIM|REC\s+SWIM|PICKLEBALL|BASKETBALL|VOLLEYBALL|MAH\s+JONGG|EUCHRE|LINE\s+DANCING)\b/.test(a);
   }
@@ -303,8 +311,13 @@
   /* =================== RecTrac CSV Parser =================== */
   async function loadCSVData(){
     try{
+      console.log('Loading CSV from:', CSV_PATH);
       const csvText = await fetch(CSV_PATH, {cache:'no-store'}).then(r=>r.text());
-      return parseCSV(csvText);
+      console.log('CSV loaded, length:', csvText.length);
+      console.log('First 500 chars:', csvText.substring(0, 500));
+      const result = parseCSV(csvText);
+      console.log('Parsed result:', result);
+      return result;
     }catch(err){
       console.error('CSV load failed:', err);
       // empty scaffolding so UI renders
@@ -317,6 +330,7 @@
 
   function parseCSV(csvText){
     const rows = csvToRows(csvText);
+    console.log('CSV rows parsed:', rows.length);
     if (!rows.length) {
       console.warn('CSV contained no rows');
       return {
@@ -326,11 +340,15 @@
     }
 
     const data = rows.slice(1); // skip header
+    console.log('Data rows (excluding header):', data.length);
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
+
+    let validRows = 0;
+    let invalidRows = 0;
 
     for (const cols of data){
       if (!cols || cols.length < 9) continue;
@@ -347,9 +365,9 @@
       const reserver    = norm(cols[8]);
 
       // keep only GMCC rows (first col AND the last two)
-      if (facility.toLowerCase() !== 'greater midland community center') continue;
-      if (building.toLowerCase() !== 'greater midland community center') continue;
-      if (reserver.toLowerCase() !== 'greater midland community center') continue;
+      if (facility.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
+      if (building.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
+      if (reserver.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
 
       const location  = cleanLocation(locationRaw);
       const eventDate = parseDateFlexible(dateStr);
@@ -361,20 +379,26 @@
 
       // decide calendar/type
       let type, sub;
-      if (isLikelyDropIn(activity)) {
+      const isDropIn = isLikelyDropIn(activity);
+      if (isDropIn) {
         type = 'dropin';
         sub  = classifyDropIn(activity, location);
       } else {
         type = 'fitness';
         sub  = fitnessSubFromLocation(location) || 'studio1';
       }
+      
 
       const colorKey = getColorForActivity(activity);
       const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, type, sub);
       e.date = eventDate;
       store[type][sub].events.push(e);
+      validRows++;
     }
 
+    console.log('Valid rows processed:', validRows);
+    console.log('Invalid rows filtered out:', invalidRows);
+    console.log('Final store:', store);
     return store;
   }
 
@@ -391,20 +415,34 @@
 
   function filterWeek(all, weekStart){
     const weekEnd = addDays(weekStart,6);
+    console.log('Filtering week from', weekStart.toISOString().split('T')[0], 'to', weekEnd.toISOString().split('T')[0]);
+    
     const out = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
+    
+    let totalEvents = 0;
+    let filteredEvents = 0;
+    
     for (const type of Object.keys(all)){
       for (const sub of Object.keys(all[type])){
         for (const e of all[type][sub].events){
+          totalEvents++;
           if (e.date >= weekStart && e.date <= weekEnd){
             const daysDiff = Math.floor((e.date - weekStart)/(1000*60*60*24));
             out[type][sub].events.push({...e, dayIndex:daysDiff});
+            filteredEvents++;
+            if (filteredEvents <= 5) {
+              console.log(`  Found event: ${e.name} on ${e.date.toISOString().split('T')[0]} (${type}/${sub})`);
+            }
           }
         }
       }
     }
+    
+    console.log(`Total events: ${totalEvents}, Filtered events: ${filteredEvents}`);
+    console.log('Filtered data:', out);
     return out;
   }
 
