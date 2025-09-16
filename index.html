@@ -242,8 +242,9 @@
     return uppers.length / letters.length >= 0.9; // ≥90% letters uppercase
   }
   function isLikelyDropIn(activity){
-    const a = String(activity || '').trim();
-    return isAllCaps(a) || /\bOPEN\b/.test(a);
+    const a = String(activity || '').trim().toUpperCase();
+    return isAllCaps(activity) || 
+           /\b(OPEN|DROP-?IN|LAP\s+SWIM|REC\s+SWIM|PICKLEBALL|BASKETBALL|VOLLEYBALL|MAH\s+JONGG|EUCHRE|LINE\s+DANCING)\b/.test(a);
   }
 
   function classifyDropIn(activity, location){
