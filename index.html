@@ -115,10 +115,10 @@
 
   <script>
   /* =================== Config & Colors =================== */
-  // const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
-  // 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
+   const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
+   'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
 
-  const CSV_PATH = 'FR.csv'; // local file but actual format - just had to fix comma delimited activity names screwing up the parser
+  // const CSV_PATH = 'FR.csv'; // local file but actual format - just had to fix comma delimited activity names screwing up the parser
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
@@ -215,16 +215,35 @@
 
   function cleanLocation(loc){
     if (!loc) return '';
-    return String(loc).replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim(); // remove codes: " (2020)"
+    const s = String(loc).trim().replace(/^\uFEFF/, ''); // strip BOM if present
+    return s.replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();  // remove room code "(1602)"
   }
 
   function fitnessSubFromLocation(loc){
-    const L=cleanLocation(loc).toLowerCase();
-    if (L.includes('pool') || L.includes('lap')) return 'aquatics';
-    if (L === 'studio 1') return 'studio1';
-    if (L === 'studio 2') return 'studio2';
-    if (L.includes('mac gym') || L === 'mac') return 'mac';
+    const L = cleanLocation(loc)
+      .toLowerCase()
+      .replace(/[-–—]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (/\b(pool|lap)\b/.test(L)) return 'aquatics';
+    if (/\bstudio\s*1\b/.test(L)) return 'studio1';
+    if (/\bstudio\s*2\b/.test(L)) return 'studio2';
+    // "MAC Gym", "MAC", "Court 3 MAC Gym", etc.
+    if ((/\bmac\b/.test(L) && /\bgym\b/.test(L)) || /^mac\b/.test(L)) return 'mac';
+
     return null;
+  }
+
+  function isAllCaps(str){
+    const letters = String(str || '').replace(/[^A-Za-z]/g, '');
+    if (!letters) return false;
+    const uppers = letters.replace(/[a-z]/g, '');
+    return uppers.length / letters.length >= 0.9; // ≥90% letters uppercase
+  }
+  function isLikelyDropIn(activity){
+    const a = String(activity || '').trim();
+    return isAllCaps(a) || /\bOPEN\b/.test(a);
   }
 
   function classifyDropIn(activity, location){
@@ -232,6 +251,44 @@
     if (A.includes('SWIM') || L.includes('POOL') || L.includes('LAP')) return 'aquatics';
     if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT')) return 'courtSports';
     return 'community';
+  }
+
+  function csvToRows(text){
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+
+      if (inQuotes){
+        if (c === '"'){
+          if (text[i+1] === '"'){ field += '"'; i++; }   // escaped quote
+          else { inQuotes = false; }                      // end of quoted field
+        }else{
+          field += c;
+        }
+      }else{
+        if (c === '"'){ inQuotes = true; }
+        else if (c === ','){ row.push(field); field = ''; }
+        else if (c === '\n'){
+          row.push(field); field = '';
+          // normalize CRLF too
+          if (row.length === 1 && row[0] === '') { row = []; continue; }
+          rows.push(row); row = [];
+        }else if (c !== '\r'){ field += c; }
+      }
+    }
+    // flush last field/row
+    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+
+    // trim all cells
+    return rows.map(r => r.map(s => String(s).trim()));
+  }
+
+  function norm(s){
+    return String(s || '').trim().replace(/^\uFEFF/, '');
   }
 
   function ev(name, location, dayIndex, start, end, colorKey, type='dropin', sub='aquatics'){
@@ -258,48 +315,57 @@
   }
 
   function parseCSV(csvText){
-    const rows = csvText.replace(/\r/g,'').trim().split('\n');
-    // Assume first row is a header from RecTrac
-    const lines = rows.slice(1);
+    const rows = csvToRows(csvText);
+    if (!rows.length) {
+      console.warn('CSV contained no rows');
+      return {
+        dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
+        fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
+      };
+    }
+
+    const data = rows.slice(1); // skip header
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
 
-    for (const raw of lines){
-      if (!raw.trim()) continue;
-      const parts = raw.split(',').map(s=>s.trim());
-      if (parts.length < 9) continue;
+    for (const cols of data){
+      if (!cols || cols.length < 9) continue;
 
-      const facility = parts[0];
-      const locationRaw = parts[1];
-      const dateStr = parts[3];
-      const startTime = parts[4];
-      const endTime = parts[5];
-      const activity = parts[6];
-      const building = parts[7];
-      const reserver = parts[8];
+      // columns per your examples:
+      // 0 Facility, 1 Location, 2 (blank), 3 Date, 4 Start, 5 End, 6 Activity, 7 Building, 8 Reserver
+      const facility    = norm(cols[0]);
+      const locationRaw = norm(cols[1]);
+      const dateStr     = norm(cols[3]);
+      const startTime   = norm(cols[4]);
+      const endTime     = norm(cols[5]);
+      const activity    = norm(cols[6]);
+      const building    = norm(cols[7]);
+      const reserver    = norm(cols[8]);
 
-      // Filters per your rules
-      if (!eqGMCC(facility)) continue;
-      if (!(eqGMCC(building) && eqGMCC(reserver))) continue;
+      // keep only GMCC rows (first col AND the last two)
+      if (facility.toLowerCase() !== 'greater midland community center') continue;
+      if (building.toLowerCase() !== 'greater midland community center') continue;
+      if (reserver.toLowerCase() !== 'greater midland community center') continue;
 
-      const location = cleanLocation(locationRaw);
-      const startHour = parseTime12h(startTime);
-      const endHour   = parseTime12h(endTime);
+      const location  = cleanLocation(locationRaw);
       const eventDate = parseDateFlexible(dateStr);
       if (isNaN(+eventDate)) continue;
 
-      const jsDay = eventDate.getDay();
-      const dayIndex = (jsDay + 6) % 7;
+      const startHour = parseTime12h(startTime);
+      const endHour   = parseTime12h(endTime);
+      const dayIndex  = (eventDate.getDay() + 6) % 7;
 
-      let type='dropin', sub='community';
-      const maybeFitness = fitnessSubFromLocation(location);
-      if (maybeFitness){
-        type='fitness'; sub=maybeFitness;
+      // decide calendar/type
+      let type, sub;
+      if (isLikelyDropIn(activity)) {
+        type = 'dropin';
+        sub  = classifyDropIn(activity, location);
       } else {
-        sub = classifyDropIn(activity, location);
+        type = 'fitness';
+        sub  = fitnessSubFromLocation(location) || 'studio1';
       }
 
       const colorKey = getColorForActivity(activity);
@@ -310,6 +376,12 @@
 
     return store;
   }
+
+    // after building `store`:
+  console.log('drop-in events:',
+    Object.values(store.dropin).reduce((n,s)=>n+s.events.length,0));
+  console.log('fitness events:',
+    Object.values(store.fitness).reduce((n,s)=>n+s.events.length,0));
 
   /* =================== Week helpers =================== */
   function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
