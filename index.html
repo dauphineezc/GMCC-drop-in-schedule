@@ -118,7 +118,10 @@
   // const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
   // 'FR.csv';
 
-  const CSV_PATH = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv'; // remote file
+  const RAW_CSV_URL =
+    new URLSearchParams(location.search).get('csv') ||
+    'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
+
   const GMCC = 'Greater Midland Community Center';
 
   /** Colors */
@@ -310,21 +313,21 @@
 
   /* =================== RecTrac CSV Parser =================== */
   async function loadCSVData(){
-    try{
-      console.log('Loading CSV from:', CSV_PATH);
-      const csvText = await fetch(CSV_PATH, {cache:'no-store'}).then(r=>r.text());
-      console.log('CSV loaded, length:', csvText.length);
-      console.log('First 500 chars:', csvText.substring(0, 500));
-      const result = parseCSV(csvText);
-      console.log('Parsed result:', result);
-      return result;
-    }catch(err){
-      console.error('CSV load failed:', err);
-      // empty scaffolding so UI renders
-      return {
-        dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-        fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
-      };
+    // Try direct CORS fetch first
+    try {
+      const u = new URL(RAW_CSV_URL);
+      u.searchParams.set('_', Date.now()); // bust caches/CDN
+      const res = await fetch(u.toString(), { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();       // works even if Content-Disposition=attachment
+      return parseCSV(text);
+    } catch (err) {
+      console.warn('Direct blob fetch failed or hit CORS, falling back to proxy:', err);
+      // Fallback to a tiny Vercel Edge proxy
+      const res = await fetch(`/api/csv?src=${encodeURIComponent(RAW_CSV_URL)}&_=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+      const text = await res.text();
+      return parseCSV(text);
     }
   }
 
@@ -469,6 +472,10 @@
     scroller: document.getElementById('gridScroller'),
   };
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Make the arrows render as text, not emoji
+  els.prevBtn.textContent = '\u25C0\uFE0E'; // ◀︎
+  els.nextBtn.textContent = '\u25B6\uFE0E'; // ▶︎
 
   let dayOverlays=[];
 
