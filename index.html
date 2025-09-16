@@ -377,12 +377,6 @@
     return store;
   }
 
-    // after building `store`:
-  console.log('drop-in events:',
-    Object.values(store.dropin).reduce((n,s)=>n+s.events.length,0));
-  console.log('fitness events:',
-    Object.values(store.fitness).reduce((n,s)=>n+s.events.length,0));
-
   /* =================== Week helpers =================== */
   function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
   function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
