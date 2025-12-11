@@ -9,10 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root { --row-h: 64px; }
-
     html,body { height: 100%; }
     body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji"; }
-
     .scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
     .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;}
@@ -21,20 +19,15 @@
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
 
-    /* ===== Event cards ===== */
+    /* Event cards */
     .event-card{
       position:absolute; box-sizing:border-box;
       border-left-width:4px; border-radius:0.5rem;
-      padding:0.5rem 0.75rem; z-index:10;
-      overflow:hidden;                         /* no spill below card */
-      font-size:.8125rem;
-      cursor:pointer; user-select:none;
-      pointer-events:auto;
+      padding:0.5rem 0.75rem; z-index:10; overflow:hidden;
+      font-size:.8125rem; cursor:pointer; user-select:none; pointer-events:auto;
     }
-    /* single-line truncation + tight line-height for every row */
     .event-line{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .event-tight{ line-height:1; }
-
     .event-card .title{ font-weight:700; font-size:.825rem; text-transform:uppercase; }
     .event-card .subtext{ font-size:.7rem; opacity:.9; }
     .event-card .location{ font-size:.7rem; opacity:.75; }
@@ -43,26 +36,17 @@
     .now-line{ position:absolute; height:2px; background:#ef4444; z-index:30; }
     .now-dot{ position:absolute; width:8px; height:8px; background:#ef4444; border-radius:9999px; left:0; top:50%; transform:translate(-50%,-50%); }
 
-    .tz-hide{ display:none !important; }
-
-    /* Primary segmented control */
     .seg{ display:inline-flex; border:1px solid #e5e7eb; border-radius:9999px; padding:2px; background:#fff; }
     .seg button{ padding:.375rem .875rem; border-radius:9999px; font-weight:600; color:#374151; }
     .seg button[aria-pressed="true"]{ background:#111827; color:#fff; }
 
-    /* ===== popup (always on top) ===== */
-    .popup-backdrop{
-      position:fixed; inset:0; background:transparent; z-index:9998;
-    }
+    .popup-backdrop{ position:fixed; inset:0; background:transparent; z-index:9998; }
     .popup{
-      position:absolute; z-index:9999;
-      min-width:240px; max-width:320px;
+      position:absolute; z-index:9999; min-width:240px; max-width:320px;
       background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem;
-      box-shadow:0 10px 30px rgba(0,0,0,.15);
-      padding:.75rem .9rem;
+      box-shadow:0 10px 30px rgba(0,0,0,.15); padding:.75rem .9rem;
     }
 
-    /* Responsive tweaks */
     @media (max-width: 768px){
       .event-card{ padding:.25rem .5rem; font-size:.75rem; }
       .event-card .title{ font-size:.8125rem; }
@@ -79,12 +63,12 @@
     <!-- Controls -->
     <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
       <div class="flex items-center gap-2">
-        <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Previous week">◀</button>
+        <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
         <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
-        <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100" aria-label="Next week">▶</button>
+        <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
       </div>
       <div id="rangeLabel" class="font-semibold text-center text-xl"></div>
-      <div class="text-sm text-gray-500 tz-hide">Times shown in <span id="tzLabel"></span></div>
+      <div class="text-sm text-gray-500">Times shown in <span id="tzLabel"></span></div>
     </div>
 
     <!-- PRIMARY tabs -->
@@ -115,16 +99,21 @@
 
   <script>
   /* =================== Config & Colors =================== */
-  // const CSV_PATH = new URLSearchParams(location.search).get('csv') ||
-  // 'FR.csv';
-
-  const RAW_CSV_URL =
-    new URLSearchParams(location.search).get('csv') ||
-    'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
-
+  const CSV_URL = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
   const GMCC = 'Greater Midland Community Center';
 
-  /** Colors */
+  // Location classification (exact per your rules)
+  // match is performed on the location with the room code stripped
+  const LOC_RULES = [
+    { match: /^Court\s*1\s*Full\s*A\+B/i, type:'dropin',  sub:'courtSports', label:'Court 1' },
+    { match: /^Court\s*2\s*Full\s*A\+B/i, type:'dropin',  sub:'courtSports', label:'Court 2' },
+    { match: /^Court\s*3\s*MAC\s*Gym/i,  type:'fitness', sub:'mac',         label:'MAC Gym' },
+    { match: /^Studio\s*1/i,             type:'fitness', sub:'studio1',     label:'Studio 1' },
+    { match: /^Studio\s*2/i,             type:'fitness', sub:'studio2',     label:'Studio 2' },
+    { match: /^Multi-?use\s*Pool\s*1/i,  type:'fitness', sub:'aquatics',    label:'Multi-use Pool 1' },
+  ];
+
+  // Colors
   const PALETTE = {
     red:["bg-red-100","text-red-800","border-red-500"],
     orange:["bg-orange-100","text-orange-800","border-orange-500"],
@@ -139,53 +128,11 @@
     gray:["bg-gray-200","text-gray-800","border-gray-500"],
   };
 
-  /*
-  balanced in motion
-  barre
-  body blast
-  body sculpt
-  bootcamp
-  butts and gutts
-  chair yoga
-  circuit
-  cycle
-  cycle fusion
-  functional fitness
-  piyo
-  power up
-  seniors in motion
-  shine dance fitness
-  silversneakers classic
-  silversneakers yoga
-  strictly strength
-  trx
-  yoga
-  zumba
-  boxing fitness
-  circuit express
-  intro to kettlebells
-  rise and shine bootcamp
-  */
-
   const ACTIVITY_COLORS = {
     'LAP SWIM':'blue','REC SWIM':'green',
     'BASKETBALL':'orange','VOLLEYBALL':'yellow','PICKLEBALL':'red',
-    'MAH JONGG':'pink','EUCHRE':'cyan','LINE DANCING':'purple',
-
-    'AQUA CIRCUIT':'blue','AQUA FIT':'teal','AQUA FIT BLAST':'indigo','AQUA BLAST':'indigo','AQUA BARRE':'purple',
-    'AQUA ARTHRITIS':'cyan','SILVERSNEAKERS SPLASH':'green','AQUA ZUMBA':'pink','BALANCE AND CORE':'yellow',
-
-    'BALANCED IN MOTION':'blue','BARRE':'purple','BODY BLAST':'red','BODY SCULPT':'orange',
-    'BOOTCAMP':'cyan','BUTTS AND GUTS':'blue','CHAIR YOGA':'teal','CIRCUIT':'green',
-    'CYCLE':'green','CYCLE FUSION':'teal','FUNCTIONAL FITNESS':'indigo','PIYO':'indigo',
-    'POWER UP':'cyan','SENIORS IN MOTION':'yellow','SHINE':'cyan','TRX':'teal',
-    'SILVERSNEAKERS CLASSIC':'cyan','SILVER SNEAKERS':'cyan','STRICTLY STRENGTH':'yellow',
-    'YOGA':'indigo','ZUMBA':'pink','BOXING FITNESS':'yellow','CIRCUIT EXPRESS':'green',
-    'INTRO TO KETTLEBELLS':'red','RISE AND SHINE BOOTCAMP':'pink','ROCK STEADY BOXING':'orange',
-
     'DEFAULT':'gray'
   };
-
   const getColorForActivity = (name) => {
     const upper = String(name).toUpperCase();
     for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (upper.includes(k)) return c;
@@ -208,244 +155,118 @@
     let h = hh % 12; if (apRaw.toUpperCase()==='PM') h += 12;
     return h + (+mm/60);
   }
-
   function parseDateFlexible(s){
     const x=String(s).trim();
     if (x.includes('/')){ const [mm,dd,yyyy]=x.split('/').map(Number); return new Date(yyyy,mm-1,dd); }
     if (x.includes('-')){ const [yyyy,mm,dd]=x.split('-').map(Number); return new Date(yyyy,mm-1,dd); }
     return new Date(x);
   }
-
-  function cleanLocation(loc){
-    if (!loc) return '';
-    const s = String(loc).trim().replace(/^\uFEFF/, ''); // strip BOM if present
-    return s.replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();  // remove room code "(1602)"
+  function stripRoomCode(loc){
+    return String(loc||'').trim().replace(/^\uFEFF/, '').replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();
   }
-
-  function fitnessSubFromLocation(loc){
-    const L = cleanLocation(loc)
-      .toLowerCase()
-      .replace(/[-–—]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (/\b(pool|lap)\b/.test(L)) return 'aquatics';
-    if (/\bstudio\s*1\b/.test(L)) return 'studio1';
-    if (/\bstudio\s*2\b/.test(L)) return 'studio2';
-    // "MAC Gym", "MAC", "Court 3 MAC Gym", etc.
-    if ((/\bmac\b/.test(L) && /\bgym\b/.test(L)) || /^mac\b/.test(L)) return 'mac';
-
-    return null;
-  }
-
-  function isAllCaps(str){
-    const letters = String(str || '').replace(/[^A-Za-z]/g, '');
-    if (!letters) return false;
-    const uppers = letters.replace(/[a-z]/g, '');
-    return uppers.length / letters.length >= 0.9; // ≥90% letters uppercase
-  }
-  function isLikelyDropIn(activity){
-    const a = String(activity || '').trim().toUpperCase();
-    
-    // Exclude known fitness activities that might be all caps
-    const fitnessActivities = ['TRX', 'YOGA', 'ZUMBA', 'BODY BLAST', 'CARDIO BLAST', 'BARRE', 'CYCLE', 'PILATES'];
-    if (fitnessActivities.includes(a)) return false;
-    
-    // Exclude aqua fitness activities
-    if (a.includes('AQUA')) return false;
-    
-    return isAllCaps(activity) || 
-           /\b(OPEN|DROP-?IN|LAP\s+SWIM|REC\s+SWIM|PICKLEBALL|BASKETBALL|VOLLEYBALL|MAH\s+JONGG|EUCHRE|LINE\s+DANCING)\b/.test(a);
-  }
-
-  function classifyDropIn(activity, location){
-    const A=String(activity).toUpperCase(), L=cleanLocation(location).toUpperCase();
-    if (A.includes('SWIM') || L.includes('POOL') || L.includes('LAP')) return 'aquatics';
-    if (['BASKETBALL','VOLLEYBALL','PICKLEBALL'].some(k=>A.includes(k)) || L.includes('COURT')) return 'courtSports';
-    return 'community';
-  }
-
-  function csvToRows(text){
-    const rows = [];
-    let row = [];
-    let field = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < text.length; i++){
-      const c = text[i];
-
-      if (inQuotes){
-        if (c === '"'){
-          if (text[i+1] === '"'){ field += '"'; i++; }   // escaped quote
-          else { inQuotes = false; }                      // end of quoted field
-        }else{
-          field += c;
-        }
-      }else{
-        if (c === '"'){ inQuotes = true; }
-        else if (c === ','){ row.push(field); field = ''; }
-        else if (c === '\n'){
-          row.push(field); field = '';
-          // normalize CRLF too
-          if (row.length === 1 && row[0] === '') { row = []; continue; }
-          rows.push(row); row = [];
-        }else if (c !== '\r'){ field += c; }
-      }
+  function classifyFromLocation(locationRaw){
+    const simple = stripRoomCode(locationRaw);
+    for (const rule of LOC_RULES){
+      if (rule.match.test(simple)) return { type:rule.type, sub:rule.sub, label:rule.label };
     }
-    // flush last field/row
-    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
-
-    // trim all cells
-    return rows.map(r => r.map(s => String(s).trim()));
+    return null; // unknown location → ignore for now
   }
-
-  function norm(s){
-    return String(s || '').trim().replace(/^\uFEFF/, '');
-  }
-
-  function ev(name, location, dayIndex, start, end, colorKey, type='dropin', sub='aquatics'){
+  function ev(name, location, dayIndex, start, end, colorKey, type, sub){
     const [bg,text,border] = PALETTE[colorKey];
     return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
              color:{bg,text,border}, type, sub, date:null };
   }
+  const eqGMCC = s => String(s||'').trim().toLowerCase() === GMCC.toLowerCase();
 
-  function eqGMCC(s){ return String(s||'').trim().toLowerCase() === GMCC.toLowerCase(); }
-
-  /* =================== RecTrac CSV Parser =================== */
-  async function loadCSVData(){
-    // Try direct CORS fetch first
-    try {
-      const u = new URL(RAW_CSV_URL);
-      u.searchParams.set('_', Date.now()); // bust caches/CDN
-      const res = await fetch(u.toString(), { mode: 'cors', cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();       // works even if Content-Disposition=attachment
-      return parseCSV(text);
-    } catch (err) {
-      console.warn('Direct blob fetch failed or hit CORS, falling back to proxy:', err);
-      // Fallback to a tiny Vercel Edge proxy
-      const res = await fetch(`/api/csv?src=${encodeURIComponent(RAW_CSV_URL)}&_=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-      const text = await res.text();
-      return parseCSV(text);
+  /* =================== CSV =================== */
+  function csvToRows(text){
+    const rows = []; let row = []; let field = ''; let inQuotes = false;
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+      if (inQuotes){
+        if (c === '"'){ if (text[i+1] === '"'){ field += '"'; i++; } else inQuotes = false; }
+        else field += c;
+      }else{
+        if (c === '"') inQuotes = true;
+        else if (c === ','){ row.push(field); field = ''; }
+        else if (c === '\n'){ row.push(field); field = ''; rows.push(row); row = []; }
+        else if (c !== '\r'){ field += c; }
+      }
     }
+    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    return rows.map(r => r.map(s => String(s).trim()));
   }
 
+  async function loadCSVData(){
+    const text = await fetch(CSV_URL, { cache:'no-store' }).then(r=>r.text());
+    return parseCSV(text);
+  }
+
+  // Columns: 0 Facility, 1 Location, 2 (blank), 3 Date, 4 Start, 5 End, 6 Activity, 7 Building, 8 Reserver
   function parseCSV(csvText){
     const rows = csvToRows(csvText);
-    console.log('CSV rows parsed:', rows.length);
-    if (!rows.length) {
-      console.warn('CSV contained no rows');
-      return {
-        dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-        fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
-      };
-    }
-
-    const data = rows.slice(1); // skip header
-    console.log('Data rows (excluding header):', data.length);
+    const data = rows.slice(1);
 
     const store = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
 
-    let validRows = 0;
-    let invalidRows = 0;
-
     for (const cols of data){
       if (!cols || cols.length < 9) continue;
 
-      // columns per your examples:
-      // 0 Facility, 1 Location, 2 (blank), 3 Date, 4 Start, 5 End, 6 Activity, 7 Building, 8 Reserver
-      const facility    = norm(cols[0]);
-      const locationRaw = norm(cols[1]);
-      const dateStr     = norm(cols[3]);
-      const startTime   = norm(cols[4]);
-      const endTime     = norm(cols[5]);
-      const activity    = norm(cols[6]);
-      const building    = norm(cols[7]);
-      const reserver    = norm(cols[8]);
+      const facility = cols[0], locationRaw = cols[1], dateStr = cols[3],
+            startTime = cols[4], endTime = cols[5], activity = cols[6],
+            building = cols[7], reserver = cols[8];
 
-      // keep only GMCC rows (first col AND the last two)
-      if (facility.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
-      if (building.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
-      if (reserver.toLowerCase() !== 'greater midland community center') { invalidRows++; continue; }
+      // 1) Must be GMCC in cols 1, 8, 9
+      if (!eqGMCC(facility) || !eqGMCC(building) || !eqGMCC(reserver)) continue;
 
-      const location  = cleanLocation(locationRaw);
+      // 2) Classify strictly by location
+      const cls = classifyFromLocation(locationRaw);
+      if (!cls) continue; // skip unknown locations for now
+
+      // 4) Parse date/times; simplify location label for display
       const eventDate = parseDateFlexible(dateStr);
       if (isNaN(+eventDate)) continue;
-
       const startHour = parseTime12h(startTime);
       const endHour   = parseTime12h(endTime);
       const dayIndex  = (eventDate.getDay() + 6) % 7;
 
-      // decide calendar/type
-      let type, sub;
-      const isDropIn = isLikelyDropIn(activity);
-      if (isDropIn) {
-        type = 'dropin';
-        sub  = classifyDropIn(activity, location);
-      } else {
-        type = 'fitness';
-        sub  = fitnessSubFromLocation(location) || 'studio1';
-      }
-      
-
       const colorKey = getColorForActivity(activity);
-      const e = ev(activity, location, dayIndex, startHour, endHour, colorKey, type, sub);
+      const e = ev(activity, cls.label, dayIndex, startHour, endHour, colorKey, cls.type, cls.sub);
       e.date = eventDate;
-      store[type][sub].events.push(e);
-      validRows++;
+      store[cls.type][cls.sub].events.push(e);
     }
-
-    console.log('Valid rows processed:', validRows);
-    console.log('Invalid rows filtered out:', invalidRows);
-    console.log('Final store:', store);
     return store;
   }
 
   /* =================== Week helpers =================== */
-  function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
-  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
-  function ymd(d){ return d.toISOString().slice(0,10); }
-  function labelDate(d){ return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+  const getMonday = d => { const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; };
+  const addDays   = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const ymd       = d => d.toISOString().slice(0,10);
+  const labelDate = d => d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
   function formatTime(hour){
     const h=Math.floor(hour), m=Math.round((hour-h)*60);
     const h12=(h%12)||12, ap=h<12?'AM':'PM', mm=m===0?'00':String(m).padStart(2,'0');
     return `${h12}:${mm} ${ap}`;
   }
-
   function filterWeek(all, weekStart){
     const weekEnd = addDays(weekStart,6);
-    console.log('Filtering week from', weekStart.toISOString().split('T')[0], 'to', weekEnd.toISOString().split('T')[0]);
-    
     const out = {
       dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
       fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
     };
-    
-    let totalEvents = 0;
-    let filteredEvents = 0;
-    
     for (const type of Object.keys(all)){
       for (const sub of Object.keys(all[type])){
         for (const e of all[type][sub].events){
-          totalEvents++;
           if (e.date >= weekStart && e.date <= weekEnd){
             const daysDiff = Math.floor((e.date - weekStart)/(1000*60*60*24));
             out[type][sub].events.push({...e, dayIndex:daysDiff});
-            filteredEvents++;
-            if (filteredEvents <= 5) {
-              console.log(`  Found event: ${e.name} on ${e.date.toISOString().split('T')[0]} (${type}/${sub})`);
-            }
           }
         }
       }
     }
-    
-    console.log(`Total events: ${totalEvents}, Filtered events: ${filteredEvents}`);
-    console.log('Filtered data:', out);
     return out;
   }
 
@@ -473,72 +294,42 @@
   };
   els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // Make the arrows render as text, not emoji
+  // Force arrows to render as text glyphs (not emoji)
   els.prevBtn.textContent = '\u25C0\uFE0E'; // ◀︎
   els.nextBtn.textContent = '\u25B6\uFE0E'; // ▶︎
 
   let dayOverlays=[];
 
-  /* ===== popup state & functions ===== */
-  let openpopupNodes = []; // [backdrop, popup]
-
-  function closepopup(){
-    openpopupNodes.forEach(n => n.remove());
-    openpopupNodes = [];
-    window.removeEventListener('keydown', escListener);
-  }
+  /* ===== popup ===== */
+  let openpopupNodes = [];
+  function closepopup(){ openpopupNodes.forEach(n => n.remove()); openpopupNodes = []; window.removeEventListener('keydown', escListener); }
   function escListener(e){ if (e.key === 'Escape') closepopup(); }
-
   function openpopup(eventObj, cardEl){
     closepopup();
-
-    const backdrop = document.createElement('div');
-    backdrop.className = 'popup-backdrop';
-    backdrop.addEventListener('click', closepopup);
-
-    const pop = document.createElement('div');
-    pop.className = 'popup';
-
+    const backdrop = document.createElement('div'); backdrop.className = 'popup-backdrop'; backdrop.addEventListener('click', closepopup);
+    const pop = document.createElement('div'); pop.className = 'popup';
     const minutes = Math.round((eventObj.end - eventObj.start) * 60);
     const titleColorClass = eventObj?.color?.text || 'text-gray-900';
-
     pop.innerHTML = `
       <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-bold tracking-wide ${titleColorClass}">
-          ${eventObj.name}
-        </h3>
+        <h3 class="text-lg font-bold tracking-wide ${titleColorClass}">${eventObj.name}</h3>
       </div>
-      <div class="mt-1 text-sm text-gray-700">
-        ${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${minutes} min)
-      </div>
+      <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${minutes} min)</div>
       ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
-      <div class="mt-2 text-xs text-gray-400">Click outside to close</div>
-    `;
-
-    // Position beside the card; clamp to grid viewport
+      <div class="mt-2 text-xs text-gray-400">Click outside to close</div>`;
     const gridRect = els.gridBody.getBoundingClientRect();
     const cardRect = cardEl.getBoundingClientRect();
     const POP_W = 300, GAP = 12;
-
     const showRight = cardRect.right + GAP + POP_W < window.innerWidth;
-    let left = showRight
-      ? (cardRect.right - gridRect.left + GAP)
-      : (cardRect.left  - gridRect.left - GAP - POP_W);
+    let left = showRight ? (cardRect.right - gridRect.left + GAP) : (cardRect.left  - gridRect.left - GAP - POP_W);
     left = Math.max(8, Math.min(left, gridRect.width - POP_W - 8));
-
-    let top = cardRect.top - gridRect.top;
-    top = Math.max(8, Math.min(top, gridRect.height - 16));
-
-    pop.style.left = `${left}px`;
-    pop.style.top  = `${top}px`;
-
-    document.body.appendChild(backdrop);   // z-index 9998
-    els.gridBody.appendChild(pop);         // z-index 9999
-    openpopupNodes = [backdrop, pop];
-    window.addEventListener('keydown', escListener);
+    let top = Math.max(8, Math.min(cardRect.top - gridRect.top, gridRect.height - 16));
+    pop.style.left = `${left}px`; pop.style.top  = `${top}px`;
+    document.body.appendChild(backdrop); els.gridBody.appendChild(pop);
+    openpopupNodes = [backdrop, pop]; window.addEventListener('keydown', escListener);
   }
 
-  /* =================== Controls =================== */
+  /* =================== Controls & render =================== */
   els.prevBtn.onclick = () => changeWeek(-7);
   els.nextBtn.onclick = () => changeWeek(+7);
   els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
@@ -546,7 +337,6 @@
   function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
   function syncUrl(){ const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart)); history.replaceState(null,'',`?${p.toString()}`); }
 
-  /* =================== Rendering =================== */
   function renderPrimary(){
     els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
@@ -585,7 +375,6 @@
     timeCell.className='p-2 border-r border-b border-gray-200 text-xs text-center font-semibold text-gray-500 flex items-center justify-center';
     timeCell.textContent='EDT';
     els.gridHeader.appendChild(timeCell);
-
     for (let i=0;i<7;i++){
       const d=addDays(weekStart,i);
       const h=document.createElement('div');
@@ -602,11 +391,10 @@
   function renderBody(){ renderGrid(); renderList(); }
 
   function renderGrid(){
-    closepopup(); // ensure previous popups are gone
+    closepopup();
     const startHour=5, endHour=22;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     els.gridBody.innerHTML=''; dayOverlays=[];
-
     for (let hour=startHour; hour<=endHour; hour++){
       const t=document.createElement('div');
       t.className='p-2 border-r border-gray-200 text-right text-xs text-gray-400 h-16 flex items-start justify-end -mt-2.5';
@@ -619,8 +407,6 @@
         els.gridBody.appendChild(cell);
       }
     }
-
-    // overlays per day
     const firstRow=[...els.gridBody.querySelectorAll('.day-col')].slice(0,7);
     const totalH=(endHour-startHour)*rowH;
     for (let day=0; day<7; day++){
@@ -637,12 +423,10 @@
     const events=CURRENT_WEEK[currentType][currentSub].events;
     const byDay=Array.from({length:7},()=>[]);
     events.forEach(e=>byDay[e.dayIndex].push(e));
-
     for (let day=0; day<7; day++){
       const list=byDay[day].slice().sort((a,b)=> a.start===b.start ? b.end-a.end : a.start-b.start);
       placeEventsInDay(day, list);
     }
-
     positionNowLine(startHour,endHour);
   }
 
@@ -651,51 +435,28 @@
     const startHour=5;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     const groups=findOverlappingGroups(dayEvents);
-
     groups.forEach(group=>{
       const n=group.length;
       group.forEach((e,i)=>{
         const top=(e.start-startHour)*rowH;
         const height=(e.end-e.start)*rowH;
-
         const card=document.createElement('div');
         card.className=`event-card shadow-sm ${e.color.bg} ${e.color.text} ${e.color.border}`;
         card.style.top=`${top}px`; card.style.height=`${height}px`;
-
         if (n>1){
           const GAP=8;
-          const width=`calc((100% - ${(n-1)*GAP}px) / ${n})`;
-          const left=`calc(${i} * ( (100% - ${(n-1)*GAP}px) / ${n} + ${GAP}px))`;
-          card.style.width=width; card.style.left=left; card.classList.add('narrow');
+          card.style.width=`calc((100% - ${(n-1)*GAP}px) / ${n})`;
+          card.style.left =`calc(${i} * ( (100% - ${(n-1)*GAP}px) / ${n} + ${GAP}px))`;
+          card.classList.add('narrow');
         } else {
           const PAD=8;
           card.style.width=`calc(100% - ${PAD*2}px)`; card.style.left=`${PAD}px`;
         }
-
-        // Title (Title Case)
-        const name=e.name.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
-
-        // <= 30 min → time + location on one line; else location on new line
-        const duration = e.end - e.start;
-        let timeAndLoc;
-        if (duration <= 0.5 && e.location){
-          timeAndLoc = `<p class="event-line event-tight subtext">${formatTime(e.start)} – ${formatTime(e.end)}, ${e.location}</p>`;
-        } else {
-          timeAndLoc = `<p class="event-line event-tight subtext">${formatTime(e.start)} – ${formatTime(e.end)}</p>` +
-                       (e.location ? `<p class="event-line event-tight location">${e.location}</p>` : '');
-        }
-
-        // Slightly tighter layout for very short cards
-        if (height <= 40){ card.style.padding = '.35rem .5rem'; card.style.fontSize = '.76rem'; }
-
         card.innerHTML = `
-          <p class="event-line event-tight title">${name}</p>
-          ${timeAndLoc}
-        `;
-
-        // Click -> popup
+          <p class="event-line event-tight title">${e.name}</p>
+          <p class="event-line event-tight subtext">${formatTime(e.start)} – ${formatTime(e.end)}</p>
+          ${e.location ? `<p class="event-line event-tight location">${e.location}</p>` : ''}`;
         card.addEventListener('click', (ev) => { ev.stopPropagation(); openpopup(e, card); });
-
         const ov=dayOverlays[dayIndex]; if (ov) ov.appendChild(card);
       });
     });
@@ -725,7 +486,6 @@
     line.appendChild(dot); ov.appendChild(line);
   }
 
-  // Mobile list
   function renderList(){
     els.list.innerHTML='';
     const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -754,7 +514,6 @@
     }
   }
 
-  // Resize: reflow
   let resizeTimeout;
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout=setTimeout(()=>renderGrid(),100); });
 
@@ -762,10 +521,7 @@
   async function initialize(){
     ALL_EVENTS = await loadCSVData();
     CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
-
-    // ensure current sub is valid for selected type
     if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
-
     render(); syncUrl();
   }
   initialize();
