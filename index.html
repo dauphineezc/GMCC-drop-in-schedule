@@ -61,14 +61,29 @@
   <main class="mx-auto max-w-none p-4 px-6">
 
     <!-- Controls -->
-    <div class="no-print grid grid-cols-3 items-center gap-3 mb-3">
-      <div class="flex items-center gap-2">
-        <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
-        <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
-        <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
+    <div class="no-print mb-3">
+      <!-- Mobile: stacked layout -->
+      <div class="md:hidden flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <button id="prevBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
+            <button id="todayBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
+            <button id="nextBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
+          </div>
+          <div class="text-xs text-gray-500"><span id="tzLabelMobile"></span></div>
+        </div>
+        <div id="rangeLabelMobile" class="font-semibold text-center text-lg"></div>
       </div>
-      <div id="rangeLabel" class="font-semibold text-center text-xl"></div>
-      <div class="text-sm text-gray-500">Times shown in <span id="tzLabel"></span></div>
+      <!-- Desktop: single row -->
+      <div class="hidden md:grid grid-cols-3 items-center gap-3">
+        <div class="flex items-center gap-2">
+          <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
+          <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
+          <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
+        </div>
+        <div id="rangeLabel" class="font-semibold text-center text-xl"></div>
+        <div class="text-sm text-gray-500 text-right">Times shown in <span id="tzLabel"></span></div>
+      </div>
     </div>
 
     <!-- PRIMARY tabs -->
@@ -167,6 +182,9 @@
   function stripRoomCode(loc){
     return String(loc||'').trim().replace(/^\uFEFF/, '').replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();
   }
+  function cleanActivityName(name){
+    return String(name||'').replace(/\s*\([ML]\)\s*/gi, ' ').replace(/\s*reservations?\s*/gi, '').trim();
+  }
   function classifyFromLocation(locationRaw){
     const simple = stripRoomCode(locationRaw);
     for (const rule of LOC_RULES){
@@ -220,8 +238,8 @@
       if (!cols || cols.length < 9) continue;
 
       const facility = cols[0], locationRaw = cols[1], dateStr = cols[3],
-            startTime = cols[4], endTime = cols[5], type = cols[6], activity = cols[7], 
-            instructor = cols[8];
+            startTime = cols[4], endTime = cols[5], type = cols[6], 
+            activity = cols[7], instructor = cols[8];
 
       // 1) Must be GMCC in col 0
       if (!eqGMCC(facility)) continue;
@@ -230,15 +248,16 @@
       const cls = classifyFromLocation(locationRaw);
       if (!cls) continue; // skip unknown locations for now
 
-      // 4) Parse date/times; simplify location label for display
+      // 4) Parse date/times; simplify location and activity label for display
       const eventDate = parseDateFlexible(dateStr);
       if (isNaN(+eventDate)) continue;
       const startHour = parseTime12h(startTime);
       const endHour   = parseTime12h(endTime);
       const dayIndex  = (eventDate.getDay() + 6) % 7;
 
-      const colorKey = getColorForActivity(activity);
-      const e = ev(activity, cls.label, dayIndex, startHour, endHour, colorKey, cls.type, cls.sub);
+      const activityName = cleanActivityName(activity);
+      const colorKey = getColorForActivity(activityName);
+      const e = ev(activityName, cls.label, dayIndex, startHour, endHour, colorKey, cls.type, cls.sub);
       e.date = eventDate;
       store[cls.type][cls.sub].events.push(e);
     }
@@ -290,17 +309,26 @@
     gridBody: document.getElementById('gridBody'),
     list: document.getElementById('listView'),
     rangeLabel: document.getElementById('rangeLabel'),
+    rangeLabelMobile: document.getElementById('rangeLabelMobile'),
     tzLabel: document.getElementById('tzLabel'),
+    tzLabelMobile: document.getElementById('tzLabelMobile'),
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
     todayBtn: document.getElementById('todayBtn'),
+    prevBtnMobile: document.getElementById('prevBtnMobile'),
+    nextBtnMobile: document.getElementById('nextBtnMobile'),
+    todayBtnMobile: document.getElementById('todayBtnMobile'),
     scroller: document.getElementById('gridScroller'),
   };
-  els.tzLabel.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  els.tzLabel.textContent = tz;
+  els.tzLabelMobile.textContent = tz;
 
   // Force arrows to render as text glyphs (not emoji)
   els.prevBtn.textContent = '\u25C0\uFE0E'; // ◀︎
   els.nextBtn.textContent = '\u25B6\uFE0E'; // ▶︎
+  els.prevBtnMobile.textContent = '\u25C0\uFE0E';
+  els.nextBtnMobile.textContent = '\u25B6\uFE0E';
 
   let dayOverlays=[];
 
@@ -334,9 +362,9 @@
   }
 
   /* =================== Controls & render =================== */
-  els.prevBtn.onclick = () => changeWeek(-7);
-  els.nextBtn.onclick = () => changeWeek(+7);
-  els.todayBtn.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
+  els.prevBtn.onclick = els.prevBtnMobile.onclick = () => changeWeek(-7);
+  els.nextBtn.onclick = els.nextBtnMobile.onclick = () => changeWeek(+7);
+  els.todayBtn.onclick = els.todayBtnMobile.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
 
   function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
   function syncUrl(){ const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart)); history.replaceState(null,'',`?${p.toString()}`); }
@@ -389,7 +417,9 @@
       els.gridHeader.appendChild(h);
     }
     const end=addDays(weekStart,6);
-    els.rangeLabel.textContent=`${labelDate(weekStart)} – ${labelDate(end)}`;
+    const rangeText = `${labelDate(weekStart)} – ${labelDate(end)}`;
+    els.rangeLabel.textContent = rangeText;
+    els.rangeLabelMobile.textContent = rangeText;
   }
 
   function renderBody(){ renderGrid(); renderList(); }
