@@ -510,9 +510,19 @@
 
   function positionNowLine(startHour,endHour){
     document.querySelectorAll('.now-line').forEach(n=>n.remove());
-    const now=new Date(); const dow=(now.getDay()+6)%7; const h=now.getHours(), m=now.getMinutes();
+    const now=new Date();
+    // Check if today is within the currently displayed week
+    const weekEnd = addDays(weekStart, 6);
+    const todayYmd = ymd(now);
+    const weekStartYmd = ymd(weekStart);
+    const weekEndYmd = ymd(weekEnd);
+    if (todayYmd < weekStartYmd || todayYmd > weekEndYmd) return;
+    // Calculate which day column today falls on (0 = Monday, 6 = Sunday)
+    const dayIndex = Math.floor((now - weekStart) / (1000 * 60 * 60 * 24));
+    if (dayIndex < 0 || dayIndex > 6) return;
+    const h=now.getHours(), m=now.getMinutes();
     if (h<startHour || h>=endHour) return;
-    const ov=dayOverlays[dow]; if (!ov) return;
+    const ov=dayOverlays[dayIndex]; if (!ov) return;
     const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'));
     const top=((h-startHour)*60 + m) * (rowH/60);
     const line=document.createElement('div'); line.className='now-line'; line.style.left='0'; line.style.right='0'; line.style.top=`${top}px`;
