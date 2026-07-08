@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Today's Schedule</title>
+  <meta name="color-scheme" content="light only" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #fff;
+      color: #003A70;
+    }
+    .today-shell { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    .today-date {
+      text-align: center;
+      font-size: 0.875rem;
+      color: #4b4f58;
+      margin-bottom: 1rem;
+    }
+    .schedule-card {
+      border-radius: 0.95rem;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    .schedule-columns {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .center-block {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .header-cell {
+      background: #003A70;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 0.875rem 0.85rem;
+    }
+    .center-column {
+      flex: 1;
+      padding: 1.25rem 1.25rem 1.25rem;
+      min-height: 12rem;
+    }
+    .center-block:first-child .center-column { padding-left: 1.5rem; }
+    .center-block:last-child .center-column { padding-right: 1.5rem; }
+    .center-block:not(:first-child) .center-column {
+      border-left: 1px solid #e9eef4;
+      padding-left: 2rem;
+    }
+    .center-block:not(:last-child) .center-column {
+      padding-right: 2rem;
+    }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: .5rem;
+      align-items: start;
+      padding: 0.35rem 0;
+    }
+    .schedule-time {
+      color: #0085ad;
+      font-weight: 600;
+      font-size: 0.725rem;
+      line-height: 1.25;
+      display: flex;
+      flex-direction: column;
+    }
+    .schedule-name {
+      color: #484b51;
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .empty-msg {
+      color: #9ca3af;
+      font-size: 0.9375rem;
+      text-align: center;
+      padding: 2rem 0.5rem;
+    }
+    .loading, .error {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #6b7280;
+    }
+    .error { color: #b91c1c; }
+    @media (max-width: 960px) {
+      .schedule-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .center-block:not(:first-child) .center-column { border-left: none; }
+      .center-block:nth-child(even) .center-column { border-left: 1px solid #b1b7be; }
+      .center-block:nth-child(n+3) .center-column { border-top: 1px solid #b1b7be; }
+    }
+    @media (max-width: 560px) {
+      .schedule-columns { grid-template-columns: 1fr; }
+      .center-block:nth-child(even) .center-column { border-left: none; }
+      .center-block:not(:first-child) .center-column { border-top: 1px solid #b1b7be; }
+    }
+  </style>
+</head>
+<body>
+  <div class="today-shell">
+    <div id="dateLabel" class="today-date"></div>
+    <div id="status" class="loading">Loading today's schedule…</div>
+    <div id="card" class="schedule-card" hidden></div>
+  </div>
+
+  <script src="./js/schedule-data.js"></script>
+  <script>
+    const { CENTERS, loadAllCenterData, getTodayEventsByCenter, formatTimeRangeMultiline, parseViewDate } = ScheduleData;
+
+    const params = new URLSearchParams(location.search);
+    const viewDate = parseViewDate(params.get('date'));
+
+    const statusEl = document.getElementById('status');
+    const cardEl = document.getElementById('card');
+    const dateLabelEl = document.getElementById('dateLabel');
+
+    dateLabelEl.textContent = viewDate.toLocaleDateString(undefined, {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    });
+
+    function renderRow(event) {
+      const time = formatTimeRangeMultiline(event.start, event.end);
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <div class="schedule-time">
+          <span>${time.start}</span>
+          <span>${time.end}</span>
+        </div>
+        <div class="schedule-name">${event.name}</div>`;
+      return row;
+    }
+
+    function renderCenterBlock(centerKey, events) {
+      const block = document.createElement('article');
+      block.className = 'center-block';
+
+      const header = document.createElement('div');
+      header.className = 'header-cell';
+      header.textContent = CENTERS[centerKey].label;
+      block.appendChild(header);
+
+      const column = document.createElement('div');
+      column.className = 'center-column';
+
+      if (!events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-msg';
+        empty.textContent = 'No activities scheduled';
+        column.appendChild(empty);
+      } else {
+        events.forEach(e => column.appendChild(renderRow(e)));
+      }
+
+      block.appendChild(column);
+      return block;
+    }
+
+    async function init() {
+      try {
+        const allCenterEvents = await loadAllCenterData();
+        const byCenter = getTodayEventsByCenter(allCenterEvents, viewDate);
+
+        const columns = document.createElement('div');
+        columns.className = 'schedule-columns';
+
+        for (const key of Object.keys(CENTERS)) {
+          columns.appendChild(renderCenterBlock(key, byCenter[key]));
+        }
+
+        cardEl.innerHTML = '';
+        cardEl.appendChild(columns);
+
+        statusEl.hidden = true;
+        cardEl.hidden = false;
+      } catch (err) {
+        statusEl.className = 'error';
+        statusEl.textContent = 'Could not load schedule. Please try again later.';
+        console.error(err);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

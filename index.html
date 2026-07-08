@@ -75,6 +75,9 @@
         <div id="rangeLabelMobile" class="font-semibold text-center text-lg"></div>
       </div>
       <!-- Desktop: single row -->
+
+      <!-- Center + primary tabs -->
+
       <div class="hidden md:grid grid-cols-3 items-center gap-3">
         <div class="flex items-center gap-2">
           <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
@@ -86,9 +89,14 @@
       </div>
     </div>
 
-    <!-- PRIMARY tabs -->
     <div class="mb-3 flex items-center justify-between flex-wrap gap-3">
       <div id="primaryTabs" class="seg" role="tablist" aria-label="Primary calendars"></div>
+
+      <div id="centerPickerWrap" class="flex items-center gap-2 min-w-0 mb-3">
+        <select id="centerSelect" aria-label="Select center"
+          class="text-base text-black font-semibold bg-gray-50 rounded-md px-3 py-2"></select>
+        <span id="centerLabel" class="hidden text-base font-semibold text-black truncate"></span>
+      </div>
     </div>
 
     <!-- SUB tabs -->
@@ -112,186 +120,22 @@
     <section id="listView" class="md:hidden bg-white rounded-lg shadow p-4 space-y-5 overflow-y-auto" style="height: 80vh;"></section>
   </main>
 
+  <script src="./js/schedule-data.js"></script>
   <script>
-  /* =================== Config & Colors =================== */
-  const CSV_URL = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule/FR.csv';
-  const GMCC = 'Greater Midland Community Center';
+  const {
+    CENTERS, emptyEventStore, loadAllCenterData, getMonday, addDays, ymd, labelDate,
+    formatTime, filterWeek, centerHasFitness,
+  } = ScheduleData;
 
-  // Location classification (exact per your rules)
-  // match is performed on the location with the room code stripped
-  const LOC_RULES = [
-    { match: /^Court\s*1\s*Full\s*A\+B/i, type:'dropin',  sub:'courtSports', label:'Court 1' },
-    { match: /^Court\s*2\s*Full\s*A\+B/i, type:'dropin',  sub:'courtSports', label:'Court 2' },
-    { match: /^Court\s*3\s*MAC\s*Gym/i,  type:'fitness', sub:'mac',         label:'MAC Gym' },
-    { match: /^Studio\s*1/i,             type:'fitness', sub:'studio1',     label:'Studio 1' },
-    { match: /^Studio\s*2/i,             type:'fitness', sub:'studio2',     label:'Studio 2' },
-    { match: /^Multi-?use\s*Pool\s*1/i,  type:'fitness', sub:'aquatics',    label:'Multi-use Pool 1' },
-    { match: /^Multi-?use\s*Pool\s*2/i,  type:'fitness', sub:'aquatics',    label:'Multi-use Pool 2' },
-    { match: /^Multi-?use\s*Pool\s*ALL/i,  type:'fitness', sub:'aquatics',    label:'Multi-use Pool ALL' },
-    { match: /^Lap?Pool*ALL*Lane\s/i,  type:'fitness', sub:'aquatics',    label:'Lap Pool All Lanes' },
-  ];
-
-  // Colors
-  const PALETTE = {
-    red:["bg-red-100","text-red-800","border-red-500"],
-    orange:["bg-orange-100","text-orange-800","border-orange-500"],
-    yellow:["bg-yellow-100","text-yellow-800","border-yellow-500"],
-    green:["bg-green-100","text-green-800","border-green-500"],
-    teal:["bg-teal-100","text-teal-800","border-teal-500"],
-    cyan:["bg-cyan-100","text-cyan-800","border-cyan-500"],
-    blue:["bg-blue-100","text-blue-800","border-blue-500"],
-    purple:["bg-purple-100","text-purple-800","border-purple-500"],
-    indigo:["bg-indigo-100","text-indigo-800","border-indigo-500"],
-    pink:["bg-pink-100","text-pink-800","border-pink-500"],
-    gray:["bg-gray-200","text-gray-800","border-gray-500"],
-  };
-
-  const ACTIVITY_COLORS = {
-    'LAP SWIM':'blue','REC SWIM':'green',
-    'BASKETBALL':'orange','VOLLEYBALL':'yellow','PICKLEBALL':'red',
-    'DEFAULT':'gray'
-  };
-  const getColorForActivity = (name) => {
-    const upper = String(name).toUpperCase();
-    for (const [k,c] of Object.entries(ACTIVITY_COLORS)) if (upper.includes(k)) return c;
-    return ACTIVITY_COLORS.DEFAULT;
-  };
-
-  /* =================== Model & Tabs =================== */
+  /* =================== Week view model =================== */
+  let ALL_CENTER_EVENTS = {};
   let ALL_EVENTS = {};
   let CURRENT_WEEK = {};
 
   const PRIMARY = {
-    dropin:  { label:'Drop-In',      subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community' } },
+    dropin:  { label:'Drop-In', subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community', childWatch:'Child Watch' } },
     fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', studio1:'Studio 1', studio2:'Studio 2', mac:'MAC Gym' } }
   };
-
-  /* =================== Helpers =================== */
-  function parseTime12h(t){
-    const [time, apRaw='AM'] = String(t).trim().split(' ');
-    const [hh, mm='0'] = time.split(':').map(Number);
-    let h = hh % 12; if (apRaw.toUpperCase()==='PM') h += 12;
-    return h + (+mm/60);
-  }
-  function parseDateFlexible(s){
-    const x=String(s).trim();
-    if (x.includes('/')){ const [mm,dd,yyyy]=x.split('/').map(Number); return new Date(yyyy,mm-1,dd); }
-    if (x.includes('-')){ const [yyyy,mm,dd]=x.split('-').map(Number); return new Date(yyyy,mm-1,dd); }
-    return new Date(x);
-  }
-  function stripRoomCode(loc){
-    return String(loc||'').trim().replace(/^\uFEFF/, '').replace(/\s*\(\s*\d+\s*\)\s*$/,'').trim();
-  }
-  function cleanActivityName(name){
-    return String(name||'').replace(/\s*\([ML]\)\s*/gi, ' ').replace(/\s*reservations?\s*/gi, '').trim();
-  }
-  function classifyFromLocation(locationRaw){
-    const simple = stripRoomCode(locationRaw);
-    for (const rule of LOC_RULES){
-      if (rule.match.test(simple)) return { type:rule.type, sub:rule.sub, label:rule.label };
-    }
-    return null; // unknown location → ignore for now
-  }
-  function ev(name, location, dayIndex, start, end, colorKey, type, sub){
-    const [bg,text,border] = PALETTE[colorKey];
-    return { id:`${name}-${dayIndex}-${start}`, name, location, dayIndex, start, end,
-             color:{bg,text,border}, type, sub, date:null };
-  }
-  const eqGMCC = s => String(s||'').trim().toLowerCase() === GMCC.toLowerCase();
-
-  /* =================== CSV =================== */
-  function csvToRows(text){
-    const rows = []; let row = []; let field = ''; let inQuotes = false;
-    for (let i = 0; i < text.length; i++){
-      const c = text[i];
-      if (inQuotes){
-        if (c === '"'){ if (text[i+1] === '"'){ field += '"'; i++; } else inQuotes = false; }
-        else field += c;
-      }else{
-        if (c === '"') inQuotes = true;
-        else if (c === ','){ row.push(field); field = ''; }
-        else if (c === '\n'){ row.push(field); field = ''; rows.push(row); row = []; }
-        else if (c !== '\r'){ field += c; }
-      }
-    }
-    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
-    return rows.map(r => r.map(s => String(s).trim()));
-  }
-
-  async function loadCSVData(){
-    const text = await fetch(CSV_URL, { cache:'no-store' }).then(r=>r.text());
-    return parseCSV(text);
-  }
-
-  // Columns: 0 Facility, 1 Location, 2 (blank), 3 Date, 4 Start, 5 End, 6 Activity, 7 Building, 8 Reserver
-  // (as of 12/31) Columns: 0 Facility, 1 Location, 2 (blank), 3 Date, 4 Start, 5 End, 6 Type, 7 Activity, 8 Instructor
-  function parseCSV(csvText){
-    const rows = csvToRows(csvText);
-    const data = rows.slice(1);
-
-    const store = {
-      dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
-    };
-
-    for (const cols of data){
-      if (!cols || cols.length < 9) continue;
-
-      const facility = cols[0], locationRaw = cols[1], dateStr = cols[3],
-            startTime = cols[4], endTime = cols[5], type = cols[6], 
-            activity = cols[7], instructor = cols[8];
-
-      // 1) Must be GMCC in col 0
-      if (!eqGMCC(facility)) continue;
-
-      // 2) Classify strictly by location
-      const cls = classifyFromLocation(locationRaw);
-      if (!cls) continue; // skip unknown locations for now
-
-      // 4) Parse date/times; simplify location and activity label for display
-      const eventDate = parseDateFlexible(dateStr);
-      if (isNaN(+eventDate)) continue;
-      const startHour = parseTime12h(startTime);
-      const endHour   = parseTime12h(endTime);
-      const dayIndex  = (eventDate.getDay() + 6) % 7;
-
-      const activityName = cleanActivityName(activity);
-      const colorKey = getColorForActivity(activityName);
-      const e = ev(activityName, cls.label, dayIndex, startHour, endHour, colorKey, cls.type, cls.sub);
-      e.date = eventDate;
-      store[cls.type][cls.sub].events.push(e);
-    }
-    return store;
-  }
-
-  /* =================== Week helpers =================== */
-  const getMonday = d => { const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; };
-  const addDays   = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
-  const ymd       = d => d.toISOString().slice(0,10);
-  const labelDate = d => d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  function formatTime(hour){
-    const h=Math.floor(hour), m=Math.round((hour-h)*60);
-    const h12=(h%12)||12, ap=h<12?'AM':'PM', mm=m===0?'00':String(m).padStart(2,'0');
-    return `${h12}:${mm} ${ap}`;
-  }
-  function filterWeek(all, weekStart){
-    const weekEnd = addDays(weekStart,6);
-    const out = {
-      dropin:{ aquatics:{label:'Aquatics',events:[]}, courtSports:{label:'Court Sports',events:[]}, community:{label:'Community',events:[]} },
-      fitness:{ aquatics:{label:'Aquatics',events:[]}, studio1:{label:'Studio 1',events:[]}, studio2:{label:'Studio 2',events:[]}, mac:{label:'MAC Gym',events:[]} }
-    };
-    for (const type of Object.keys(all)){
-      for (const sub of Object.keys(all[type])){
-        for (const e of all[type][sub].events){
-          if (e.date >= weekStart && e.date <= weekEnd){
-            const daysDiff = Math.floor((e.date - weekStart)/(1000*60*60*24));
-            out[type][sub].events.push({...e, dayIndex:daysDiff});
-          }
-        }
-      }
-    }
-    return out;
-  }
 
   /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
@@ -299,10 +143,16 @@
   let weekStart = params.get('w') ? new Date(params.get('w')) : START_OF_WEEK;
   if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
 
+  const defaultCenter = Object.keys(CENTERS)[0];
+  const centerLocked = params.has('center') && (params.get('center') in CENTERS);
+  let currentCenter = (params.get('center') in CENTERS ? params.get('center') : defaultCenter);
   let currentType = (['dropin','fitness'].includes(params.get('type')) ? params.get('type') : 'dropin');
   let currentSub  = params.get('sub') || 'aquatics';
 
   const els = {
+    centerPickerWrap: document.getElementById('centerPickerWrap'),
+    centerSelect: document.getElementById('centerSelect'),
+    centerLabel: document.getElementById('centerLabel'),
     primaryTabs: document.getElementById('primaryTabs'),
     tabs: document.getElementById('tabs'),
     gridHeader: document.getElementById('gridHeader'),
@@ -366,12 +216,57 @@
   els.nextBtn.onclick = els.nextBtnMobile.onclick = () => changeWeek(+7);
   els.todayBtn.onclick = els.todayBtnMobile.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
 
+  function setCurrentCenterEvents(){
+    ALL_EVENTS = ALL_CENTER_EVENTS[currentCenter] || emptyEventStore();
+    CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
+  }
+
   function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
-  function syncUrl(){ const p=new URLSearchParams(); p.set('type',currentType); p.set('sub',currentSub); p.set('w',ymd(weekStart)); history.replaceState(null,'',`?${p.toString()}`); }
+  function syncUrl(){
+    const p=new URLSearchParams();
+    p.set('center', currentCenter);
+    p.set('type', currentType);
+    p.set('sub', currentSub);
+    p.set('w', ymd(weekStart));
+    history.replaceState(null,'',`?${p.toString()}`);
+  }
+
+  function ensureValidViewSelection(){
+    if (currentType === 'fitness' && !centerHasFitness(currentCenter)) currentType = 'dropin';
+    if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
+  }
+
+  function renderCenterPicker(){
+    if (centerLocked){
+      els.centerSelect.classList.add('hidden');
+      els.centerLabel.classList.remove('hidden');
+      els.centerLabel.textContent = CENTERS[currentCenter].label;
+      return;
+    }
+    els.centerSelect.classList.remove('hidden');
+    els.centerLabel.classList.add('hidden');
+    els.centerSelect.innerHTML = '';
+    for (const key of Object.keys(CENTERS)){
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = CENTERS[key].label;
+      opt.selected = key === currentCenter;
+      els.centerSelect.appendChild(opt);
+    }
+  }
+
+  els.centerSelect.onchange = () => {
+    currentCenter = els.centerSelect.value;
+    setCurrentCenterEvents();
+    ensureValidViewSelection();
+    syncUrl();
+    render();
+  };
 
   function renderPrimary(){
     els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
+      if (type === 'fitness' && !centerHasFitness(currentCenter)) continue;
       const btn=document.createElement('button');
       btn.type='button'; btn.setAttribute('role','tab');
       btn.setAttribute('aria-pressed', String(type===currentType));
@@ -399,7 +294,7 @@
     }
   }
 
-  function render(){ closepopup(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
+  function render(){ closepopup(); renderCenterPicker(); renderPrimary(); renderSubTabs(); renderHeader(); renderBody(); }
 
   function renderHeader(){
     els.gridHeader.innerHTML='';
@@ -563,9 +458,9 @@
 
   /* =================== Boot =================== */
   async function initialize(){
-    ALL_EVENTS = await loadCSVData();
-    CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
-    if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
+    ALL_CENTER_EVENTS = await loadAllCenterData();
+    setCurrentCenterEvents();
+    ensureValidViewSelection();
     render(); syncUrl();
   }
   initialize();

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Today's Schedule</title>
+  <meta name="color-scheme" content="light only" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #fff;
+      color: #003A70;
+    }
+    .today-shell { max-width: 520px; width: 100%; margin: 0 auto; padding: 1rem; }
+    .today-date {
+      text-align: center;
+      font-size: 0.875rem;
+      color: #4b4f58;
+      margin-bottom: 1rem;
+    }
+    .schedule-card {
+      border-radius: 0.95rem;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      width: 100%;
+    }
+    .header-cell {
+      background: #003A70;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 0.875rem 0.85rem;
+    }
+    .center-column {
+      padding: 1rem 1.75rem 1.25rem;
+      min-height: 0;
+    }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 3rem;
+      align-items: center;
+      padding: 0.45rem 0;
+    }
+    .schedule-time {
+      color: #0085ad;
+      font-weight: 600;
+      font-size: 0.725rem;
+      line-height: 1.25;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .schedule-name {
+      color: #111827;
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .empty-msg {
+      color: #9ca3af;
+      font-size: 0.9375rem;
+      text-align: center;
+      padding: 2rem 0.5rem;
+    }
+    .loading, .error {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #6b7280;
+    }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="today-shell">
+    <div id="dateLabel" class="today-date"></div>
+    <div id="status" class="loading">Loading today's schedule…</div>
+    <section id="card" class="schedule-card" hidden>
+      <div id="centerHeader" class="header-cell"></div>
+      <div id="centerBody" class="center-column"></div>
+    </section>
+  </div>
+
+  <script src="./js/schedule-data.js"></script>
+  <script>
+    const { CENTERS, loadAllCenterData, getCenterEventsForDate, formatTimeRange, parseViewDate } = ScheduleData;
+
+    const params = new URLSearchParams(location.search);
+    const defaultCenter = Object.keys(CENTERS)[0];
+    const centerKey = (params.get('center') in CENTERS) ? params.get('center') : defaultCenter;
+    const viewDate = parseViewDate(params.get('date'));
+
+    const statusEl = document.getElementById('status');
+    const cardEl = document.getElementById('card');
+    const headerEl = document.getElementById('centerHeader');
+    const bodyEl = document.getElementById('centerBody');
+    const dateLabelEl = document.getElementById('dateLabel');
+
+    headerEl.textContent = CENTERS[centerKey].label;
+    dateLabelEl.textContent = viewDate.toLocaleDateString(undefined, {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    });
+
+    function renderRow(event) {
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      row.innerHTML = `
+        <div class="schedule-time">${formatTimeRange(event.start, event.end)}</div>
+        <div class="schedule-name">${event.name}</div>`;
+      return row;
+    }
+
+    async function init() {
+      try {
+        const allCenterEvents = await loadAllCenterData();
+        const events = getCenterEventsForDate(allCenterEvents, centerKey, viewDate);
+
+        bodyEl.innerHTML = '';
+        if (!events.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty-msg';
+          empty.textContent = 'No activities scheduled';
+          bodyEl.appendChild(empty);
+        } else {
+          events.forEach(e => bodyEl.appendChild(renderRow(e)));
+        }
+
+        statusEl.hidden = true;
+        cardEl.hidden = false;
+      } catch (err) {
+        statusEl.className = 'error';
+        statusEl.textContent = 'Could not load schedule. Please try again later.';
+        console.error(err);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
