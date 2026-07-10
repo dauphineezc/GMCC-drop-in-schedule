@@ -77,7 +77,7 @@
 </head>
 <body>
   <div class="today-shell">
-    <div id="dateLabel" class="today-date"></div>
+    <!-- <div id="dateLabel" class="today-date"></div> -->
     <div id="status" class="loading">Loading today's schedule…</div>
     <section id="card" class="schedule-card" hidden>
       <div id="centerHeader" class="header-cell"></div>
@@ -98,12 +98,12 @@
     const cardEl = document.getElementById('card');
     const headerEl = document.getElementById('centerHeader');
     const bodyEl = document.getElementById('centerBody');
-    const dateLabelEl = document.getElementById('dateLabel');
+    // const dateLabelEl = document.getElementById('dateLabel');
 
     headerEl.textContent = CENTERS[centerKey].label;
-    dateLabelEl.textContent = viewDate.toLocaleDateString(undefined, {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    });
+    // dateLabelEl.textContent = viewDate.toLocaleDateString(undefined, {
+    //   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    // });
 
     function renderRow(event) {
       const row = document.createElement('div');
