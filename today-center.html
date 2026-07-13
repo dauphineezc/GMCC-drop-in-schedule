@@ -48,6 +48,7 @@
       min-height: 0;
       max-height: min(38rem, 80vh);
       overflow-y: auto;
+      overflow-x: hidden;
     }
     .center-column::-webkit-scrollbar { width: 8px; }
     .center-column::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -73,6 +74,7 @@
       color: #111827;
       font-size: 0.85rem;
       line-height: 1.35;
+      overflow-wrap: anywhere;
     }
     .empty-msg {
       color: #9ca3af;
@@ -86,6 +88,23 @@
       color: #6b7280;
     }
     .error { color: #b91c1c; }
+
+    /* Mobile: two-line times, tighter columns, no horizontal scroll */
+    @media (max-width: 640px) {
+      .today-shell { padding: 0 0.75rem 0.75rem; }
+      .center-column { padding: 0.85rem 1rem 1rem; }
+      .schedule-row {
+        grid-template-columns: auto 1fr;
+        column-gap: 0.75rem;
+      }
+      .schedule-time {
+        display: flex;
+        flex-direction: column;
+        white-space: normal;
+        font-size: 0.6875rem;
+        line-height: 1.25;
+      }
+    }
   </style>
 </head>
 <body>
@@ -100,7 +119,7 @@
 
   <script src="./js/schedule-data.js"></script>
   <script>
-    const { CENTERS, loadAllCenterData, getCenterEventsForDate, formatTimeRange, parseViewDate } = ScheduleData;
+    const { CENTERS, loadAllCenterData, getCenterEventsForDate, formatTimeRange, formatTimeRangeMultiline, parseViewDate } = ScheduleData;
 
     const params = new URLSearchParams(location.search);
     const defaultCenter = Object.keys(CENTERS)[0];
@@ -111,19 +130,27 @@
     const cardEl = document.getElementById('card');
     const headerEl = document.getElementById('centerHeader');
     const bodyEl = document.getElementById('centerBody');
-    // const dateLabelEl = document.getElementById('dateLabel');
 
     headerEl.textContent = CENTERS[centerKey].label;
-    // dateLabelEl.textContent = viewDate.toLocaleDateString(undefined, {
-    //   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    // });
+
+    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
 
     function renderRow(event) {
       const row = document.createElement('div');
       row.className = 'schedule-row';
-      row.innerHTML = `
-        <div class="schedule-time">${formatTimeRange(event.start, event.end)}</div>
-        <div class="schedule-name">${event.name}</div>`;
+      if (isMobile()) {
+        const time = formatTimeRangeMultiline(event.start, event.end);
+        row.innerHTML = `
+          <div class="schedule-time">
+            <span>${time.start}</span>
+            <span>${time.end}</span>
+          </div>
+          <div class="schedule-name">${event.name}</div>`;
+      } else {
+        row.innerHTML = `
+          <div class="schedule-time">${formatTimeRange(event.start, event.end)}</div>
+          <div class="schedule-name">${event.name}</div>`;
+      }
       return row;
     }
 
@@ -140,12 +167,14 @@
       events.forEach(e => bodyEl.appendChild(renderRow(e)));
     }
 
+    let cachedEvents = [];
+
     async function init() {
       try {
         const allCenterEvents = await loadAllCenterData();
-        const events = getCenterEventsForDate(allCenterEvents, centerKey, viewDate);
+        cachedEvents = getCenterEventsForDate(allCenterEvents, centerKey, viewDate);
 
-        renderSchedule(events);
+        renderSchedule(cachedEvents);
 
         statusEl.hidden = true;
         cardEl.hidden = false;
@@ -157,6 +186,17 @@
         reportHeight();
       }
     }
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (cachedEvents.length) {
+          renderSchedule(cachedEvents);
+          reportHeight();
+        }
+      }, 150);
+    });
 
     function reportHeight() {
       window.parent.postMessage(

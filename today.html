@@ -30,23 +30,16 @@
       display: flex;
       flex-direction: column;
     }
-    .schedule-header-row {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      flex-shrink: 0;
-    }
-    .schedule-body {
-      max-height: min(38rem, 80vh);
-      overflow-y: auto;
-    }
-    .schedule-body::-webkit-scrollbar { width: 8px; }
-    .schedule-body::-webkit-scrollbar-track { background: #f1f1f1; }
-    .schedule-body::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
-    .schedule-body::-webkit-scrollbar-thumb:hover { background: #888; }
     .schedule-columns {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
+      max-height: min(38rem, 80vh);
+      overflow-y: auto;
     }
+    .schedule-columns::-webkit-scrollbar { width: 8px; }
+    .schedule-columns::-webkit-scrollbar-track { background: #f1f1f1; }
+    .schedule-columns::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
+    .schedule-columns::-webkit-scrollbar-thumb:hover { background: #888; }
     .center-block {
       display: flex;
       flex-direction: column;
@@ -54,12 +47,20 @@
       min-height: 0;
     }
     .header-cell {
+      appearance: none;
+      border: 0;
       background: #003A70;
       color: #fff;
       text-align: center;
+      font: inherit;
       font-weight: 700;
       font-size: 1rem;
       padding: 0.875rem 0.85rem;
+      width: 100%;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      cursor: default;
     }
     .center-column {
       flex: 1;
@@ -107,18 +108,71 @@
       color: #6b7280;
     }
     .error { color: #b91c1c; }
+    .header-toggle {
+      display: none;
+      width: 1em;
+      height: 1em;
+      margin-left: 0.5rem;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    .header-toggle::before {
+      content: '';
+      display: block;
+      width: 0.45em;
+      height: 0.45em;
+      border-right: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(45deg);
+      margin: 0.05em auto 0;
+    }
+
     @media (max-width: 960px) {
-      .schedule-header-row,
       .schedule-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .center-block:not(:first-child) .center-column { border-left: none; }
-      .center-block:nth-child(even) .center-column { border-left: 1px solid #b1b7be; }
-      .center-block:nth-child(n+3) .center-column { border-top: 1px solid #b1b7be; }
+      .center-block:nth-child(even) .center-column { border-left: 1px solid #e9eef4; }
+      .center-block:nth-child(n+3) .center-column { border-top: 1px solid #e9eef4; }
     }
+
+    /* Mobile: stacked sections with header above each schedule + collapsible */
     @media (max-width: 560px) {
-      .schedule-header-row,
-      .schedule-columns { grid-template-columns: 1fr; }
-      .center-block:nth-child(even) .center-column { border-left: none; }
-      .center-block:not(:first-child) .center-column { border-top: 1px solid #b1b7be; }
+      .today-shell { padding: 0.75rem; }
+      .schedule-columns {
+        display: block;
+        max-height: none;
+        overflow: visible;
+      }
+      .center-block {
+        border-left: none !important;
+        border-top: none !important;
+      }
+      .center-block + .center-block {
+        border-top: 1px solid #e9eef4;
+      }
+      .center-block .center-column {
+        border-left: none !important;
+        border-top: none !important;
+        padding: 0.85rem 1rem 1rem !important;
+      }
+      .header-cell {
+        position: static;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .header-cell:active { filter: brightness(1.08); }
+      .header-toggle { display: inline-block; }
+      .center-block.collapsed .header-toggle { transform: rotate(-90deg); }
+      .center-block.collapsed .center-column { display: none; }
+      .schedule-row {
+        grid-template-columns: auto 1fr;
+        gap: 0.75rem;
+      }
+      .schedule-time { font-size: 0.6875rem; }
     }
   </style>
 </head>
@@ -144,6 +198,8 @@
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     });
 
+    const isMobile = () => window.matchMedia('(max-width: 560px)').matches;
+
     function renderRow(event) {
       const time = formatTimeRangeMultiline(event.start, event.end);
       const row = document.createElement('div');
@@ -157,9 +213,16 @@
       return row;
     }
 
-    function renderCenterColumn(centerKey, events) {
+    function renderCenterBlock(centerKey, events, index) {
       const block = document.createElement('article');
       block.className = 'center-block';
+      block.dataset.center = centerKey;
+
+      const header = document.createElement('button');
+      header.type = 'button';
+      header.className = 'header-cell';
+      header.setAttribute('aria-expanded', 'true');
+      header.innerHTML = `<span>${CENTERS[centerKey].label}</span><span class="header-toggle" aria-hidden="true"></span>`;
 
       const column = document.createElement('div');
       column.className = 'center-column';
@@ -173,6 +236,20 @@
         events.forEach(e => column.appendChild(renderRow(e)));
       }
 
+      header.addEventListener('click', () => {
+        if (!isMobile()) return;
+        const collapsed = block.classList.toggle('collapsed');
+        header.setAttribute('aria-expanded', String(!collapsed));
+        reportHeight();
+      });
+
+      // On mobile, start with Community Center open; others collapsed
+      if (isMobile() && index > 0) {
+        block.classList.add('collapsed');
+        header.setAttribute('aria-expanded', 'false');
+      }
+
+      block.appendChild(header);
       block.appendChild(column);
       return block;
     }
@@ -182,25 +259,15 @@
         const allCenterEvents = await loadAllCenterData();
         const byCenter = getTodayEventsByCenter(allCenterEvents, viewDate);
 
-        const headerRow = document.createElement('div');
-        headerRow.className = 'schedule-header-row';
-        const bodyScroll = document.createElement('div');
-        bodyScroll.className = 'schedule-body';
         const columns = document.createElement('div');
         columns.className = 'schedule-columns';
 
-        for (const key of Object.keys(CENTERS)) {
-          const header = document.createElement('div');
-          header.className = 'header-cell';
-          header.textContent = CENTERS[key].label;
-          headerRow.appendChild(header);
-          columns.appendChild(renderCenterColumn(key, byCenter[key]));
-        }
+        Object.keys(CENTERS).forEach((key, index) => {
+          columns.appendChild(renderCenterBlock(key, byCenter[key], index));
+        });
 
-        bodyScroll.appendChild(columns);
         cardEl.innerHTML = '';
-        cardEl.appendChild(headerRow);
-        cardEl.appendChild(bodyScroll);
+        cardEl.appendChild(columns);
 
         statusEl.hidden = true;
         cardEl.hidden = false;
