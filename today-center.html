@@ -50,8 +50,7 @@
     .center-column {
       padding: 1rem 1.75rem 1.25rem;
       min-height: 0;
-      /* Fixed rem max-height only — vh causes iframe auto-height feedback loops */
-      max-height: 32rem;
+      max-height: min(38rem, 80vh);
       overflow-y: auto;
       overflow-x: hidden;
     }
