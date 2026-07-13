@@ -27,7 +27,22 @@
       overflow: hidden;
       background: #fff;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      display: flex;
+      flex-direction: column;
     }
+    .schedule-header-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      flex-shrink: 0;
+    }
+    .schedule-body {
+      max-height: min(28rem, 55vh);
+      overflow-y: auto;
+    }
+    .schedule-body::-webkit-scrollbar { width: 8px; }
+    .schedule-body::-webkit-scrollbar-track { background: #f1f1f1; }
+    .schedule-body::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
+    .schedule-body::-webkit-scrollbar-thumb:hover { background: #888; }
     .schedule-columns {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -36,6 +51,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      min-height: 0;
     }
     .header-cell {
       background: #003A70;
@@ -48,7 +64,7 @@
     .center-column {
       flex: 1;
       padding: 1.25rem 1.25rem 1.25rem;
-      min-height: 12rem;
+      min-height: 0;
     }
     .center-block:first-child .center-column { padding-left: 1.5rem; }
     .center-block:last-child .center-column { padding-right: 1.5rem; }
@@ -92,12 +108,14 @@
     }
     .error { color: #b91c1c; }
     @media (max-width: 960px) {
+      .schedule-header-row,
       .schedule-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .center-block:not(:first-child) .center-column { border-left: none; }
       .center-block:nth-child(even) .center-column { border-left: 1px solid #b1b7be; }
       .center-block:nth-child(n+3) .center-column { border-top: 1px solid #b1b7be; }
     }
     @media (max-width: 560px) {
+      .schedule-header-row,
       .schedule-columns { grid-template-columns: 1fr; }
       .center-block:nth-child(even) .center-column { border-left: none; }
       .center-block:not(:first-child) .center-column { border-top: 1px solid #b1b7be; }
@@ -139,14 +157,9 @@
       return row;
     }
 
-    function renderCenterBlock(centerKey, events) {
+    function renderCenterColumn(centerKey, events) {
       const block = document.createElement('article');
       block.className = 'center-block';
-
-      const header = document.createElement('div');
-      header.className = 'header-cell';
-      header.textContent = CENTERS[centerKey].label;
-      block.appendChild(header);
 
       const column = document.createElement('div');
       column.className = 'center-column';
@@ -169,15 +182,25 @@
         const allCenterEvents = await loadAllCenterData();
         const byCenter = getTodayEventsByCenter(allCenterEvents, viewDate);
 
+        const headerRow = document.createElement('div');
+        headerRow.className = 'schedule-header-row';
+        const bodyScroll = document.createElement('div');
+        bodyScroll.className = 'schedule-body';
         const columns = document.createElement('div');
         columns.className = 'schedule-columns';
 
         for (const key of Object.keys(CENTERS)) {
-          columns.appendChild(renderCenterBlock(key, byCenter[key]));
+          const header = document.createElement('div');
+          header.className = 'header-cell';
+          header.textContent = CENTERS[key].label;
+          headerRow.appendChild(header);
+          columns.appendChild(renderCenterColumn(key, byCenter[key]));
         }
 
+        bodyScroll.appendChild(columns);
         cardEl.innerHTML = '';
-        cardEl.appendChild(columns);
+        cardEl.appendChild(headerRow);
+        cardEl.appendChild(bodyScroll);
 
         statusEl.hidden = true;
         cardEl.hidden = false;

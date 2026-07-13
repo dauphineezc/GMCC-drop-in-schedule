@@ -16,6 +16,9 @@
       color: #003A70;
     }
     .today-shell { max-width: 520px; width: 100%; margin: 0 auto; padding: 0rem 1rem 1rem 1rem; }
+    @media (min-width: 641px) {
+      .today-shell.wide { max-width: 720px; }
+    }
     .today-date {
       text-align: center;
       font-size: 0.875rem;
@@ -28,6 +31,8 @@
       background: #fff;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
       width: 100%;
+      display: flex;
+      flex-direction: column;
     }
     .header-cell {
       background: #003A70;
@@ -36,25 +41,33 @@
       font-weight: 700;
       font-size: 1.1rem;
       padding: 0.875rem 0.85rem;
+      flex-shrink: 0;
     }
     .center-column {
       padding: 1rem 1.75rem 1.25rem;
       min-height: 0;
+      max-height: min(32rem, 60vh);
+      overflow-y: auto;
     }
+    .center-column::-webkit-scrollbar { width: 8px; }
+    .center-column::-webkit-scrollbar-track { background: #f1f1f1; }
+    .center-column::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
+    .center-column::-webkit-scrollbar-thumb:hover { background: #888; }
     .schedule-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       column-gap: 3rem;
-      align-items: center;
+      align-items: start;
       padding: 0.45rem 0;
     }
     .schedule-time {
       color: #0085ad;
       font-weight: 600;
       font-size: 0.725rem;
-      line-height: 1.25;
+      line-height: 1.35;
       text-align: right;
       white-space: nowrap;
+      padding-top: 0.1em;
     }
     .schedule-name {
       color: #111827;
@@ -114,20 +127,25 @@
       return row;
     }
 
+    function renderSchedule(events) {
+      bodyEl.innerHTML = '';
+
+      if (!events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-msg';
+        empty.textContent = 'No activities scheduled';
+        bodyEl.appendChild(empty);
+        return;
+      }
+      events.forEach(e => bodyEl.appendChild(renderRow(e)));
+    }
+
     async function init() {
       try {
         const allCenterEvents = await loadAllCenterData();
         const events = getCenterEventsForDate(allCenterEvents, centerKey, viewDate);
 
-        bodyEl.innerHTML = '';
-        if (!events.length) {
-          const empty = document.createElement('div');
-          empty.className = 'empty-msg';
-          empty.textContent = 'No activities scheduled';
-          bodyEl.appendChild(empty);
-        } else {
-          events.forEach(e => bodyEl.appendChild(renderRow(e)));
-        }
+        renderSchedule(events);
 
         statusEl.hidden = true;
         cardEl.hidden = false;

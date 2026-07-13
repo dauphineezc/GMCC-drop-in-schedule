@@ -244,8 +244,20 @@ const ScheduleData = (() => {
     return null;
   }
 
+  function isLocalDev() {
+    return /localhost|127\.0\.0\.1/.test(location.hostname);
+  }
+
+  async function loadFitnessCsvText() {
+    if (isLocalDev()) {
+      // Prefer local test data in dev; blob may be blocked by CORS from localhost.
+      return fetchCsvText(TEST_FITNESS_CSV_URL, FITNESS_CSV_URL);
+    }
+    return fetchCsvText(FITNESS_CSV_URL, TEST_FITNESS_CSV_URL);
+  }
+
   async function loadAllCenterData() {
-    const fitnessText = await fetchCsvText(FITNESS_CSV_URL, TEST_FITNESS_CSV_URL);
+    const fitnessText = await loadFitnessCsvText();
     const centerKeys = Object.keys(CENTERS);
     const dropinTexts = await Promise.all(centerKeys.map(async key => {
       const cfg = CENTERS[key];
