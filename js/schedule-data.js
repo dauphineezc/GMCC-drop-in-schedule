@@ -235,6 +235,15 @@ const ScheduleData = (() => {
     }
   }
 
+  function resolveFitnessFacility(cfg) {
+    if (cfg.fitnessFacility) return cfg.fitnessFacility;
+    // Centers sharing the community drop-in file also share its group fitness for now.
+    if (cfg.dropinFile === CENTERS.community.dropinFile) {
+      return CENTERS.community.fitnessFacility;
+    }
+    return null;
+  }
+
   async function loadAllCenterData() {
     const fitnessText = await fetchCsvText(FITNESS_CSV_URL, TEST_FITNESS_CSV_URL);
     const centerKeys = Object.keys(CENTERS);
@@ -250,7 +259,8 @@ const ScheduleData = (() => {
       const cfg = CENTERS[key];
       out[key] = emptyEventStore();
       parseDropInCSV(dropinTexts[i], out[key].dropin);
-      if (cfg.fitnessFacility) parseFitnessCSV(fitnessText, out[key].fitness, cfg.fitnessFacility);
+      const fitnessFacility = resolveFitnessFacility(cfg);
+      if (fitnessFacility) parseFitnessCSV(fitnessText, out[key].fitness, fitnessFacility);
     });
     return out;
   }
@@ -334,7 +344,7 @@ const ScheduleData = (() => {
   }
 
   function centerHasFitness(centerKey) {
-    return Boolean(CENTERS[centerKey]?.fitnessFacility);
+    return Boolean(resolveFitnessFacility(CENTERS[centerKey] || {}));
   }
 
   function parseViewDate(param) {
