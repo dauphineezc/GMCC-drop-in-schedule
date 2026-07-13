@@ -248,8 +248,9 @@
         reportHeight();
       });
 
-      // On mobile, start with Community Center open; others collapsed
-      if (isMobile() && index > 0) {
+      // Collapse all but Community Center. Desktop CSS ignores .collapsed;
+      // mobile media query hides .collapsed sections.
+      if (index > 0) {
         block.classList.add('collapsed');
         header.setAttribute('aria-expanded', 'false');
       }
