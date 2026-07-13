@@ -8,9 +8,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { overflow: visible; height: auto; }
-    body {
+    html, body {
       margin: 0;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible;
+    }
+    body {
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
       background: #fff;
       color: #003A70;
@@ -33,7 +37,8 @@
     .schedule-columns {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      max-height: min(38rem, 80vh);
+      /* Fixed rem max-height only — vh causes iframe auto-height feedback loops */
+      max-height: 32rem;
       overflow-y: auto;
     }
     .schedule-columns::-webkit-scrollbar { width: 8px; }
@@ -281,13 +286,19 @@
     }
 
     function reportHeight() {
+      if (window.parent === window) return;
+      const shell = document.querySelector('.today-shell');
+      const height = shell
+        ? Math.ceil(shell.getBoundingClientRect().height + shell.offsetTop)
+        : Math.ceil(document.documentElement.scrollHeight);
       window.parent.postMessage(
-        { type: "gmcc-schedule-height", height: document.documentElement.scrollHeight },
+        { type: "gmcc-schedule-height", height },
         "*"
       );
     }
     reportHeight();
-    new ResizeObserver(reportHeight).observe(document.body);
+    const shellEl = document.querySelector('.today-shell');
+    if (shellEl) new ResizeObserver(reportHeight).observe(shellEl);
 
     init();
   </script>
