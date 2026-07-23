@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>This Week's Curling Schedule</title>
+  <meta name="color-scheme" content="light only" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible;
+    }
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #fff;
+      color: #003A70;
+    }
+    .today-shell { max-width: 520px; width: 100%; margin: 0 auto; padding: 0rem 1rem 1rem 1rem; }
+    @media (min-width: 641px) {
+      .today-shell.wide { max-width: 720px; }
+    }
+    .today-date {
+      text-align: center;
+      font-size: 0.875rem;
+      color: #4b4f58;
+      margin-bottom: 1rem;
+    }
+    .schedule-card {
+      border-radius: 0.95rem;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .header-cell {
+      background: #003A70;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 0.875rem 0.85rem;
+      flex-shrink: 0;
+    }
+    .center-column {
+      padding: 1rem 1.75rem 1.25rem;
+      min-height: 0;
+      max-height: min(38rem, 80vh);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .center-column::-webkit-scrollbar { width: 8px; }
+    .center-column::-webkit-scrollbar-track { background: #f1f1f1; }
+    .center-column::-webkit-scrollbar-thumb { background: #a8a8a8; border-radius: 4px; }
+    .center-column::-webkit-scrollbar-thumb:hover { background: #888; }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 3rem;
+      align-items: start;
+      padding: 0.45rem 0;
+    }
+    .schedule-meta {
+      color: #0085ad;
+      font-weight: 600;
+      font-size: 0.725rem;
+      line-height: 1.35;
+      text-align: right;
+      padding-top: 0.1em;
+    }
+    .schedule-day {
+      display: block;
+      white-space: nowrap;
+    }
+    .schedule-time {
+      display: block;
+      white-space: nowrap;
+    }
+    .schedule-name {
+      color: #111827;
+      font-size: 0.85rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .empty-msg {
+      color: #9ca3af;
+      font-size: 0.9375rem;
+      text-align: center;
+      padding: 2rem 0.5rem;
+    }
+    .loading, .error {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #6b7280;
+    }
+    .error { color: #b91c1c; }
+
+    /* Mobile: two-line times, tighter columns, no horizontal scroll */
+    @media (max-width: 640px) {
+      .today-shell { padding: 0 0.75rem 0.75rem; }
+      .center-column { padding: 0.85rem 1rem 1rem; }
+      .schedule-row {
+        grid-template-columns: auto 1fr;
+        column-gap: 0.75rem;
+      }
+      .schedule-meta {
+        font-size: 0.6875rem;
+        line-height: 1.25;
+      }
+      .schedule-time {
+        display: flex;
+        flex-direction: column;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="today-shell">
+    <!-- <div id="dateLabel" class="today-date"></div> -->
+    <div id="status" class="loading">Loading this week's schedule…</div>
+    <section id="card" class="schedule-card" hidden>
+      <div id="centerHeader" class="header-cell"></div>
+      <div id="centerBody" class="center-column"></div>
+    </section>
+  </div>
+
+  <script src="./js/schedule-data.js"></script>
+  <script>
+    const {
+      CENTERS,
+      loadAllCenterData,
+      getCenterEventsForWeek,
+      getMonday,
+      formatTimeRange,
+      formatTimeRangeMultiline,
+      labelDate,
+      parseViewDate,
+    } = ScheduleData;
+
+    const CENTER_KEY = 'curling';
+    const params = new URLSearchParams(location.search);
+    const viewDate = parseViewDate(params.get('w') || params.get('date'));
+    const weekStart = getMonday(viewDate);
+
+    const statusEl = document.getElementById('status');
+    const cardEl = document.getElementById('card');
+    const headerEl = document.getElementById('centerHeader');
+    const bodyEl = document.getElementById('centerBody');
+
+    headerEl.textContent = CENTERS[CENTER_KEY].label;
+
+    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
+
+    function formatDayLabel(event) {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekday = event.date
+        ? event.date.toLocaleDateString(undefined, { weekday: 'short' })
+        : (days[event.dayIndex] || '');
+      if (!event.date) return weekday;
+      return `${weekday}, ${labelDate(event.date)}`;
+    }
+
+    function renderRow(event) {
+      const row = document.createElement('div');
+      row.className = 'schedule-row';
+      const day = formatDayLabel(event);
+
+      if (isMobile()) {
+        const time = formatTimeRangeMultiline(event.start, event.end);
+        row.innerHTML = `
+          <div class="schedule-meta">
+            <span class="schedule-day">${day}</span>
+            <span class="schedule-time">
+              <span>${time.start}</span>
+              <span>${time.end}</span>
+            </span>
+          </div>
+          <div class="schedule-name">${event.name}</div>`;
+      } else {
+        row.innerHTML = `
+          <div class="schedule-meta">
+            <span class="schedule-day">${day}</span>
+            <span class="schedule-time">${formatTimeRange(event.start, event.end)}</span>
+          </div>
+          <div class="schedule-name">${event.name}</div>`;
+      }
+      return row;
+    }
+
+    function renderSchedule(events) {
+      bodyEl.innerHTML = '';
+
+      if (!events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-msg';
+        empty.textContent = 'No activities scheduled this week';
+        bodyEl.appendChild(empty);
+        return;
+      }
+      events.forEach(e => bodyEl.appendChild(renderRow(e)));
+    }
+
+    let cachedEvents = [];
+
+    async function init() {
+      try {
+        const allCenterEvents = await loadAllCenterData();
+        cachedEvents = getCenterEventsForWeek(allCenterEvents, CENTER_KEY, weekStart);
+
+        renderSchedule(cachedEvents);
+
+        statusEl.hidden = true;
+        cardEl.hidden = false;
+        reportHeight();
+      } catch (err) {
+        statusEl.className = 'error';
+        statusEl.textContent = 'Could not load schedule. Please try again later.';
+        console.error(err);
+        reportHeight();
+      }
+    }
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        renderSchedule(cachedEvents);
+        reportHeight();
+      }, 150);
+    });
+
+    function reportHeight() {
+      if (window.parent === window) return;
+      const shell = document.querySelector('.today-shell');
+      const height = shell
+        ? Math.ceil(shell.getBoundingClientRect().height + shell.offsetTop)
+        : Math.ceil(document.documentElement.scrollHeight);
+      window.parent.postMessage(
+        { type: "gmcc-schedule-height", height },
+        "*"
+      );
+    }
+    reportHeight();
+    const shellEl = document.querySelector('.today-shell');
+    if (shellEl) new ResizeObserver(reportHeight).observe(shellEl);
+
+    init();
+  </script>
+</body>
+</html>

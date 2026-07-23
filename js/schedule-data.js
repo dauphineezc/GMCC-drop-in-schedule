@@ -25,6 +25,11 @@ const ScheduleData = (() => {
       dropinFile: './GMCC_Drop_In_Schedule.csv',
       fitnessFacility: null,
     },
+    curling: {
+      label: 'Curling Center',
+      dropinFile: './GMCurling_Schedule.csv',
+      fitnessFacility: null,
+    },
   };
 
   const DROPIN_CATEGORY_MAP = {
@@ -32,6 +37,7 @@ const ScheduleData = (() => {
     courtSports: /^court\s*sports?$/i,
     community: /^community$/i,
     childWatch: /^child\s*watch$/i,
+    league: /^league$/i,
   };
 
   const FITNESS_LOC_RULES = [
@@ -108,6 +114,7 @@ const ScheduleData = (() => {
         courtSports: { label:'Court Sports', events:[] },
         community: { label:'Community', events:[] },
         childWatch: { label:'Child Watch', events:[] },
+        league: { label:'League', events:[] },
       },
       fitness: {
         aquatics: { label:'Aquatics', events:[] },
@@ -331,6 +338,14 @@ const ScheduleData = (() => {
     return eventsOnDate(flattenCenterStore(store), date);
   }
 
+  function getCenterEventsForWeek(allCenterEvents, centerKey, weekStart) {
+    const store = allCenterEvents[centerKey];
+    if (!store) return [];
+    const week = filterWeek(store, getMonday(weekStart));
+    return flattenCenterStore(week)
+      .sort((a, b) => a.dayIndex - b.dayIndex || a.start - b.start || a.end - b.end);
+  }
+
   function getTodayEventsByCenter(allCenterEvents, date) {
     const out = {};
     for (const key of Object.keys(CENTERS)) {
@@ -382,6 +397,7 @@ const ScheduleData = (() => {
     centerHasFitness,
     parseViewDate,
     getCenterEventsForDate,
+    getCenterEventsForWeek,
     getTodayEventsByCenter,
     ev,
     getColorForActivity,
