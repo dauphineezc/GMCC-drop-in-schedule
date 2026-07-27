@@ -250,8 +250,8 @@ const ScheduleData = (() => {
       const eventDate = parseDateFlexible(dateStr);
       if (isNaN(+eventDate)) continue;
 
+      const intensity = getFitnessActivityIntensity(activity);
       const activityName = cleanActivityName(activity);
-      const intensity = getFitnessActivityIntensity(activityName);
       const colorKey = getColorForFitnessActivity(intensity);
       const e = ev(
         activityName, loc.label,
@@ -422,6 +422,8 @@ const ScheduleData = (() => {
     getCenterEventsForWeek,
     getTodayEventsByCenter,
     ev,
-    getColorForActivity,
+    getColorForDropInActivity,
+    getColorForFitnessActivity,
+    getFitnessActivityIntensity,
   };
 })();
