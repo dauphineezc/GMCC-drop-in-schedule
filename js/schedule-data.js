@@ -62,12 +62,12 @@ const ScheduleData = (() => {
     gray:['bg-gray-200','text-gray-800','border-gray-500'],
   };
 
-  const ACTIVITY_COLORS = {
+  const DROPIN_ACTIVITY_COLORS = {
     /* Aquatics */
     'LAP SWIM':'blue', 'REC SWIM':'green', 'OPEN SWIM':'cyan',
 
     /* Court Sports */
-    'OPEN BASKETBALL':'yellow', 'ADULT BASKETBALL':'orange', 'YOUTH BASKETBALL':'red', 'VOLLEYBALL':'lime', 'PICKLEBALL':'green',
+    'OPEN BASKETBALL':'yellow', 'ADULT BASKETBALL':'orange', 'YOUTH BASKETBALL':'lime', 'VOLLEYBALL':'red', 'PICKLEBALL':'green',
 
     /* Community */
     'EUCHRE':'pink', 'LINE DANCING':'purple', 'MAH JONGG':'indigo',
@@ -79,10 +79,10 @@ const ScheduleData = (() => {
     'DEFAULT':'gray',
   };
 
-  function getColorForActivity(name) {
+  function getColorForDropInActivity(name) {
     const upper = String(name).toUpperCase();
-    for (const [k, c] of Object.entries(ACTIVITY_COLORS)) if (upper.includes(k)) return c;
-    return ACTIVITY_COLORS.DEFAULT;
+    for (const [k, c] of Object.entries(DROPIN_ACTIVITY_COLORS)) if (upper.includes(k)) return c;
+    return DROPIN_ACTIVITY_COLORS.DEFAULT;
   }
 
   function parseTime12h(t) {
@@ -105,6 +105,15 @@ const ScheduleData = (() => {
 
   function cleanActivityName(name) {
     return String(name || '').replace(/\s*\([ML]\)\s*/gi, ' ').replace(/\s*reservations?\s*/gi, '').trim();
+  }
+
+  function getFitnessActivityIntensity(name) {
+    const upper = String(name).toUpperCase();
+    return upper.includes('(L)') ? 'low' : upper.includes('(M)') ? 'moderate' : upper.includes('(H)') ? 'high' : 'default';
+  }
+
+  function getColorForFitnessActivity(intensity) {
+    return intensity === 'low' ? 'green' : intensity === 'moderate' ? 'cyan' : intensity === 'high' ? 'blue' : 'gray';
   }
 
   function classifyFitnessLocation(locationRaw) {
@@ -217,7 +226,7 @@ const ScheduleData = (() => {
       const startHour = parseTime12h(cols[idx.start]);
       const endHour = parseTime12h(cols[idx.end]);
       const dayIndex = (eventDate.getDay() + 6) % 7;
-      const colorKey = getColorForActivity(activityName);
+      const colorKey = getColorForDropInActivity(activityName);
       const e = ev(activityName, location, dayIndex, startHour, endHour, colorKey, 'dropin', sub);
       e.date = eventDate;
       dropinStore[sub].events.push(e);
@@ -242,7 +251,8 @@ const ScheduleData = (() => {
       if (isNaN(+eventDate)) continue;
 
       const activityName = cleanActivityName(activity);
-      const colorKey = getColorForActivity(activityName);
+      const intensity = getFitnessActivityIntensity(activityName);
+      const colorKey = getColorForFitnessActivity(intensity);
       const e = ev(
         activityName, loc.label,
         (eventDate.getDay() + 6) % 7,
