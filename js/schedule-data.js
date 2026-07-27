@@ -49,7 +49,6 @@ const ScheduleData = (() => {
 
   const PALETTE = {
     red:['bg-red-100','text-red-800','border-red-500'],
-    rose:['bg-rose-100','text-rose-800','border-rose-500'],
     orange:['bg-orange-100','text-orange-800','border-orange-500'],
     yellow:['bg-yellow-100','text-yellow-800','border-yellow-500'],
     lime:['bg-lime-100','text-lime-800','border-lime-500'],
@@ -68,7 +67,7 @@ const ScheduleData = (() => {
     'LAP SWIM':'blue', 'REC SWIM':'green', 'OPEN SWIM':'cyan',
 
     /* Court Sports */
-    'OPEN BASKETBALL':'rose', 'ADULT BASKETBALL':'orange', 'YOUTH BASKETBALL':'yellow', 'VOLLEYBALL':'lime', 'PICKLEBALL':'red',
+    'OPEN BASKETBALL':'yellow', 'ADULT BASKETBALL':'orange', 'YOUTH BASKETBALL':'red', 'VOLLEYBALL':'lime', 'PICKLEBALL':'green',
 
     /* Community */
     'EUCHRE':'pink', 'LINE DANCING':'purple', 'MAH JONGG':'indigo',
