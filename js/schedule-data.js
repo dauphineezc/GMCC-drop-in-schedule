@@ -260,6 +260,7 @@ const ScheduleData = (() => {
         colorKey, 'fitness', loc.sub,
       );
       e.date = eventDate;
+      if (intensity !== 'default') e.intensity = intensity;
       fitnessStore[loc.sub].events.push(e);
     }
   }
