@@ -197,9 +197,9 @@
         <h3 class="text-lg font-bold tracking-wide ${titleColorClass}">${eventObj.name}</h3>
       </div>
       <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${minutes} min)</div>
-      ${eventObj.location ? `<div class="text-sm text-gray-500">${eventObj.location}</div>` : ''}
+      ${eventObj.location ? `<div class="mt-1 text-sm text-gray-500">${eventObj.location}</div>` : ''}
       ${eventObj.intensity ? `<div class="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
-        <span class="inline-block w-2 h-2 shrink-0 rounded-sm ${eventObj.color.bg} border ${eventObj.color.border}" aria-hidden="true"></span>
+        <span class="inline-block w-3 h-3 shrink-0 rounded-sm ${eventObj.color.bg} border ${eventObj.color.border}" aria-hidden="true"></span>
         <span>= ${eventObj.intensity} intensity</span>
       </div>` : ''}
       <div class="mt-2 text-xs text-gray-400">Click outside to close</div>`;

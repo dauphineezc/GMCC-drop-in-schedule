@@ -268,9 +268,11 @@
         const columns = document.createElement('div');
         columns.className = 'schedule-columns';
 
-        Object.keys(CENTERS).forEach((key, index) => {
-          columns.appendChild(renderCenterBlock(key, byCenter[key], index));
-        });
+        Object.keys(CENTERS)
+          .filter(key => key !== 'curling')
+          .forEach((key, index) => {
+            columns.appendChild(renderCenterBlock(key, byCenter[key], index));
+          });
 
         cardEl.innerHTML = '';
         cardEl.appendChild(columns);
