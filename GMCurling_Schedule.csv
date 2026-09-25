@@ -1,43 +1,303 @@
 Category,Location,Date,Start Time,End Time,Activity Name,Weekday
-League,Ice Sheet 1,7/19/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
-League,Ice Sheet 1,7/19/2026,5:00 PM,7:00 PM,Sunday Fun League,Sunday
-League,Ice Sheet 1,7/20/2026,3:30 PM,5:30 PM,Monday Youth League,Monday
-League,Ice Sheet 1,7/20/2026,6:00 PM,8:00 PM,Monday League,Monday
-League,Ice Sheet 1,7/20/2026,8:15 PM,10:15 PM,Monday League,Monday
-League,Ice Sheet 1,7/21/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
-League,Ice Sheet 1,7/22/2026,3:30 PM,5:30 PM,Wednesday Youth League,Wednesday
-League,Ice Sheet 1,7/22/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,7/22/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,7/23/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
-League,Ice Sheet 1,7/23/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
-League,Ice Sheet 1,7/23/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
-League,Ice Sheet 1,7/24/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
-League,Ice Sheet 1,7/25/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
-League,Ice Sheet 1,7/26/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
-League,Ice Sheet 1,7/26/2026,5:00 PM,7:00 PM,Sunday Fun League,Sunday
-League,Ice Sheet 1,7/27/2026,3:30 PM,5:30 PM,Monday Youth League,Monday
-League,Ice Sheet 1,7/27/2026,6:00 PM,8:00 PM,Monday League,Monday
-League,Ice Sheet 1,7/27/2026,8:15 PM,10:15 PM,Monday League,Monday
-League,Ice Sheet 1,7/28/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
-League,Ice Sheet 1,7/29/2026,3:30 PM,5:30 PM,Wednesday Youth League,Wednesday
-League,Ice Sheet 1,7/29/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,7/29/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,7/30/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
-League,Ice Sheet 1,7/30/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
-League,Ice Sheet 1,7/30/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
-League,Ice Sheet 1,7/31/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
-League,Ice Sheet 1,7/31/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
-League,Ice Sheet 1,10/18/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
-League,Ice Sheet 1,10/18/2026,5:00 PM,7:00 PM,Sunday Fun League,Sunday
-League,Ice Sheet 1,10/19/2026,3:30 PM,5:30 PM,Monday Youth League,Monday
-League,Ice Sheet 1,10/19/2026,6:00 PM,8:00 PM,Monday League,Monday
-League,Ice Sheet 1,10/19/2026,8:15 PM,10:15 PM,Monday League,Monday
-League,Ice Sheet 1,10/20/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
-League,Ice Sheet 1,10/21/2026,3:30 PM,5:30 PM,Wednesday Youth League,Wednesday
-League,Ice Sheet 1,10/21/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,10/21/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
-League,Ice Sheet 1,10/22/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
-League,Ice Sheet 1,10/22/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
-League,Ice Sheet 1,10/22/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
-League,Ice Sheet 1,10/23/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
-League,Ice Sheet 1,10/24/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,10/26/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,10/26/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,10/26/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,10/27/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,10/28/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,10/28/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,10/28/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,10/29/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,10/29/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,10/30/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,10/31/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,11/1/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,11/1/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,11/1/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,11/2/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,11/2/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/2/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/3/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,11/4/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,11/4/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/4/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/5/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,11/5/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,11/5/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,11/6/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,11/7/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,11/8/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,11/8/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,11/8/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,11/9/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,11/9/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/9/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/10/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,11/11/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,11/11/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/11/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/12/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,11/12/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,11/13/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,11/14/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,11/15/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,11/15/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,11/15/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,11/19/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,11/19/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,11/20/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,11/21/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,11/22/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,11/22/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,11/22/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,11/23/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,11/23/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/23/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/24/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,11/25/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,11/25/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/25/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,11/26/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,11/26/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,11/26/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,11/27/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,11/28/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,11/29/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,11/29/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,11/29/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,11/30/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,11/30/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,11/30/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/1/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,12/2/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,12/2/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/2/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/3/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,12/3/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,12/3/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,12/4/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,12/5/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,12/6/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,12/6/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,12/6/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,12/7/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,12/7/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/7/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/8/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,12/9/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,12/9/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/9/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/10/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,12/10/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,12/10/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,12/11/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,12/12/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,12/13/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,12/13/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,12/13/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,12/14/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,12/14/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/14/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/15/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,12/16/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,12/16/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/16/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/17/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,12/17/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,12/17/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,12/18/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,12/19/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,12/20/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,12/20/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,12/20/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,12/21/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,12/21/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/21/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/22/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,12/23/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,12/23/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/23/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/24/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,12/24/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,12/24/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,12/25/2026,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,12/26/2026,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,12/27/2026,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,12/27/2026,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,12/27/2026,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,12/28/2026,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,12/28/2026,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/28/2026,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,12/29/2026,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,12/30/2026,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,12/30/2026,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/30/2026,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,12/31/2026,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,12/31/2026,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,12/31/2026,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,1/1/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,1/2/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,1/3/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,1/3/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,1/3/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,1/4/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,1/4/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/4/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/5/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,1/6/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,1/6/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/6/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/7/2027,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,1/7/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,1/7/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,1/8/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,1/9/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,1/10/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,1/10/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,1/10/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,1/11/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,1/11/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/11/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/12/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,1/13/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,1/13/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/13/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/14/2027,6:00 PM,7:30 PM,Thursday Novice League,Thursday
+League,Ice Sheet 1,1/14/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,1/14/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,1/15/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,1/16/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,1/17/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,1/17/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,1/17/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,1/18/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,1/18/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/18/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/19/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,1/20/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,1/20/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/20/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/21/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,1/21/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,1/21/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,1/22/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,1/23/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,1/24/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,1/24/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,1/24/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,1/25/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,1/25/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/25/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,1/26/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,1/27/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,1/27/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/27/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,1/28/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,1/28/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,1/28/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,1/29/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,1/30/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,1/31/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,1/31/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,1/31/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,2/1/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,2/1/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/1/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/2/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,2/3/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,2/3/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/3/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/4/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,2/4/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,2/4/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,2/5/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,2/6/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,2/7/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,2/7/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,2/7/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,2/8/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,2/8/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/8/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/9/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,2/10/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,2/10/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/10/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/11/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,2/11/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,2/11/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,2/12/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,2/13/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,2/14/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,2/14/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,2/14/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,2/15/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,2/15/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/15/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/16/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,2/17/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,2/17/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/17/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/18/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,2/18/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,2/18/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,2/19/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,2/20/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,2/21/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,2/21/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,2/21/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,2/22/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,2/22/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/22/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,2/23/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,2/24/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,2/24/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/24/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,2/25/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,2/25/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,2/25/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,2/26/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,2/27/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,2/28/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,2/28/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,2/28/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,3/1/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,3/1/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/1/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/2/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,3/3/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,3/3/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/3/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/4/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,3/4/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,3/4/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,3/5/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,3/6/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,3/7/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,3/7/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,3/7/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,3/8/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,3/8/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/8/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/9/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,3/10/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,3/10/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/10/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/11/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,3/11/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,3/11/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,3/12/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,3/13/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
+League,Ice Sheet 1,3/14/2027,9:30 AM,11:30 AM,Sunday Morning Doubles,Sunday
+League,Ice Sheet 1,3/14/2027,1:30 PM,3:30 PM,Sunday Youth League,Sunday
+League,Ice Sheet 1,3/14/2027,5:00 PM,7:00 PM,Sunday Supper Open,Sunday
+League,Ice Sheet 1,3/15/2027,3:30 PM,5:00 PM,Monday Youth League,Monday
+League,Ice Sheet 1,3/15/2027,6:00 PM,8:00 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/15/2027,8:15 PM,10:15 PM,Monday Open League,Monday
+League,Ice Sheet 1,3/16/2027,7:00 PM,9:00 PM,Tuesday Ladies League,Tuesday
+League,Ice Sheet 1,3/17/2027,3:30 PM,5:00 PM,Wednesday Youth League,Wednesday
+League,Ice Sheet 1,3/17/2027,6:00 PM,8:00 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/17/2027,8:15 PM,10:15 PM,Wednesday League,Wednesday
+League,Ice Sheet 1,3/18/2027,6:00 PM,7:30 PM,Thursday Over Under,Thursday
+League,Ice Sheet 1,3/18/2027,9:30 AM,11:30 AM,Thursday Sunrise League,Thursday
+League,Ice Sheet 1,3/18/2027,8:00 PM,10:00 PM,Thursday Open League,Thursday
+League,Ice Sheet 1,3/19/2027,7:00 PM,9:00 PM,Friday Couples League,Friday
+League,Ice Sheet 1,3/20/2027,9:00 AM,11:00 AM,Saturday Andy's League,Saturday
