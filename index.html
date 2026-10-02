@@ -36,6 +36,7 @@
       overscroll-behavior: contain;
       touch-action: pan-y;
     }
+    #gridScroller { touch-action: pan-x pan-y; }
     .scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
     .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;}
@@ -43,6 +44,7 @@
 
     .tab-btn.active{ border-bottom-color:#3b82f6; color:#111827; font-weight:600; }
     .day-col { position: relative; }
+    #gridBody .day-col, #gridHeader .day-head { border-right-color:#9ca3af; }
 
     /* Event cards */
     .event-card{
@@ -99,7 +101,7 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">
-  <main class="weekly-shell mx-auto max-w-none p-4 px-6">
+  <main class="weekly-shell w-full min-w-0 max-w-none p-4 px-6">
 
     <!-- Controls -->
     <div class="no-print mb-3">
@@ -148,11 +150,11 @@
     <!-- Desktop grid -->
     <section class="calendar-panel hidden md:flex md:flex-col bg-white rounded-lg shadow overflow-hidden">
       <div id="gridScroller" class="scrollbar overflow-auto">
-        <div class="relative">
+        <div class="relative w-max min-w-full">
           <div id="gridHeader" class="grid sticky top-0 bg-white z-20 shadow-sm"
-               style="grid-template-columns: 4rem repeat(7, minmax(160px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
           <div id="gridBody" class="grid relative"
-               style="grid-template-columns: 4rem repeat(7, minmax(160px, 1fr));"></div>
+               style="grid-template-columns: 4rem repeat(7, minmax(120px, 1fr));"></div>
         </div>
       </div>
     </section>
@@ -354,7 +356,7 @@
     for (let i=0;i<7;i++){
       const d=addDays(weekStart,i);
       const h=document.createElement('div');
-      h.className='p-2 border-b border-gray-200 text-center';
+      h.className='p-2 border-r border-b border-gray-200 text-center day-head';
       const isToday=ymd(d)===ymd(new Date());
       h.innerHTML=`<p class="text-sm font-semibold ${isToday?'text-blue-600':'text-gray-600'}">${['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</p>
                    <p class="text-xs ${isToday?'font-semibold text-blue-600':'text-gray-700'}">${labelDate(d)}</p>`;
@@ -422,9 +424,10 @@
         card.className=`event-card shadow-sm ${e.color.bg} ${e.color.text} ${e.color.border}`;
         card.style.top=`${top}px`; card.style.height=`${height}px`;
         if (n>1){
-          const GAP=8;
-          card.style.width=`calc((100% - ${(n-1)*GAP}px) / ${n})`;
-          card.style.left =`calc(${i} * ( (100% - ${(n-1)*GAP}px) / ${n} + ${GAP}px))`;
+          const GAP=8, EDGE=5;
+          const colW=`((100% - ${EDGE*2 + (n-1)*GAP}px) / ${n})`;
+          card.style.width=`calc${colW}`;
+          card.style.left =`calc(${EDGE}px + ${i} * (${colW} + ${GAP}px))`;
           card.classList.add('narrow');
         } else {
           const PAD=8;
