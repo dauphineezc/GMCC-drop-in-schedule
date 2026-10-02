@@ -9,8 +9,33 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root { --row-h: 64px; }
-    html,body { height: 100%; }
-    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .calendar-panel {
+      flex: 1;
+      min-height: 0;
+    }
+    #gridScroller, #listView {
+      flex: 1;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
     .scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
     .scrollbar::-webkit-scrollbar-track{ background:#f1f1f1;}
     .scrollbar::-webkit-scrollbar-thumb{ background:#a8a8a8; border-radius:4px;}
@@ -48,6 +73,22 @@
     }
 
     @media (max-width: 768px){
+      html, body {
+        height: auto;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      body, main {
+        display: block;
+        height: auto;
+      }
+      .calendar-panel,
+      #listView {
+        flex: none;
+        min-height: 0;
+        height: auto;
+        overflow: visible;
+      }
       .event-card{ padding:.25rem .5rem; font-size:.75rem; }
       .event-card .title{ font-size:.8125rem; }
     }
@@ -58,7 +99,7 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 antialiased">
-  <main class="mx-auto max-w-none p-4 px-6">
+  <main class="weekly-shell mx-auto max-w-none p-4 px-6">
 
     <!-- Controls -->
     <div class="no-print mb-3">
@@ -105,8 +146,8 @@
     </div>
 
     <!-- Desktop grid -->
-    <section class="hidden md:block bg-white rounded-lg shadow overflow-hidden">
-      <div id="gridScroller" class="scrollbar overflow-auto" style="height: 80vh;">
+    <section class="calendar-panel hidden md:flex md:flex-col bg-white rounded-lg shadow overflow-hidden">
+      <div id="gridScroller" class="scrollbar overflow-auto">
         <div class="relative">
           <div id="gridHeader" class="grid sticky top-0 bg-white z-20 shadow-sm"
                style="grid-template-columns: 4rem repeat(7, minmax(160px, 1fr));"></div>
@@ -117,7 +158,7 @@
     </section>
 
     <!-- Mobile list -->
-    <section id="listView" class="md:hidden bg-white rounded-lg shadow p-4 space-y-5 overflow-y-auto" style="height: 80vh;"></section>
+    <section id="listView" class="calendar-panel flex flex-col md:hidden bg-white rounded-lg shadow p-4 space-y-5"></section>
   </main>
 
   <script src="./js/schedule-data.js"></script>
@@ -133,9 +174,13 @@
   let CURRENT_WEEK = {};
 
   const PRIMARY = {
-    dropin:  { label:'Drop-In', subs:{ aquatics:'Aquatics', courtSports:'Court Sports', community:'Community', childWatch:'Child Watch' } },
+    dropin:  { label:'Drop-In' },
     fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', studio1:'Studio 1', studio2:'Studio 2', mac:'MAC Gym' } }
   };
+
+  function subsFor(type){
+    return type === 'dropin' ? CENTERS[currentCenter].dropinSubs : PRIMARY[type].subs;
+  }
 
   /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
@@ -237,7 +282,7 @@
 
   function ensureValidViewSelection(){
     if (currentType === 'fitness' && !centerHasFitness(currentCenter)) currentType = 'dropin';
-    if (!PRIMARY[currentType].subs[currentSub]) currentSub = Object.keys(PRIMARY[currentType].subs)[0];
+    if (!subsFor(currentType)[currentSub]) currentSub = Object.keys(subsFor(currentType))[0];
   }
 
   function renderCenterPicker(){
@@ -278,7 +323,7 @@
       btn.textContent=PRIMARY[type].label;
       btn.onclick=()=>{
         currentType=type;
-        if (!PRIMARY[currentType].subs[currentSub]) currentSub=Object.keys(PRIMARY[currentType].subs)[0];
+        ensureValidViewSelection();
         syncUrl(); render();
       };
       els.primaryTabs.appendChild(btn);
@@ -287,7 +332,7 @@
 
   function renderSubTabs(){
     els.tabs.innerHTML='';
-    const subs=PRIMARY[currentType].subs;
+    const subs=subsFor(currentType);
     for (const key of Object.keys(subs)){
       const btn=document.createElement('button');
       btn.className='tab-btn py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300';
@@ -469,5 +514,6 @@
   }
   initialize();
   </script>
+  <script src="./js/embed-height.js"></script>
 </body>
 </html>

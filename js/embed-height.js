@@ -12,7 +12,7 @@ const EmbedHeight = (() => {
   } catch { /* ignore invalid referrer */ }
 
   function measureHeight() {
-    const shell = document.querySelector('.today-shell');
+    const shell = document.querySelector('.today-shell, .weekly-shell');
     if (shell) {
       const rect = shell.getBoundingClientRect();
       return Math.ceil(rect.bottom - rect.top + window.scrollY + HEIGHT_BUFFER);
@@ -26,6 +26,10 @@ const EmbedHeight = (() => {
 
   function reportHeight() {
     if (window.parent === window) return;
+    // Weekly desktop uses a nested grid scroller; reporting that height causes iframe feedback loops.
+    if (document.querySelector('.weekly-shell') && !window.matchMedia('(max-width: 768px)').matches) {
+      return;
+    }
     const payload = { type: 'gmcc-schedule-height', height: measureHeight() };
     for (const origin of PARENT_ORIGINS) {
       window.parent.postMessage(payload, origin);
@@ -49,7 +53,7 @@ const EmbedHeight = (() => {
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(reportHeightSoon);
       ro.observe(document.body);
-      const shell = document.querySelector('.today-shell');
+      const shell = document.querySelector('.today-shell, .weekly-shell');
       if (shell) ro.observe(shell);
     }
   }

@@ -4,30 +4,40 @@ const ScheduleData = (() => {
   const FITNESS_CSV_URL = `${CSV_BASE}/FR.csv`;
   const TEST_FITNESS_CSV_URL = './test-schedule.csv';
 
+  const COMMUNITY_DROPIN_SUBS = {
+    aquatics: 'Aquatics', courtSports: 'Court Sports', community: 'Community', childWatch: 'Child Watch',
+  };
+
+  /* dropinSubs: drop-in sub-tab key (from DROPIN_CATEGORY_MAP) -> tab label, per center. */
   const CENTERS = {
     community: {
       label: 'Community Center',
       dropinFile: './GMCC_Drop_In_Schedule.csv',
+      dropinSubs: COMMUNITY_DROPIN_SUBS,
       fitnessFacility: 'Greater Midland Community Center',
     },
-    tennis: {
-      label: 'Tennis Center',
-      dropinFile: './GMCC_Drop_In_Schedule.csv',
-      fitnessFacility: null,
-    },
+    // tennis: {
+    //   label: 'Tennis Center',
+    //   dropinFile: './GMCC_Drop_In_Schedule.csv',
+    //   dropinSubs: COMMUNITY_DROPIN_SUBS,
+    //   fitnessFacility: null,
+    // },
     coleman: {
       label: 'Coleman Family Center',
-      dropinFile: './GMCC_Drop_In_Schedule.csv',
+      dropinFile: './CFC_Drop_In_Schedule.csv',
+      dropinSubs: { courtSports: 'Gymnasium' },
       fitnessFacility: null,
     },
     north: {
       label: 'North Family Center',
-      dropinFile: './GMCC_Drop_In_Schedule.csv',
+      dropinFile: './NFC_Drop_In_Schedule.csv',
+      dropinSubs: { courtSports: 'Gymnasium' },
       fitnessFacility: null,
     },
     curling: {
       label: 'Curling Center',
       dropinFile: './GMCurling_Schedule.csv',
+      dropinSubs: { league: 'Ice Sheet 1' },
       fitnessFacility: null,
     },
   };
@@ -74,6 +84,12 @@ const ScheduleData = (() => {
 
     /* Child Watch */
     'CHILD WATCH':'teal',
+
+    /* Curling Leagues */
+    'YOUTH LEAGUE':'lime', 'OPEN LEAGUE':'blue', 'LADIES':'pink', 'NOVICE':'green', 'COUPLES':'red',
+    'SUPPER':'orange', 'SUNRISE':'yellow', 'MORNING':'cyan', "ANDY'S":'purple',
+    'MONDAY LEAGUE':'indigo', 'TUESDAY LEAGUE':'indigo', 'WEDNESDAY LEAGUE':'indigo', 'THURSDAY LEAGUE':'indigo',
+    'FRIDAY LEAGUE':'indigo', 'SATURDAY LEAGUE':'indigo', 'SUNDAY LEAGUE':'indigo',
 
     /* Default */
     'DEFAULT':'gray',
