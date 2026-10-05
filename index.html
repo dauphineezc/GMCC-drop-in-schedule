@@ -177,11 +177,12 @@
 
   const PRIMARY = {
     dropin:  { label:'Drop-In' },
-    fitness: { label:'Group Fitness', subs:{ aquatics:'Aquatics', studio1:'Studio 1', studio2:'Studio 2', mac:'MAC Gym' } }
+    fitness: { label:'Group Fitness' }
   };
 
   function subsFor(type){
-    return type === 'dropin' ? CENTERS[currentCenter].dropinSubs : PRIMARY[type].subs;
+    const cfg = CENTERS[currentCenter];
+    return (type === 'dropin' ? cfg.dropinSubs : cfg.fitnessSubs) || {};
   }
 
   /* =================== State & refs =================== */

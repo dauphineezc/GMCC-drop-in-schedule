@@ -1,20 +1,25 @@
 /* Shared schedule config, CSV parsing, and date helpers for all calendar views. */
 const ScheduleData = (() => {
   const CSV_BASE = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule';
-  const FITNESS_CSV_URL = `${CSV_BASE}/FR.csv`;
+  const COMMUNITY_FITNESS_FILE = 'FR.csv';
   const TEST_FITNESS_CSV_URL = './test-schedule.csv';
 
   const COMMUNITY_DROPIN_SUBS = {
     aquatics: 'Aquatics', courtSports: 'Court Sports', community: 'Community', childWatch: 'Child Watch',
   };
 
-  /* dropinSubs: drop-in sub-tab key (from DROPIN_CATEGORY_MAP) -> tab label, per center. */
+  /*
+   * dropinSubs: drop-in sub-tab key (from DROPIN_CATEGORY_MAP) -> tab label, per center.
+   * fitnessFile/fitnessFacility: blob CSV and its facility column value; fitnessSubs keys come from FITNESS_LOC_RULES.
+   */
   const CENTERS = {
     community: {
       label: 'Community Center',
       dropinFile: './GMCC_Drop_In_Schedule.csv',
       dropinSubs: COMMUNITY_DROPIN_SUBS,
+      fitnessFile: COMMUNITY_FITNESS_FILE,
       fitnessFacility: 'Greater Midland Community Center',
+      fitnessSubs: { aquatics: 'Aquatics', studio1: 'Studio 1', studio2: 'Studio 2', mac: 'MAC Gym' },
     },
     // tennis: {
     //   label: 'Tennis Center',
@@ -26,13 +31,17 @@ const ScheduleData = (() => {
       label: 'Coleman Family Center',
       dropinFile: './CFC_Drop_In_Schedule.csv',
       dropinSubs: { courtSports: 'Gymnasium' },
-      fitnessFacility: null,
+      fitnessFile: 'FR_CFC.csv',
+      fitnessFacility: 'Coleman Family Center',
+      fitnessSubs: { fitnessRoom: 'Fitness Room' },
     },
     north: {
       label: 'North Family Center',
       dropinFile: './NFC_Drop_In_Schedule.csv',
       dropinSubs: { courtSports: 'Gymnasium' },
-      fitnessFacility: null,
+      fitnessFile: 'FR_NFC.csv',
+      fitnessFacility: 'North Family Center',
+      fitnessSubs: { gymnasium: 'Gymnasium' },
     },
     curling: {
       label: 'Curling Center',
@@ -55,6 +64,8 @@ const ScheduleData = (() => {
     { match: /^Studio\s*1/i,             sub:'studio1',     label:'Studio 1' },
     { match: /^Studio\s*2/i,             sub:'studio2',     label:'Studio 2' },
     { match: /^Lap Pool All Lanes/i,     sub:'aquatics',    label:'Aquatics' },
+    { match: /^Fitness Room/i,           sub:'fitnessRoom', label:'Fitness Room' },
+    { match: /^North Family Gymnasium/i, sub:'gymnasium',   label:'Gymnasium' },
   ];
 
   const PALETTE = {
@@ -95,10 +106,24 @@ const ScheduleData = (() => {
     'DEFAULT':'gray',
   };
 
-  function getColorForDropInActivity(name) {
+  /* Fitness classes without an (L)/(M)/(H) intensity tag are colored by name. */
+  const FITNESS_ACTIVITY_COLORS = {
+    /* Family Centers */
+    'FUNCTIONAL FITNESS':'blue', 'SATURDAY ROTATION':'purple', 'POWER STRIDES':'orange', 'BUTTS N GUTTS':'red',
+    'MINDFUL MOVEMENT':'teal', 'CARDIO DRUMMING':'yellow', 'CARDIO LINE DANCE':'pink', 'STRICTLY STRENGTH':'indigo',
+
+    /* Default */
+    'DEFAULT':'gray',
+  };
+
+  function colorByName(name, table) {
     const upper = String(name).toUpperCase();
-    for (const [k, c] of Object.entries(DROPIN_ACTIVITY_COLORS)) if (upper.includes(k)) return c;
-    return DROPIN_ACTIVITY_COLORS.DEFAULT;
+    for (const [k, c] of Object.entries(table)) if (upper.includes(k)) return c;
+    return table.DEFAULT;
+  }
+
+  function getColorForDropInActivity(name) {
+    return colorByName(name, DROPIN_ACTIVITY_COLORS);
   }
 
   function parseTime12h(t) {
@@ -120,7 +145,9 @@ const ScheduleData = (() => {
   }
 
   function cleanActivityName(name) {
-    return String(name || '').replace(/\s*\([ML]\)\s*/gi, ' ').replace(/\s*reservations?\s*/gi, '').trim();
+    return String(name || '')
+      .replace(/^\s*(CFC|NFC)\s*-\s*/i, '')
+      .replace(/\s*\([ML]\)\s*/gi, ' ').replace(/\s*reservations?\s*/gi, '').trim();
   }
 
   function getFitnessActivityIntensity(name) {
@@ -158,6 +185,8 @@ const ScheduleData = (() => {
         studio1: { label:'Studio 1', events:[] },
         studio2: { label:'Studio 2', events:[] },
         mac: { label:'MAC Gym', events:[] },
+        fitnessRoom: { label:'Fitness Room', events:[] },
+        gymnasium: { label:'Gymnasium', events:[] },
       },
     };
   }
@@ -251,7 +280,7 @@ const ScheduleData = (() => {
 
   function parseFitnessCSV(csvText, fitnessStore, facilityName) {
     const rows = csvToRows(csvText);
-    for (const cols of rows.slice(1)) {
+    for (const cols of rows) {
       if (!cols || cols.length < 9) continue;
 
       const facility = cols[0], locationRaw = cols[1], dateStr = cols[3],
@@ -268,7 +297,9 @@ const ScheduleData = (() => {
 
       const intensity = getFitnessActivityIntensity(activity);
       const activityName = cleanActivityName(activity);
-      const colorKey = getColorForFitnessActivity(intensity);
+      const colorKey = intensity === 'default'
+        ? colorByName(activityName, FITNESS_ACTIVITY_COLORS)
+        : getColorForFitnessActivity(intensity);
       const e = ev(
         activityName, loc.label,
         (eventDate.getDay() + 6) % 7,
@@ -281,44 +312,45 @@ const ScheduleData = (() => {
     }
   }
 
-  function resolveFitnessFacility(cfg) {
-    if (cfg.fitnessFacility) return cfg.fitnessFacility;
-    // Centers sharing the community drop-in file also share its group fitness for now.
-    if (cfg.dropinFile === CENTERS.community.dropinFile) {
-      return CENTERS.community.fitnessFacility;
-    }
-    return null;
-  }
-
   function isLocalDev() {
     return /localhost|127\.0\.0\.1/.test(location.hostname);
   }
 
-  async function loadFitnessCsvText() {
-    if (isLocalDev()) {
+  async function loadFitnessCsvText(file) {
+    const url = `${CSV_BASE}/${file}`;
+    if (file === COMMUNITY_FITNESS_FILE) {
       // Prefer local test data in dev; blob may be blocked by CORS from localhost.
-      return fetchCsvText(TEST_FITNESS_CSV_URL, FITNESS_CSV_URL);
+      return isLocalDev() ? fetchCsvText(TEST_FITNESS_CSV_URL, url) : fetchCsvText(url, TEST_FITNESS_CSV_URL);
     }
-    return fetchCsvText(FITNESS_CSV_URL, TEST_FITNESS_CSV_URL);
+    // test-schedule.csv only has Community Center rows, so other centers show no classes if their blob is unreachable.
+    try {
+      const res = await fetch(url, { cache:'no-store' });
+      return res.ok ? await res.text() : '';
+    } catch {
+      return '';
+    }
   }
 
   async function loadAllCenterData() {
-    const fitnessText = await loadFitnessCsvText();
     const centerKeys = Object.keys(CENTERS);
-    const dropinTexts = await Promise.all(centerKeys.map(async key => {
-      const cfg = CENTERS[key];
-      const url = dropinCsvUrl(cfg);
-      const fallback = cfg.testDropinFile || './GMCC_Drop_In_Schedule.csv';
-      return fetchCsvText(url, fallback);
-    }));
+    const fitnessFiles = [...new Set(centerKeys.map(k => CENTERS[k].fitnessFile).filter(Boolean))];
+    const [fitnessTexts, dropinTexts] = await Promise.all([
+      Promise.all(fitnessFiles.map(loadFitnessCsvText)),
+      Promise.all(centerKeys.map(async key => {
+        const cfg = CENTERS[key];
+        const url = dropinCsvUrl(cfg);
+        const fallback = cfg.testDropinFile || './GMCC_Drop_In_Schedule.csv';
+        return fetchCsvText(url, fallback);
+      })),
+    ]);
+    const fitnessTextByFile = Object.fromEntries(fitnessFiles.map((f, i) => [f, fitnessTexts[i]]));
 
     const out = {};
     centerKeys.forEach((key, i) => {
       const cfg = CENTERS[key];
       out[key] = emptyEventStore();
       parseDropInCSV(dropinTexts[i], out[key].dropin);
-      const fitnessFacility = resolveFitnessFacility(cfg);
-      if (fitnessFacility) parseFitnessCSV(fitnessText, out[key].fitness, fitnessFacility);
+      if (cfg.fitnessFile) parseFitnessCSV(fitnessTextByFile[cfg.fitnessFile], out[key].fitness, cfg.fitnessFacility);
     });
     return out;
   }
@@ -410,7 +442,7 @@ const ScheduleData = (() => {
   }
 
   function centerHasFitness(centerKey) {
-    return Boolean(resolveFitnessFacility(CENTERS[centerKey] || {}));
+    return Boolean(CENTERS[centerKey]?.fitnessFile);
   }
 
   function parseViewDate(param) {
