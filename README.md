@@ -49,7 +49,7 @@ Single-center daily list with a fixed header. Intended for per-facility embeds.
 | Parameter | Values | Default | Description |
 |-----------|--------|---------|-------------|
 | `center` | `community`, `tennis`, `coleman`, `north` | `community` | When present and valid, locks the center picker (dropdown hidden) |
-| `type` | `dropin`, `fitness` | `dropin` | Primary calendar type. `fitness` is only available for Community Center |
+| `type` | `dropin`, `fitness` | `dropin` | Primary calendar type. Tennis Center is `fitness` only; Curling Center is `dropin` only |
 | `sub` | See sub-calendars below | `aquatics` | Active sub-calendar tab |
 | `w` | `YYYY-MM-DD` | Current week's Monday | Week start date |
 

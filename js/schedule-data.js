@@ -21,12 +21,14 @@ const ScheduleData = (() => {
       fitnessFacility: 'Greater Midland Community Center',
       fitnessSubs: { aquatics: 'Aquatics', studio1: 'Studio 1', studio2: 'Studio 2', mac: 'MAC Gym' },
     },
-    // tennis: {
-    //   label: 'Tennis Center',
-    //   dropinFile: './GMCC_Drop_In_Schedule.csv',
-    //   dropinSubs: COMMUNITY_DROPIN_SUBS,
-    //   fitnessFacility: null,
-    // },
+    tennis: {
+      label: 'Tennis Center',
+      dropinFile: null,
+      dropinSubs: {},
+      fitnessFile: 'FR_TC.csv',
+      fitnessFacility: 'Tennis Center',
+      fitnessSubs: { tennis: 'Courts' },
+    },
     coleman: {
       label: 'Coleman Family Center',
       dropinFile: './CFC_Drop_In_Schedule.csv',
@@ -66,6 +68,7 @@ const ScheduleData = (() => {
     { match: /^Lap Pool All Lanes/i,     sub:'aquatics',    label:'Aquatics' },
     { match: /^Fitness Room/i,           sub:'fitnessRoom', label:'Fitness Room' },
     { match: /^North Family Gymnasium/i, sub:'gymnasium',   label:'Gymnasium' },
+    { match: /^Tennis Center$/i,         sub:'tennis',      label:'Courts' },
   ];
 
   const PALETTE = {
@@ -111,6 +114,10 @@ const ScheduleData = (() => {
     /* Family Centers */
     'FUNCTIONAL FITNESS':'blue', 'SATURDAY ROTATION':'purple', 'POWER STRIDES':'orange', 'BUTTS N GUTTS':'red',
     'MINDFUL MOVEMENT':'teal', 'CARDIO DRUMMING':'yellow', 'CARDIO LINE DANCE':'pink', 'STRICTLY STRENGTH':'indigo',
+
+    /* Tennis Center */
+    'CARDIO TENNIS':'lime', 'OPEN DRILLS':'green', 'SWEAT IT OFF':'orange', 'INTERMEDIATE CLINIC':'cyan',
+    'ADVANCED 3.5':'red', 'DRILLS 3.0':'yellow',
 
     /* Default */
     'DEFAULT':'gray',
@@ -187,6 +194,7 @@ const ScheduleData = (() => {
         mac: { label:'MAC Gym', events:[] },
         fitnessRoom: { label:'Fitness Room', events:[] },
         gymnasium: { label:'Gymnasium', events:[] },
+        tennis: { label:'Courts', events:[] },
       },
     };
   }
@@ -338,6 +346,7 @@ const ScheduleData = (() => {
       Promise.all(fitnessFiles.map(loadFitnessCsvText)),
       Promise.all(centerKeys.map(async key => {
         const cfg = CENTERS[key];
+        if (!cfg.dropinFile) return '';
         const url = dropinCsvUrl(cfg);
         const fallback = cfg.testDropinFile || './GMCC_Drop_In_Schedule.csv';
         return fetchCsvText(url, fallback);
@@ -445,6 +454,10 @@ const ScheduleData = (() => {
     return Boolean(CENTERS[centerKey]?.fitnessFile);
   }
 
+  function centerHasDropin(centerKey) {
+    return Boolean(CENTERS[centerKey]?.dropinFile);
+  }
+
   function parseViewDate(param) {
     if (!param) return startOfDay(new Date());
     const d = parseDateFlexible(param);
@@ -466,6 +479,7 @@ const ScheduleData = (() => {
     formatTimeRangeMultiline,
     filterWeek,
     centerHasFitness,
+    centerHasDropin,
     parseViewDate,
     getCenterEventsForDate,
     getCenterEventsForWeek,

@@ -167,7 +167,7 @@
   <script>
   const {
     CENTERS, emptyEventStore, loadAllCenterData, getMonday, addDays, ymd, labelDate,
-    formatTime, filterWeek, centerHasFitness,
+    formatTime, filterWeek, centerHasFitness, centerHasDropin,
   } = ScheduleData;
 
   /* =================== Week view model =================== */
@@ -285,6 +285,7 @@
 
   function ensureValidViewSelection(){
     if (currentType === 'fitness' && !centerHasFitness(currentCenter)) currentType = 'dropin';
+    if (currentType === 'dropin' && !centerHasDropin(currentCenter)) currentType = 'fitness';
     if (!subsFor(currentType)[currentSub]) currentSub = Object.keys(subsFor(currentType))[0];
   }
 
@@ -319,6 +320,7 @@
     els.primaryTabs.innerHTML='';
     for (const type of Object.keys(PRIMARY)){
       if (type === 'fitness' && !centerHasFitness(currentCenter)) continue;
+      if (type === 'dropin' && !centerHasDropin(currentCenter)) continue;
       const btn=document.createElement('button');
       btn.type='button'; btn.setAttribute('role','tab');
       btn.setAttribute('aria-pressed', String(type===currentType));
