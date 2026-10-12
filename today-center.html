@@ -37,6 +37,7 @@
       width: 100%;
       display: flex;
       flex-direction: column;
+      container-type: inline-size;
     }
     .header-cell {
       background: #003A70;
@@ -93,9 +94,12 @@
     }
     .error { color: #b91c1c; }
 
-    /* Mobile: two-line times, tighter columns, no horizontal scroll */
     @media (max-width: 640px) {
       .today-shell { padding: 0 0.75rem 0.75rem; }
+    }
+
+    /* Based on the card's own width (not the viewport) so the layout holds when the iframe is narrowed by neighboring content */
+    @container (max-width: 360px) {
       .center-column { padding: 0.85rem 1rem 1rem; }
       .schedule-row {
         grid-template-columns: auto 1fr;
@@ -123,7 +127,7 @@
 
   <script src="./js/schedule-data.js"></script>
   <script>
-    const { CENTERS, loadAllCenterData, getCenterEventsForDate, formatTimeRange, formatTimeRangeMultiline, parseViewDate } = ScheduleData;
+    const { CENTERS, loadAllCenterData, getCenterEventsForDate, formatTimeRangeMultiline, parseViewDate } = ScheduleData;
 
     const params = new URLSearchParams(location.search);
     const defaultCenter = Object.keys(CENTERS)[0];
@@ -135,26 +139,16 @@
     const headerEl = document.getElementById('centerHeader');
     const bodyEl = document.getElementById('centerBody');
 
-    headerEl.textContent = CENTERS[centerKey].label;
-
-    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
+    headerEl.textContent = CENTERS[centerKey].label + ": " + viewDate.toLocaleDateString();
 
     function renderRow(event) {
       const row = document.createElement('div');
       row.className = 'schedule-row';
-      if (isMobile()) {
-        const time = formatTimeRangeMultiline(event.start, event.end);
-        row.innerHTML = `
-          <div class="schedule-time">
-            <span>${time.start}</span>
-            <span>${time.end}</span>
-          </div>
-          <div class="schedule-name">${event.name}</div>`;
-      } else {
-        row.innerHTML = `
-          <div class="schedule-time">${formatTimeRange(event.start, event.end)}</div>
-          <div class="schedule-name">${event.name}</div>`;
-      }
+      const time = formatTimeRangeMultiline(event.start, event.end);
+      // No whitespace between the spans: inline they must read "5:00 AM-8:00 AM"
+      row.innerHTML = `
+        <div class="schedule-time"><span>${time.start}</span><span>${time.end}</span></div>
+        <div class="schedule-name">${event.name}</div>`;
       return row;
     }
 
@@ -171,14 +165,10 @@
       events.forEach(e => bodyEl.appendChild(renderRow(e)));
     }
 
-    let cachedEvents = [];
-
     async function init() {
       try {
         const allCenterEvents = await loadAllCenterData();
-        cachedEvents = getCenterEventsForDate(allCenterEvents, centerKey, viewDate);
-
-        renderSchedule(cachedEvents);
+        renderSchedule(getCenterEventsForDate(allCenterEvents, centerKey, viewDate));
 
         statusEl.hidden = true;
         cardEl.hidden = false;
@@ -190,17 +180,6 @@
         reportHeight();
       }
     }
-
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (cachedEvents.length) {
-          renderSchedule(cachedEvents);
-          reportHeight();
-        }
-      }, 150);
-    });
 
     function reportHeight() {
       if (window.parent === window) return;
