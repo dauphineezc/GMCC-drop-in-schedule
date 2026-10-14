@@ -286,7 +286,8 @@
   function ensureValidViewSelection(){
     if (currentType === 'fitness' && !centerHasFitness(currentCenter)) currentType = 'dropin';
     if (currentType === 'dropin' && !centerHasDropin(currentCenter)) currentType = 'fitness';
-    if (!subsFor(currentType)[currentSub]) currentSub = Object.keys(subsFor(currentType))[0];
+    const subKeys = Object.keys(subsFor(currentType));
+    currentSub = subKeys.find(k => k.toLowerCase() === String(currentSub).toLowerCase()) || subKeys[0];
   }
 
   function renderCenterPicker(){
