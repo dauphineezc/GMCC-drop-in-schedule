@@ -1,6 +1,7 @@
 /* Shared schedule config, CSV parsing, and date helpers for all calendar views. */
 const ScheduleData = (() => {
   const CSV_BASE = 'https://recscheduler.blob.core.windows.net/csv-daily-transfer/schedule';
+  const COMMUNITY_FITNESS_FILE = 'FR.csv';
   const TEST_FITNESS_CSV_URL = './test-schedule.csv';
 
   const COMMUNITY_DROPIN_SUBS = {
@@ -16,7 +17,7 @@ const ScheduleData = (() => {
       label: 'Community Center',
       dropinFile: './GMCC_Drop_In_Schedule.csv',
       dropinSubs: COMMUNITY_DROPIN_SUBS,
-      fitnessFile: "FR.csv",
+      fitnessFile: COMMUNITY_FITNESS_FILE,
       fitnessFacility: 'Greater Midland Community Center',
       fitnessSubs: { aquatics: 'Aquatics', studio1: 'Studio 1', studio2: 'Studio 2', mac: 'MAC Gym' },
     },
