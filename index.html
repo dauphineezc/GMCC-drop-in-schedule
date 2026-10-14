@@ -167,7 +167,7 @@
   <script>
   const {
     CENTERS, emptyEventStore, loadAllCenterData, getMonday, addDays, ymd, labelDate,
-    formatTime, filterWeek, centerHasFitness, centerHasDropin,
+    formatTime, filterWeek, centerHasFitness, centerHasDropin, parseViewDate,
   } = ScheduleData;
 
   /* =================== Week view model =================== */
@@ -188,8 +188,7 @@
   /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
   const START_OF_WEEK = getMonday(new Date());
-  let weekStart = params.get('w') ? new Date(params.get('w')) : START_OF_WEEK;
-  if (isNaN(+weekStart)) weekStart = START_OF_WEEK;
+  let weekStart = params.get('w') ? getMonday(parseViewDate(params.get('w'))) : START_OF_WEEK;
 
   const defaultCenter = Object.keys(CENTERS)[0];
   const centerLocked = params.has('center') && (params.get('center') in CENTERS);
