@@ -66,6 +66,7 @@ const ScheduleData = (() => {
     { match: /^Studio\s*1/i,             sub:'studio1',     label:'Studio 1' },
     { match: /^Studio\s*2/i,             sub:'studio2',     label:'Studio 2' },
     { match: /^Lap Pool All Lanes/i,     sub:'aquatics',    label:'Aquatics' },
+    { match: /^Multi-use Pool ALL/i,     sub:'aquatics',    label:'Aquatics' },
     { match: /^Fitness Room/i,           sub:'fitnessRoom', label:'Fitness Room' },
     { match: /^North Family Gymnasium/i, sub:'gymnasium',   label:'Gymnasium' },
     { match: /^Tennis Center$/i,         sub:'tennis',      label:'Courts' },
