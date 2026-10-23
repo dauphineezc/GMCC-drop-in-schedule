@@ -238,12 +238,20 @@
     const backdrop = document.createElement('div'); backdrop.className = 'popup-backdrop'; backdrop.addEventListener('click', closepopup);
     const pop = document.createElement('div'); pop.className = 'popup';
     const minutes = Math.round((eventObj.end - eventObj.start) * 60);
+    const hours = minutes / 60;
+    const durationLabel = minutes < 60
+      ? `${minutes} min`
+      : hours === 1
+        ? '1 hr'
+        : Number.isInteger(hours)
+          ? `${hours} hrs`
+          : `${parseFloat(hours.toFixed(2))} hrs`;
     const titleColorClass = eventObj?.color?.text || 'text-gray-900';
     pop.innerHTML = `
       <div class="flex items-start justify-between gap-3">
         <h3 class="text-lg font-bold tracking-wide ${titleColorClass}">${eventObj.name}</h3>
       </div>
-      <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${minutes} min)</div>
+      <div class="mt-1 text-sm text-gray-700">${formatTime(eventObj.start)} – ${formatTime(eventObj.end)} (${durationLabel})</div>
       ${eventObj.location ? `<div class="mt-1 text-sm text-gray-500">${eventObj.location}</div>` : ''}
       ${eventObj.intensity ? `<div class="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
         <span class="inline-block w-3 h-3 shrink-0 rounded-sm ${eventObj.color.bg} border ${eventObj.color.border}" aria-hidden="true"></span>

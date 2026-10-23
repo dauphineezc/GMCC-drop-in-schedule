@@ -5,7 +5,7 @@ const ScheduleData = (() => {
   const TEST_FITNESS_CSV_URL = './test-schedule.csv';
 
   const COMMUNITY_DROPIN_SUBS = {
-    aquatics: 'Aquatics', courtSports: 'Court Sports', community: 'Community', childWatch: 'Child Watch',
+    aquatics: 'Aquatics', courtSports: 'Court Sports', community: 'Community', kidsActivities: 'Kids Activities',
   };
 
   /*
@@ -57,7 +57,7 @@ const ScheduleData = (() => {
     aquatics: /^aquatics$/i,
     courtSports: /^court\s*sports?$/i,
     community: /^community$/i,
-    childWatch: /^child\s*watch$/i,
+    kidsActivities: /^kids\s*activities$/i,
     league: /^league$/i,
   };
 
@@ -97,8 +97,8 @@ const ScheduleData = (() => {
     /* Community */
     'EUCHRE':'pink', 'LINE DANCING':'purple', 'MAH JONGG':'indigo',
 
-    /* Child Watch */
-    'CHILD WATCH':'teal',
+    /* Kids Activities */
+    'CHILD WATCH':'teal', 'THE ZONE' : 'green', 'JUNGLE GYM' : 'orange',
 
     /* Curling Leagues */
     'YOUTH LEAGUE':'lime', 'OPEN LEAGUE':'blue', 'LADIES':'pink', 'NOVICE':'green', 'COUPLES':'red',
@@ -185,7 +185,7 @@ const ScheduleData = (() => {
         aquatics: { label:'Aquatics', events:[] },
         courtSports: { label:'Court Sports', events:[] },
         community: { label:'Community', events:[] },
-        childWatch: { label:'Child Watch', events:[] },
+        kidsActivities: { label:'Kids Activities', events:[] },
         league: { label:'League', events:[] },
       },
       fitness: {

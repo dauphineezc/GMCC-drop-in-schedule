@@ -85,7 +85,6 @@ Example — tomorrow's schedule for Coleman:
 | Fonts | [Inter](https://fonts.google.com/specimen/Inter) via Google Fonts |
 | Data | CSV files fetched at runtime (drop-in + group fitness) |
 | Hosting | [Vercel](https://vercel.com) (static deploy, no build step) |
-| Data pipeline | GitHub Actions + Playwright scraper exports RecTrac CSVs to Azure Blob / S3 |
 
 There is no bundler or framework — pages load `./js/schedule-data.js` directly and render client-side.
 
@@ -99,9 +98,7 @@ There is no bundler or framework — pages load `./js/schedule-data.js` directly
 │   ├── schedule-data.js    # Centers config, CSV parsing, shared helpers
 │   └── embed-height.js     # iframe height messaging for parent pages
 ├── GMCC_Drop_In_Schedule.csv   # Local fallback drop-in data
-├── test-schedule.csv           # Local fallback fitness data
-└── scripts/
-    └── export-reservations.js  # RecTrac CSV export (CI only)
+└── test-schedule.csv           # Local fallback fitness data
 ```
 
 ## Running locally
@@ -167,4 +164,4 @@ The site deploys to Vercel as static files. The `vercel-build` script is a no-op
 
 ## Data updates
 
-Drop-in and group fitness schedules are exported daily from RecTrac via the `Export RecTrac CSV` GitHub Actions workflow (`.github/workflows/export-reservations.yml`). The workflow requires repository secrets for RecTrac credentials and cloud storage upload.
+Schedule CSVs are loaded at runtime from Azure Blob Storage (`recscheduler.blob.core.windows.net`). Local fallback CSVs in the repo root are used when developing on localhost.
