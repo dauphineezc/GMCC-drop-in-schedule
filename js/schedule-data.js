@@ -57,7 +57,7 @@ const ScheduleData = (() => {
     aquatics: /^aquatics$/i,
     courtSports: /^court\s*sports?$/i,
     community: /^community$/i,
-    kidsActivities: /^kids\s*activities$/i,
+    kidsActivities: /^(kids\s*activities|child\s*watch)$/i,
     league: /^league$/i,
   };
 
