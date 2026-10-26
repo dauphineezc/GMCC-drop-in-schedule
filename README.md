@@ -42,6 +42,14 @@ Single-center daily list with a fixed header. Intended for per-facility embeds.
 | Coleman Family Center | [today-center.html?center=coleman](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=coleman) |
 | North Family Center | [today-center.html?center=north](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=north) |
 
+### Weekly schedule — Curling Center (`week-curling.html`)
+
+Scrollable list of everything on the Curling Center schedule for the current week (Monday–Sunday). Each row shows the day, date, and time range alongside the activity name. The page is fixed to the Curling Center, so no `center` parameter is needed. It posts its height to the parent window, so it's suited to embedding on the curling page.
+
+| View | Link |
+|------|------|
+| Curling Center (this week) | [week-curling.html](https://gmcc-drop-in-schedule.vercel.app/week-curling.html) |
+
 ## URL parameters
 
 ### Weekly calendar (`index.html`)
@@ -77,6 +85,17 @@ Example — tomorrow's schedule for Coleman:
 
 `https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=coleman&date=2026-07-21`
 
+### Curling weekly view (`week-curling.html`)
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `w` | `YYYY-MM-DD` | Current week | Any date; the week (Monday start) containing it is shown |
+| `date` | `YYYY-MM-DD` | Current week | Alias for `w` (`w` takes precedence) |
+
+Example — week of July 14, 2026:
+
+`https://gmcc-drop-in-schedule.vercel.app/week-curling.html?w=2026-07-14`
+
 ## Tech stack
 
 | Layer | Technology |
@@ -94,6 +113,7 @@ There is no bundler or framework — pages load `./js/schedule-data.js` directly
 ├── index.html              # Weekly calendar
 ├── today.html              # Today's schedule (all centers)
 ├── today-center.html       # Today's schedule (single center)
+├── week-curling.html       # Weekly schedule (Curling Center)
 ├── js/
 │   ├── schedule-data.js    # Centers config, CSV parsing, shared helpers
 │   └── embed-height.js     # iframe height messaging for parent pages

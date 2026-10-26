@@ -1,0 +1,49 @@
+name: Validate drop-in schedules
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - '*_Schedule.csv'
+      - 'tools/schedule-sync/**'
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check schedule data
+        id: check
+        env:
+          OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'allow-large-change') && '--override' || '' }}
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          set +e
+          python3 tools/schedule-sync/validate.py --repo . --base-ref "$BASE" $OVERRIDE --report "$RUNNER_TEMP/report.md" > /dev/null
+          echo "result=$?" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post schedule-validation status
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          if [ "$RESULT" = "0" ]; then STATE=success; DESC="Schedule data passed all checks"
+          else STATE=failure; DESC="Schedule data has errors; open Details for the report"; fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state="$STATE" -f context=schedule-validation \
+            -f description="$DESC" -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+
+      - name: Fail on errors
+        if: steps.check.outputs.result != '0'
+        run: exit 1

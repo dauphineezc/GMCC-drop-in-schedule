@@ -1,0 +1,134 @@
+name: Sync drop-in schedules from SharePoint
+
+on:
+  schedule:
+    - cron: '7,37 10-23 * * *'   # every 30 minutes, about 6 AM–8 PM Eastern (times are UTC)
+  workflow_dispatch:         # "Run workflow" button for urgent changes
+
+permissions:
+  contents: write        # push the schedule-sync branch
+  pull-requests: write   # open and update the pull request
+  statuses: write        # post the schedule-validation check
+  id-token: write        # sign in to Microsoft without a stored secret (federated credential)
+
+concurrency:
+  group: schedule-sync
+  cancel-in-progress: false
+
+env:
+  BRANCH: schedule-sync
+  STATUS_CONTEXT: schedule-validation
+  OVERRIDE_LABEL: allow-large-change
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install -r tools/schedule-sync/requirements.txt
+
+      - name: Convert workbook to CSV
+        env:
+          MS_TENANT_ID: ${{ vars.MS_TENANT_ID }}
+          MS_CLIENT_ID: ${{ vars.MS_CLIENT_ID }}
+          SP_HOSTNAME: ${{ vars.SP_HOSTNAME }}
+          SP_SITE_PATH: ${{ vars.SP_SITE_PATH }}
+          SP_DRIVE_NAME: ${{ vars.SP_DRIVE_NAME }}
+          SP_FILE_PATH: ${{ vars.SP_FILE_PATH }}
+        run: python tools/schedule-sync/sync.py --repo . --meta-out "$RUNNER_TEMP/sync-meta.json"
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          META="$RUNNER_TEMP/sync-meta.json"
+          REPORT="$RUNNER_TEMP/report.md"
+          mapfile -t CSVS < <(jq -r '.files[].csv' tools/schedule-sync/config.json)
+          PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+
+          if [ -z "$(git status --porcelain -- "${CSVS[@]}")" ]; then
+            echo "Workbook matches the live schedule."
+            if [ -n "$PR" ]; then
+              gh pr close "$PR" --delete-branch \
+                --comment "The workbook now matches the live schedule, so there is nothing to publish."
+            fi
+            exit 0
+          fi
+
+          git add -- "${CSVS[@]}"
+
+          # A person adding the override label is the only manual step: it re-runs validation
+          # on the open pull request, which then publishes if it now passes.
+          OVERRIDE=()
+          if [ -n "$PR" ] && gh pr view "$PR" --json labels --jq '.labels[].name' | grep -qx "$OVERRIDE_LABEL"; then
+            OVERRIDE=(--override)
+          fi
+
+          if [ -n "$PR" ] && [ "${#OVERRIDE[@]}" -eq 0 ] \
+             && git fetch -q origin "$BRANCH" && git diff --cached --quiet "origin/$BRANCH" -- "${CSVS[@]}"; then
+            echo "No new edits since the last sync; leaving pull request #$PR as is."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -B "$BRANCH"
+          git add -- "${CSVS[@]}"
+          git commit -q -m "Update drop-in schedules from SharePoint" -m "$(jq -r '.source // ""' "$META")"
+          git push -q -f origin "$BRANCH"
+          SHA=$(git rev-parse HEAD)
+
+          set +e
+          python tools/schedule-sync/validate.py --repo . --base-ref origin/main \
+            --meta "$META" "${OVERRIDE[@]}" --report "$REPORT" > /dev/null
+          RESULT=$?
+          set -e
+          head -c 60000 "$REPORT" > "$REPORT.body"
+
+          if [ -n "$PR" ]; then
+            gh pr edit "$PR" --body-file "$REPORT.body"
+          else
+            gh pr create --base main --head "$BRANCH" --title "Drop-in schedule update" --body-file "$REPORT.body"
+          fi
+
+          if [ "$RESULT" -eq 0 ]; then STATE=success; DESC="Schedule data passed all checks"
+          else STATE=failure; DESC="Schedule data has errors; see the pull request description"; fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state="$STATE" -f context="$STATUS_CONTEXT" \
+            -f description="$DESC" -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+
+          PR_NUM=$(gh pr view "$BRANCH" --json number --jq .number)
+
+          if [ "$RESULT" -ne 0 ]; then
+            # Nothing is published. The live site keeps the last good schedule.
+            echo "::error::Schedule data has errors; pull request #$PR_NUM stays open and nothing was published."
+            exit 1
+          fi
+
+          # All checks passed: publish. --match-head-commit makes sure we merge exactly what was validated.
+          # GitHub can take a few seconds to register the status, so retry briefly.
+          MERGED=
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$PR_NUM" --squash --match-head-commit "$SHA" \
+                 --subject "Update drop-in schedules from SharePoint (#$PR_NUM)"; then
+              MERGED=1; break
+            fi
+            sleep 10
+          done
+          if [ -z "$MERGED" ]; then
+            echo "::error::Could not merge pull request #$PR_NUM."
+            exit 1
+          fi
+          git push -q origin --delete "$BRANCH" || true
+          echo "Published pull request #$PR_NUM."

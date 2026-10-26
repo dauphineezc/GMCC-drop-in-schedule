@@ -25,7 +25,7 @@ const ScheduleData = (() => {
       label: 'Tennis Center',
       dropinFile: null,
       dropinSubs: {},
-      fitnessFile: 'FR_TC.csv',
+      fitnessFile: './TC_Fitness_Schedule.csv',  // edited in the SharePoint schedule workbook
       fitnessFacility: 'Tennis Center',
       fitnessSubs: { tennis: 'Courts' },
     },
@@ -326,7 +326,7 @@ const ScheduleData = (() => {
   }
 
   async function loadFitnessCsvText(file) {
-    const url = `${CSV_BASE}/${file}`;
+    const url = file.startsWith('./') ? file : `${CSV_BASE}/${file}`;
     if (file === COMMUNITY_FITNESS_FILE) {
       // Prefer local test data in dev; blob may be blocked by CORS from localhost.
       return isLocalDev() ? fetchCsvText(TEST_FITNESS_CSV_URL, url) : fetchCsvText(url, TEST_FITNESS_CSV_URL);

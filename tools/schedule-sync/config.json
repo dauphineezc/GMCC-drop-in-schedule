@@ -1,0 +1,80 @@
+{
+  "timezone": "America/Detroit",
+  "show_editor_name": true,
+  "override_label": "allow-large-change",
+  "category_aliases": {
+    "Child Watch": "Kids Activities"
+  },
+  "columns": [
+    "Category",
+    "Location",
+    "Date",
+    "Start Time",
+    "End Time",
+    "Activity Name",
+    "Weekday"
+  ],
+  "files": [
+    {
+      "sheet": "Community Center",
+      "csv": "GMCC_Drop_In_Schedule.csv",
+      "categories": [
+        "Aquatics",
+        "Court Sports",
+        "Community",
+        "Kids Activities"
+      ]
+    },
+    {
+      "sheet": "Tennis Center",
+      "csv": "TC_Fitness_Schedule.csv",
+      "format": "fitness",
+      "facility": "Tennis Center",
+      "sheet_columns": [
+        "Date",
+        "Start Time",
+        "End Time",
+        "Activity Name",
+        "Weekday"
+      ],
+      "fixed": {
+        "Category": "Scheduled Program",
+        "Location": "Tennis Center"
+      },
+      "categories": [
+        "Scheduled Program"
+      ],
+      "locations": [
+        "Tennis Center"
+      ]
+    },
+    {
+      "sheet": "Coleman Family Center",
+      "csv": "CFC_Drop_In_Schedule.csv",
+      "categories": [
+        "Court Sports"
+      ]
+    },
+    {
+      "sheet": "North Family Center",
+      "csv": "NFC_Drop_In_Schedule.csv",
+      "categories": [
+        "Court Sports"
+      ]
+    },
+    {
+      "sheet": "Curling Center",
+      "csv": "GMCurling_Schedule.csv",
+      "categories": [
+        "League"
+      ]
+    }
+  ],
+  "rules": {
+    "earliest_start": "5:00 AM",
+    "latest_end": "11:30 PM",
+    "max_days_ahead": 400,
+    "large_change_max_drop_pct": 25,
+    "large_change_min_rows": 10
+  }
+}
