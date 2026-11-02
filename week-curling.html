@@ -144,9 +144,11 @@
     } = ScheduleData;
 
     const CENTER_KEY = 'curling';
-    const params = new URLSearchParams(location.search);
-    const viewDate = parseViewDate(params.get('w') || params.get('date'));
-    const weekStart = getMonday(viewDate);
+    // Week navigation disabled — always show current week; ignore ?w=/date= so the URL can't look ahead/back
+    // const params = new URLSearchParams(location.search);
+    // const viewDate = parseViewDate(params.get('w') || params.get('date'));
+    // const weekStart = getMonday(viewDate);
+    const weekStart = getMonday(new Date());
 
     const statusEl = document.getElementById('status');
     const cardEl = document.getElementById('card');

@@ -109,9 +109,13 @@
       <div class="md:hidden flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
+            <!-- Week navigation disabled (management request) — uncomment to restore prev/next week arrows
             <button id="prevBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
+            -->
             <button id="todayBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
+            <!--
             <button id="nextBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
+            -->
           </div>
           <div class="text-xs text-gray-500"><span id="tzLabelMobile"></span></div>
         </div>
@@ -123,9 +127,13 @@
 
       <div class="hidden md:grid grid-cols-3 items-center gap-3">
         <div class="flex items-center gap-2">
+          <!-- Week navigation disabled (management request) — uncomment to restore prev/next week arrows
           <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
+          -->
           <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
+          <!--
           <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
+          -->
         </div>
         <div id="rangeLabel" class="font-semibold text-center text-xl"></div>
         <div class="text-sm text-gray-500 text-right">Times shown in <span id="tzLabel"></span></div>
@@ -188,7 +196,9 @@
   /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
   const START_OF_WEEK = getMonday(new Date());
-  let weekStart = params.get('w') ? getMonday(parseViewDate(params.get('w'))) : START_OF_WEEK;
+  // Week navigation disabled — always show current week; ignore ?w= so the URL can't look ahead/back
+  // let weekStart = params.get('w') ? getMonday(parseViewDate(params.get('w'))) : START_OF_WEEK;
+  let weekStart = START_OF_WEEK;
 
   const defaultCenter = Object.keys(CENTERS)[0];
   const centerLocked = params.has('center') && (params.get('center') in CENTERS);
@@ -209,11 +219,12 @@
     rangeLabelMobile: document.getElementById('rangeLabelMobile'),
     tzLabel: document.getElementById('tzLabel'),
     tzLabelMobile: document.getElementById('tzLabelMobile'),
-    prevBtn: document.getElementById('prevBtn'),
-    nextBtn: document.getElementById('nextBtn'),
+    // Week navigation disabled — uncomment with the arrow buttons to restore
+    // prevBtn: document.getElementById('prevBtn'),
+    // nextBtn: document.getElementById('nextBtn'),
     todayBtn: document.getElementById('todayBtn'),
-    prevBtnMobile: document.getElementById('prevBtnMobile'),
-    nextBtnMobile: document.getElementById('nextBtnMobile'),
+    // prevBtnMobile: document.getElementById('prevBtnMobile'),
+    // nextBtnMobile: document.getElementById('nextBtnMobile'),
     todayBtnMobile: document.getElementById('todayBtnMobile'),
     scroller: document.getElementById('gridScroller'),
   };
@@ -221,11 +232,12 @@
   els.tzLabel.textContent = tz;
   els.tzLabelMobile.textContent = tz;
 
+  // Week navigation disabled — uncomment with the arrow buttons to restore
   // Force arrows to render as text glyphs (not emoji)
-  els.prevBtn.textContent = '\u25C0\uFE0E'; // ◀︎
-  els.nextBtn.textContent = '\u25B6\uFE0E'; // ▶︎
-  els.prevBtnMobile.textContent = '\u25C0\uFE0E';
-  els.nextBtnMobile.textContent = '\u25B6\uFE0E';
+  // els.prevBtn.textContent = '\u25C0\uFE0E'; // ◀︎
+  // els.nextBtn.textContent = '\u25B6\uFE0E'; // ▶︎
+  // els.prevBtnMobile.textContent = '\u25C0\uFE0E';
+  // els.nextBtnMobile.textContent = '\u25B6\uFE0E';
 
   let dayOverlays=[];
 
@@ -271,8 +283,9 @@
   }
 
   /* =================== Controls & render =================== */
-  els.prevBtn.onclick = els.prevBtnMobile.onclick = () => changeWeek(-7);
-  els.nextBtn.onclick = els.nextBtnMobile.onclick = () => changeWeek(+7);
+  // Week navigation disabled — uncomment with the arrow buttons to restore
+  // els.prevBtn.onclick = els.prevBtnMobile.onclick = () => changeWeek(-7);
+  // els.nextBtn.onclick = els.nextBtnMobile.onclick = () => changeWeek(+7);
   els.todayBtn.onclick = els.todayBtnMobile.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
 
   function setCurrentCenterEvents(){
@@ -280,13 +293,15 @@
     CURRENT_WEEK = filterWeek(ALL_EVENTS, weekStart);
   }
 
-  function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
+  // Week navigation disabled — uncomment with the arrow buttons to restore
+  // function changeWeek(delta){ weekStart=addDays(weekStart,delta); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); }
   function syncUrl(){
     const p=new URLSearchParams();
     p.set('center', currentCenter);
     p.set('type', currentType);
     p.set('sub', currentSub);
-    p.set('w', ymd(weekStart));
+    // Week navigation disabled — do not expose/write ?w= (uncomment to restore deep-linking by week)
+    // p.set('w', ymd(weekStart));
     history.replaceState(null,'',`?${p.toString()}`);
   }
 

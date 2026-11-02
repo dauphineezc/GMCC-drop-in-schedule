@@ -10,6 +10,8 @@ Interactive schedule calendars for Greater Midland Community Center (GMCC) facil
 
 Full week grid with day columns, time slots, and sub-calendar tabs (Aquatics, Court Sports, etc.). Users can switch centers via the dropdown.
 
+**Week navigation is currently disabled** — the view always shows the current week (Monday–Sunday). Prev/next arrows are hidden, and the `?w=` URL parameter is ignored so visitors cannot browse ahead or back. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
+
 | View | Link |
 |------|------|
 | Weekly (center dropdown visible) | [index.html](https://gmcc-drop-in-schedule.vercel.app/) |
@@ -46,6 +48,8 @@ Single-center daily list with a fixed header. Intended for per-facility embeds.
 
 Scrollable list of everything on the Curling Center schedule for the current week (Monday–Sunday). Each row shows the day, date, and time range alongside the activity name. The page is fixed to the Curling Center, so no `center` parameter is needed. It posts its height to the parent window, so it's suited to embedding on the curling page.
 
+**Week navigation is currently disabled** — `?w=` / `?date=` are ignored; the page always shows the current week. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
+
 | View | Link |
 |------|------|
 | Curling Center (this week) | [week-curling.html](https://gmcc-drop-in-schedule.vercel.app/week-curling.html) |
@@ -59,7 +63,7 @@ Scrollable list of everything on the Curling Center schedule for the current wee
 | `center` | `community`, `tennis`, `coleman`, `north` | `community` | When present and valid, locks the center picker (dropdown hidden) |
 | `type` | `dropin`, `fitness` | `dropin` | Primary calendar type. Tennis Center is `fitness` only; Curling Center is `dropin` only |
 | `sub` | See sub-calendars below | `aquatics` | Active sub-calendar tab |
-| `w` | `YYYY-MM-DD` | Current week's Monday | Week start date |
+| `w` | `YYYY-MM-DD` | *(disabled)* | Week start date — **currently ignored**; always shows the current week. Restored when week navigation is re-enabled |
 
 **Drop-in sub-calendars:** `aquatics`, `courtSports`, `community`, `childWatch`
 
@@ -71,7 +75,7 @@ Examples:
   `https://gmcc-drop-in-schedule.vercel.app/?center=community&type=fitness&sub=studio1`
 - Tennis Center, Court Sports:  
   `https://gmcc-drop-in-schedule.vercel.app/?center=tennis&sub=courtSports`
-- Specific week starting July 14, 2026:  
+- Specific week starting July 14, 2026 *(only after re-enabling week navigation)*:  
   `https://gmcc-drop-in-schedule.vercel.app/?w=2026-07-14`
 
 ### Today views (`today.html`, `today-center.html`)
@@ -89,12 +93,25 @@ Example — tomorrow's schedule for Coleman:
 
 | Parameter | Values | Default | Description |
 |-----------|--------|---------|-------------|
-| `w` | `YYYY-MM-DD` | Current week | Any date; the week (Monday start) containing it is shown |
-| `date` | `YYYY-MM-DD` | Current week | Alias for `w` (`w` takes precedence) |
+| `w` | `YYYY-MM-DD` | *(disabled)* | Any date; the week (Monday start) containing it is shown — **currently ignored** |
+| `date` | `YYYY-MM-DD` | *(disabled)* | Alias for `w` (`w` takes precedence) — **currently ignored** |
 
-Example — week of July 14, 2026:
+Example — week of July 14, 2026 *(only after re-enabling week navigation)*:
 
 `https://gmcc-drop-in-schedule.vercel.app/week-curling.html?w=2026-07-14`
+
+### Re-enabling week navigation
+
+Week prev/next controls and `?w=` deep-linking were turned off by commenting out the related code (nothing was deleted). Search the codebase for `Week navigation disabled` and uncomment those blocks:
+
+1. **`index.html`**
+   - Uncomment the prev/next arrow buttons (mobile and desktop).
+   - Uncomment the `prevBtn` / `nextBtn` element refs, glyph text setup, click handlers, and `changeWeek`.
+   - Restore reading `?w=` when setting `weekStart`, and restore `p.set('w', …)` inside `syncUrl()`.
+2. **`week-curling.html`**
+   - Restore reading `?w=` / `?date=` for `weekStart` instead of always using `getMonday(new Date())`.
+
+After that, the URL parameter tables and examples above apply again as written.
 
 ## Tech stack
 

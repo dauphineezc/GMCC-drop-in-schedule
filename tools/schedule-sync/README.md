@@ -1,6 +1,6 @@
 # Drop-in schedule sync
 
-Staff edit the drop-in schedules in an Excel workbook on SharePoint. Every 15 minutes, around the clock, `schedule-sync.yml` downloads the workbook and converts each sheet to its CSV. If anything changed, it opens or updates a pull request from the `schedule-sync` branch and runs the validator. **If there are no errors, it merges the pull request itself and Vercel publishes it. If there are errors, nothing is published**: the live site keeps the last good schedule, the pull request stays open with the errors listed by sheet row, and the workflow run is marked failed. No human approval is involved, so the validator is the only gate. The pull request and its merge commit are the audit trail.
+Staff edit the drop-in schedules in an Excel workbook on SharePoint. Every 30 minutes from about 6 AM to 10 PM Eastern (and whenever it is triggered manually), `schedule-sync.yml` downloads the workbook and converts each sheet to its CSV. If anything changed, it opens or updates a pull request from the `schedule-sync` branch and runs the validator. **If there are no errors, it merges the pull request itself and Vercel publishes it. If there are errors, nothing is published**: the live site keeps the last good schedule, the pull request stays open with the errors listed by sheet row, and the workflow run is marked failed. No human approval is involved, so the validator is the only gate. The pull request and its merge commit are the audit trail.
 
 Group Fitness at the Community, Coleman and North centers is not part of this. It still comes from RecTrac exports in Azure Blob (`FR.csv`, `FR_CFC.csv`, `FR_NFC.csv`). Tennis Center classes are part of it, because they aren't in RecTrac.
 
@@ -38,10 +38,10 @@ Sheets and columns are set in `config.json`. Drop-in sheets use `Category, Locat
 
 ## Day to day
 
-- **Staff** edit the workbook and nothing else. Within 15 minutes the change is validated and, if clean, published (the site updates about a minute after that). Closing a pull request doesn't discard edits: the next run reopens it until the workbook matches the live site.
+- **Staff** edit the workbook and nothing else. Within about 30 minutes the change is validated and, if clean, published (the site updates about a minute after that). Closing a pull request doesn't discard edits: the next run reopens it until the workbook matches the live site.
 - **Nobody approves routine changes.** The team only steps in when the check fails and staff can't fix it, or for a large-removal override.
 - **Errors** name the sheet row. Staff fix the row in the workbook, and the pull request updates on the next run.
-- **Large removals.** If more than 25% of upcoming rows disappear, the check fails. If that's intentional, add the label `allow-large-change` to the open pull request. This is the one human decision. The next run (within 15 minutes) re-validates with the override and publishes.
+- **Large removals.** If more than 25% of upcoming rows disappear, the check fails. If that's intentional, add the label `allow-large-change` to the open pull request. This is the one human decision. The next run (within about 30 minutes) re-validates with the override and publishes.
 - **Urgent changes.** Use Actions → Run workflow to skip the wait. It publishes the same way.
 - **Pausing auto-publish.** Disable the "Sync drop-in schedules from SharePoint" workflow in the Actions tab. Re-enable it when ready. GitHub also disables scheduled workflows in a public repo after 60 days with no repository activity, so if the schedule is quiet for that long, re-enable it.
 - **Don't hand-edit the CSVs.** The next sync overwrites them with the workbook's contents.
