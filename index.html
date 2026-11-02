@@ -109,11 +109,9 @@
       <div class="md:hidden flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <!-- Week navigation disabled (management request) — uncomment to restore prev/next week arrows
+            <!-- Week navigation disabled — uncomment to restore prev/next/Today controls
             <button id="prevBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
-            -->
             <button id="todayBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
-            <!--
             <button id="nextBtnMobile" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
             -->
           </div>
@@ -127,11 +125,9 @@
 
       <div class="hidden md:grid grid-cols-3 items-center gap-3">
         <div class="flex items-center gap-2">
-          <!-- Week navigation disabled (management request) — uncomment to restore prev/next week arrows
+          <!-- Week navigation disabled — uncomment to restore prev/next/Today controls
           <button id="prevBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Previous week">◀︎</button>
-          -->
           <button id="todayBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100">Today</button>
-          <!--
           <button id="nextBtn" class="px-2 py-1 rounded border text-sm hover:bg-gray-100 text-gray-700" aria-label="Next week">▶︎</button>
           -->
         </div>
@@ -219,13 +215,13 @@
     rangeLabelMobile: document.getElementById('rangeLabelMobile'),
     tzLabel: document.getElementById('tzLabel'),
     tzLabelMobile: document.getElementById('tzLabelMobile'),
-    // Week navigation disabled — uncomment with the arrow buttons to restore
+    // Week navigation disabled — uncomment with the prev/next/Today buttons to restore
     // prevBtn: document.getElementById('prevBtn'),
     // nextBtn: document.getElementById('nextBtn'),
-    todayBtn: document.getElementById('todayBtn'),
+    // todayBtn: document.getElementById('todayBtn'),
     // prevBtnMobile: document.getElementById('prevBtnMobile'),
     // nextBtnMobile: document.getElementById('nextBtnMobile'),
-    todayBtnMobile: document.getElementById('todayBtnMobile'),
+    // todayBtnMobile: document.getElementById('todayBtnMobile'),
     scroller: document.getElementById('gridScroller'),
   };
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -283,10 +279,10 @@
   }
 
   /* =================== Controls & render =================== */
-  // Week navigation disabled — uncomment with the arrow buttons to restore
+  // Week navigation disabled — uncomment with the prev/next/Today buttons to restore
   // els.prevBtn.onclick = els.prevBtnMobile.onclick = () => changeWeek(-7);
   // els.nextBtn.onclick = els.nextBtnMobile.onclick = () => changeWeek(+7);
-  els.todayBtn.onclick = els.todayBtnMobile.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
+  // els.todayBtn.onclick = els.todayBtnMobile.onclick = () => { weekStart=getMonday(new Date()); CURRENT_WEEK=filterWeek(ALL_EVENTS, weekStart); syncUrl(); render(); };
 
   function setCurrentCenterEvents(){
     ALL_EVENTS = ALL_CENTER_EVENTS[currentCenter] || emptyEventStore();

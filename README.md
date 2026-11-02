@@ -10,39 +10,53 @@ Interactive schedule calendars for Greater Midland Community Center (GMCC) facil
 
 Full week grid with day columns, time slots, and sub-calendar tabs (Aquatics, Court Sports, etc.). Users can switch centers via the dropdown.
 
-**Week navigation is currently disabled** — the view always shows the current week (Monday–Sunday). Prev/next arrows are hidden, and the `?w=` URL parameter is ignored so visitors cannot browse ahead or back. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
+**Week navigation is currently disabled** — the view always shows the current week (Monday–Sunday). Prev/next arrows and the Today button are hidden, and the `?w=` URL parameter is ignored so visitors cannot browse ahead or back. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
 
-| View | Link |
-|------|------|
+
+| View                             | Link                                                    |
+| -------------------------------- | ------------------------------------------------------- |
 | Weekly (center dropdown visible) | [index.html](https://gmcc-drop-in-schedule.vercel.app/) |
+
 
 **Center-locked weekly presets** — pass `?center=<key>` to hide the dropdown and show a fixed center label. Useful for embedding a single facility on its own page.
 
-| Center | Key | Link |
-|--------|-----|------|
-| Community Center | `community` | [?center=community](https://gmcc-drop-in-schedule.vercel.app/?center=community) |
-| Tennis Center | `tennis` | [?center=tennis](https://gmcc-drop-in-schedule.vercel.app/?center=tennis) |
-| Coleman Family Center | `coleman` | [?center=coleman](https://gmcc-drop-in-schedule.vercel.app/?center=coleman) |
-| North Family Center | `north` | [?center=north](https://gmcc-drop-in-schedule.vercel.app/?center=north) |
+
+| Center                | Key         | Link                                                                            |
+| --------------------- | ----------- | ------------------------------------------------------------------------------- |
+| Community Center      | `community` | [?center=community](https://gmcc-drop-in-schedule.vercel.app/?center=community) |
+| Tennis Center         | `tennis`    | [?center=tennis](https://gmcc-drop-in-schedule.vercel.app/?center=tennis)       |
+| Coleman Family Center | `coleman`   | [?center=coleman](https://gmcc-drop-in-schedule.vercel.app/?center=coleman)     |
+| North Family Center   | `north`     | [?center=north](https://gmcc-drop-in-schedule.vercel.app/?center=north)         |
+
+
+
 
 ### Today's schedule — all centers (`today.html`)
 
 Compact list of today's activities for all four centers side by side. On mobile, each center section is collapsible (Community Center expanded by default).
 
-| View | Link |
-|------|------|
+
+| View                | Link                                                              |
+| ------------------- | ----------------------------------------------------------------- |
 | Today (all centers) | [today.html](https://gmcc-drop-in-schedule.vercel.app/today.html) |
+
+
+
 
 ### Today's schedule — single center (`today-center.html`)
 
 Single-center daily list with a fixed header. Intended for per-facility embeds.
 
-| Center | Link |
-|--------|------|
-| Community Center | [today-center.html?center=community](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=community) |
-| Tennis Center | [today-center.html?center=tennis](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=tennis) |
-| Coleman Family Center | [today-center.html?center=coleman](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=coleman) |
-| North Family Center | [today-center.html?center=north](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=north) |
+
+| Center                | Link                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Community Center      | [today-center.html?center=community](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=community) |
+| Tennis Center         | [today-center.html?center=tennis](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=tennis)       |
+| Coleman Family Center | [today-center.html?center=coleman](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=coleman)     |
+| North Family Center   | [today-center.html?center=north](https://gmcc-drop-in-schedule.vercel.app/today-center.html?center=north)         |
+
+
+
 
 ### Weekly schedule — Curling Center (`week-curling.html`)
 
@@ -50,20 +64,28 @@ Scrollable list of everything on the Curling Center schedule for the current wee
 
 **Week navigation is currently disabled** — `?w=` / `?date=` are ignored; the page always shows the current week. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
 
-| View | Link |
-|------|------|
+
+| View                       | Link                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------- |
 | Curling Center (this week) | [week-curling.html](https://gmcc-drop-in-schedule.vercel.app/week-curling.html) |
+
+
+
 
 ## URL parameters
 
+
+
 ### Weekly calendar (`index.html`)
 
-| Parameter | Values | Default | Description |
-|-----------|--------|---------|-------------|
-| `center` | `community`, `tennis`, `coleman`, `north` | `community` | When present and valid, locks the center picker (dropdown hidden) |
-| `type` | `dropin`, `fitness` | `dropin` | Primary calendar type. Tennis Center is `fitness` only; Curling Center is `dropin` only |
-| `sub` | See sub-calendars below | `aquatics` | Active sub-calendar tab |
-| `w` | `YYYY-MM-DD` | *(disabled)* | Week start date — **currently ignored**; always shows the current week. Restored when week navigation is re-enabled |
+
+| Parameter | Values                                    | Default      | Description                                                                                                         |
+| --------- | ----------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `center`  | `community`, `tennis`, `coleman`, `north` | `community`  | When present and valid, locks the center picker (dropdown hidden)                                                   |
+| `type`    | `dropin`, `fitness`                       | `dropin`     | Primary calendar type. Tennis Center is `fitness` only; Curling Center is `dropin` only                             |
+| `sub`     | See sub-calendars below                   | `aquatics`   | Active sub-calendar tab                                                                                             |
+| `w`       | `YYYY-MM-DD`                              | *(disabled)* | Week start date — **currently ignored**; always shows the current week. Restored when week navigation is re-enabled |
+
 
 **Drop-in sub-calendars:** `aquatics`, `courtSports`, `community`, `childWatch`
 
@@ -72,18 +94,22 @@ Scrollable list of everything on the Curling Center schedule for the current wee
 Examples:
 
 - Community Center, Group Fitness, Studio 1:  
-  `https://gmcc-drop-in-schedule.vercel.app/?center=community&type=fitness&sub=studio1`
+`https://gmcc-drop-in-schedule.vercel.app/?center=community&type=fitness&sub=studio1`
 - Tennis Center, Court Sports:  
-  `https://gmcc-drop-in-schedule.vercel.app/?center=tennis&sub=courtSports`
+`https://gmcc-drop-in-schedule.vercel.app/?center=tennis&sub=courtSports`
 - Specific week starting July 14, 2026 *(only after re-enabling week navigation)*:  
-  `https://gmcc-drop-in-schedule.vercel.app/?w=2026-07-14`
+`https://gmcc-drop-in-schedule.vercel.app/?w=2026-07-14`
+
+
 
 ### Today views (`today.html`, `today-center.html`)
 
-| Parameter | Values | Default | Description |
-|-----------|--------|---------|-------------|
-| `date` | `YYYY-MM-DD` (flexible formats accepted) | Today | Date to display |
-| `center` | `community`, `tennis`, `coleman`, `north` | `community` | *(today-center.html only)* Which center to show |
+
+| Parameter | Values                                    | Default     | Description                                     |
+| --------- | ----------------------------------------- | ----------- | ----------------------------------------------- |
+| `date`    | `YYYY-MM-DD` (flexible formats accepted)  | Today       | Date to display                                 |
+| `center`  | `community`, `tennis`, `coleman`, `north` | `community` | *(today-center.html only)* Which center to show |
+
 
 Example — tomorrow's schedule for Coleman:
 
@@ -91,10 +117,12 @@ Example — tomorrow's schedule for Coleman:
 
 ### Curling weekly view (`week-curling.html`)
 
-| Parameter | Values | Default | Description |
-|-----------|--------|---------|-------------|
-| `w` | `YYYY-MM-DD` | *(disabled)* | Any date; the week (Monday start) containing it is shown — **currently ignored** |
-| `date` | `YYYY-MM-DD` | *(disabled)* | Alias for `w` (`w` takes precedence) — **currently ignored** |
+
+| Parameter | Values       | Default      | Description                                                                      |
+| --------- | ------------ | ------------ | -------------------------------------------------------------------------------- |
+| `w`       | `YYYY-MM-DD` | *(disabled)* | Any date; the week (Monday start) containing it is shown — **currently ignored** |
+| `date`    | `YYYY-MM-DD` | *(disabled)* | Alias for `w` (`w` takes precedence) — **currently ignored**                     |
+
 
 Example — week of July 14, 2026 *(only after re-enabling week navigation)*:
 
@@ -102,25 +130,27 @@ Example — week of July 14, 2026 *(only after re-enabling week navigation)*:
 
 ### Re-enabling week navigation
 
-Week prev/next controls and `?w=` deep-linking were turned off by commenting out the related code (nothing was deleted). Search the codebase for `Week navigation disabled` and uncomment those blocks:
+Week prev/next/Today controls and `?w=` deep-linking were turned off. Search the codebase for `Week navigation disabled` and uncomment those blocks:
 
-1. **`index.html`**
-   - Uncomment the prev/next arrow buttons (mobile and desktop).
-   - Uncomment the `prevBtn` / `nextBtn` element refs, glyph text setup, click handlers, and `changeWeek`.
-   - Restore reading `?w=` when setting `weekStart`, and restore `p.set('w', …)` inside `syncUrl()`.
-2. **`week-curling.html`**
-   - Restore reading `?w=` / `?date=` for `weekStart` instead of always using `getMonday(new Date())`.
+1. `index.html`
+  - Uncomment the prev/next/Today buttons (mobile and desktop).
+  - Uncomment the `prevBtn` / `nextBtn` / `todayBtn` element refs, glyph text setup, click handlers, and `changeWeek`.
+  - Restore reading `?w=` when setting `weekStart`, and restore `p.set('w', …)` inside `syncUrl()`.
+2. `week-curling.html`
+  - Restore reading `?w=` / `?date=` for `weekStart` instead of always using `getMonday(new Date())`.
 
 After that, the URL parameter tables and examples above apply again as written.
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|------------|
+
+| Layer    | Technology                                                                     |
+| -------- | ------------------------------------------------------------------------------ |
 | Frontend | Static HTML, vanilla JavaScript, [Tailwind CSS](https://tailwindcss.com) (CDN) |
-| Fonts | [Inter](https://fonts.google.com/specimen/Inter) via Google Fonts |
-| Data | CSV files fetched at runtime (drop-in + group fitness) |
-| Hosting | [Vercel](https://vercel.com) (static deploy, no build step) |
+| Fonts    | [Inter](https://fonts.google.com/specimen/Inter) via Google Fonts              |
+| Data     | CSV files fetched at runtime (drop-in + group fitness)                         |
+| Hosting  | [Vercel](https://vercel.com) (static deploy, no build step)                    |
+
 
 There is no bundler or framework — pages load `./js/schedule-data.js` directly and render client-side.
 
@@ -137,6 +167,8 @@ There is no bundler or framework — pages load `./js/schedule-data.js` directly
 ├── GMCC_Drop_In_Schedule.csv   # Local fallback drop-in data
 └── test-schedule.csv           # Local fallback fitness data
 ```
+
+
 
 ## Running locally
 
@@ -194,6 +226,8 @@ window.addEventListener('message', (e) => {
   }
 });
 ```
+
+
 
 ## Deployment
 
