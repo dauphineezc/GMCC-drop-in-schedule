@@ -1515,7 +1515,7 @@ Court Sports,Basketball Courts,11/13/2026,5:30 AM,8:00 AM,Adult Basketball,Frida
 Court Sports,3 Courts,11/13/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,11/13/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,11/13/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,11/13/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,11/13/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,11/13/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,11/13/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,11/13/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1523,29 +1523,28 @@ Court Sports,Basketball Courts,11/13/2026,3:00 PM,5:00 PM,Youth Basketball,Frida
 Court Sports,Basketball Courts,11/13/2026,4:00 PM,9:00 PM,Adult Volleyball,Friday
 Court Sports,Basketball Courts,11/13/2026,5:00 PM,9:00 PM,Open Basketball,Friday
 Aquatics,Full Pool,11/13/2026,6:00 PM,8:30 PM,Open Swim (Slide 30m Int.),Friday
-Court Sports,3 Courts,11/14/2026,7:30 AM,2:00 PM,Open Pickleball,Saturday
 Kids Activities,Child Watch,11/14/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Saturday
 Kids Activities,The Zone,11/14/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Saturday
 Aquatics,Lap Pool,11/14/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
-Court Sports,Basketball Courts,11/14/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
+Court Sports,Basketball Courts,11/14/2026,12:00 PM,3:45 PM,Open Basketball,Saturday
 Aquatics,Full Pool,11/14/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,11/14/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
+Court Sports,Basketball Courts,11/14/2026,2:00 PM,4:00 PM,Youth Basketball,Saturday
+Kids Activities,Little Gym,11/14/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
 Court Sports,Basketball Courts,11/14/2026,4:00 PM,8:00 PM,Adult Volleyball,Saturday
 Court Sports,Basketball Courts,11/14/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
-Court Sports,Basketball Courts,11/14/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
 Court Sports,3 Courts,11/15/2026,10:00 AM,2:00 PM,Open Pickleball,Sunday
 Court Sports,Basketball Courts,11/15/2026,10:00 AM,2:00 PM,Open Volleyball,Sunday
 Aquatics,Lap Pool,11/15/2026,11:00 AM,2:00 PM,Lap Swim,Sunday
 Aquatics,Rec Pool & Lazy River,11/15/2026,11:00 AM,2:00 PM,Rec Swim (No Slide),Sunday
-Court Sports,Basketball Courts,11/15/2026,1:00 PM,5:30 PM,Open Basketball,Sunday
 Aquatics,Full Pool,11/15/2026,2:00 PM,5:00 PM,Open Swim (Slide 30m Int.),Sunday
+Court Sports,Basketball Courts,11/15/2026,2:00 PM,5:30 PM,Open Basketball,Sunday
 Aquatics,Lap Pool,11/16/2026,5:00 AM,8:00 AM,Lap Swim,Monday
 Court Sports,Basketball Courts,11/16/2026,5:00 AM,8:00 AM,Adult Basketball,Monday
 Aquatics,Rec Pool & Lazy River,11/16/2026,5:00 AM,9:00 AM,Rec Swim (No Slide),Monday
 Court Sports,3 Courts,11/16/2026,6:00 AM,11:00 AM,Open Pickleball,Monday
 Kids Activities,Child Watch,11/16/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Monday
 Aquatics,Lap Pool,11/16/2026,9:00 AM,3:30 PM,Lap Swim,Monday
-Kids Activities,Little Gym,11/16/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Monday
+Kids Activities,Little Gym,11/16/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Monday
 Aquatics,Rec Pool & Lazy River,11/16/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,11/16/2026,11:15 AM,1:00 PM,Adult Basketball,Monday
 Community,Community Wing,11/16/2026,1:00 PM,4:00 PM,Euchre,Monday
@@ -1576,7 +1575,7 @@ Aquatics,Rec Pool & Lazy River,11/18/2026,5:00 AM,9:00 AM,Rec Swim (No Slide),We
 Court Sports,3 Courts,11/18/2026,6:00 AM,11:00 AM,Open Pickleball,Wednesday
 Kids Activities,Child Watch,11/18/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Wednesday
 Aquatics,Lap Pool,11/18/2026,9:00 AM,3:30 PM,Lap Swim,Wednesday
-Kids Activities,Little Gym,11/18/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Wednesday
+Kids Activities,Little Gym,11/18/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Wednesday
 Aquatics,Rec Pool & Lazy River,11/18/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Wednesday
 Court Sports,Basketball Courts,11/18/2026,11:15 AM,1:00 PM,Adult Basketball,Wednesday
 Community,Community Wing,11/18/2026,1:00 PM,4:00 PM,Euchre,Wednesday
@@ -1600,12 +1599,12 @@ Court Sports,Basketball Courts,11/19/2026,5:00 PM,9:00 PM,Open Basketball,Thursd
 Kids Activities,Child Watch,11/19/2026,5:30 PM,7:30 PM,Child Watch (3mo. - 9yr),Thursday
 Aquatics,Full Pool,11/19/2026,6:00 PM,8:30 PM,Open Swim ($6 Community Swim),Thursday
 Aquatics,Lap Pool,11/20/2026,5:00 AM,8:00 AM,Lap Swim,Friday
+Court Sports,Basketball Courts,11/20/2026,5:00 AM,8:00 AM,Adult Basketball,Friday
 Aquatics,Rec Pool & Lazy River,11/20/2026,5:00 AM,9:00 AM,Rec Swim (No Slide),Friday
-Court Sports,Basketball Courts,11/20/2026,5:30 AM,8:00 AM,Adult Basketball,Friday
 Court Sports,3 Courts,11/20/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,11/20/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,11/20/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,11/20/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,11/20/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,11/20/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,11/20/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,11/20/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1613,29 +1612,28 @@ Court Sports,Basketball Courts,11/20/2026,3:00 PM,5:00 PM,Youth Basketball,Frida
 Court Sports,Basketball Courts,11/20/2026,4:00 PM,9:00 PM,Adult Volleyball,Friday
 Court Sports,Basketball Courts,11/20/2026,5:00 PM,9:00 PM,Open Basketball,Friday
 Aquatics,Full Pool,11/20/2026,6:00 PM,8:30 PM,Open Swim (Slide 30m Int.),Friday
+Court Sports,Basketball Courts,11/21/2026,7:00 AM,11:00 AM,Open Basketball,Saturday
 Court Sports,3 Courts,11/21/2026,7:30 AM,2:00 PM,Open Pickleball,Saturday
 Kids Activities,Child Watch,11/21/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Saturday
 Kids Activities,The Zone,11/21/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Saturday
 Aquatics,Lap Pool,11/21/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
-Court Sports,Basketball Courts,11/21/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
 Aquatics,Full Pool,11/21/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,11/21/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
-Court Sports,Basketball Courts,11/21/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
-Court Sports,Basketball Courts,11/21/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
-Court Sports,Basketball Courts,11/21/2026,8:00 PM,9:00 PM,Adult Volleyball,Saturday
+Kids Activities,Little Gym,11/21/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
+Court Sports,Basketball Courts,11/21/2026,4:00 PM,8:00 PM,Adult Volleyball,Saturday
+Court Sports,Basketball Courts,11/21/2026,5:00 PM,8:00 PM,Open Basketball,Saturday
 Court Sports,3 Courts,11/22/2026,10:00 AM,2:00 PM,Open Pickleball,Sunday
 Court Sports,Basketball Courts,11/22/2026,10:00 AM,2:00 PM,Open Volleyball,Sunday
 Aquatics,Lap Pool,11/22/2026,11:00 AM,2:00 PM,Lap Swim,Sunday
 Aquatics,Rec Pool & Lazy River,11/22/2026,11:00 AM,2:00 PM,Rec Swim (No Slide),Sunday
-Court Sports,Basketball Courts,11/22/2026,1:00 PM,5:30 PM,Open Basketball,Sunday
 Aquatics,Full Pool,11/22/2026,2:00 PM,5:00 PM,Open Swim (Slide 30m Int.),Sunday
+Court Sports,Basketball Courts,11/22/2026,2:00 PM,5:30 PM,Open Basketball,Sunday
 Aquatics,Lap Pool,11/23/2026,5:00 AM,8:00 AM,Lap Swim,Monday
 Aquatics,Rec Pool & Lazy River,11/23/2026,5:00 AM,9:00 AM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,11/23/2026,5:30 AM,8:00 AM,Adult Basketball,Monday
 Court Sports,3 Courts,11/23/2026,6:00 AM,11:00 AM,Open Pickleball,Monday
 Kids Activities,Child Watch,11/23/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Monday
 Aquatics,Lap Pool,11/23/2026,9:00 AM,3:30 PM,Lap Swim,Monday
-Kids Activities,Little Gym,11/23/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Monday
+Kids Activities,Little Gym,11/23/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Monday
 Aquatics,Rec Pool & Lazy River,11/23/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,11/23/2026,11:15 AM,1:00 PM,Adult Basketball,Monday
 Community,Community Wing,11/23/2026,1:00 PM,4:00 PM,Euchre,Monday
@@ -1666,7 +1664,7 @@ Court Sports,Basketball Courts,11/25/2026,5:30 AM,8:00 AM,Adult Basketball,Wedne
 Court Sports,3 Courts,11/25/2026,6:00 AM,11:00 AM,Open Pickleball,Wednesday
 Kids Activities,Child Watch,11/25/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Wednesday
 Aquatics,Lap Pool,11/25/2026,9:00 AM,3:30 PM,Lap Swim,Wednesday
-Kids Activities,Little Gym,11/25/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Wednesday
+Kids Activities,Little Gym,11/25/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Wednesday
 Aquatics,Rec Pool & Lazy River,11/25/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Wednesday
 Court Sports,Basketball Courts,11/25/2026,11:15 AM,1:00 PM,Adult Basketball,Wednesday
 Community,Community Wing,11/25/2026,1:00 PM,4:00 PM,Euchre,Wednesday
@@ -1695,7 +1693,7 @@ Court Sports,Basketball Courts,11/27/2026,5:30 AM,8:00 AM,Adult Basketball,Frida
 Court Sports,3 Courts,11/27/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,11/27/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,11/27/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,11/27/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,11/27/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,11/27/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,11/27/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,11/27/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1709,7 +1707,7 @@ Kids Activities,The Zone,11/28/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Satu
 Aquatics,Lap Pool,11/28/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
 Court Sports,Basketball Courts,11/28/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
 Aquatics,Full Pool,11/28/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,11/28/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
+Kids Activities,Little Gym,11/28/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
 Court Sports,Basketball Courts,11/28/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
 Court Sports,Basketball Courts,11/28/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
 Court Sports,Basketball Courts,11/28/2026,8:00 PM,9:00 PM,Adult Volleyball,Saturday
@@ -1725,7 +1723,7 @@ Court Sports,Basketball Courts,11/30/2026,5:30 AM,8:00 AM,Adult Basketball,Monda
 Court Sports,3 Courts,11/30/2026,6:00 AM,11:00 AM,Open Pickleball,Monday
 Kids Activities,Child Watch,11/30/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Monday
 Aquatics,Lap Pool,11/30/2026,9:00 AM,3:30 PM,Lap Swim,Monday
-Kids Activities,Little Gym,11/30/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Monday
+Kids Activities,Little Gym,11/30/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Monday
 Aquatics,Rec Pool & Lazy River,11/30/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,11/30/2026,11:15 AM,1:00 PM,Adult Basketball,Monday
 Community,Community Wing,11/30/2026,1:00 PM,4:00 PM,Euchre,Monday
@@ -1756,7 +1754,7 @@ Court Sports,Basketball Courts,12/2/2026,5:30 AM,8:00 AM,Adult Basketball,Wednes
 Court Sports,3 Courts,12/2/2026,6:00 AM,11:00 AM,Open Pickleball,Wednesday
 Kids Activities,Child Watch,12/2/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Wednesday
 Aquatics,Lap Pool,12/2/2026,9:00 AM,3:30 PM,Lap Swim,Wednesday
-Kids Activities,Little Gym,12/2/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Wednesday
+Kids Activities,Little Gym,12/2/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Wednesday
 Aquatics,Rec Pool & Lazy River,12/2/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Wednesday
 Court Sports,Basketball Courts,12/2/2026,11:15 AM,1:00 PM,Adult Basketball,Wednesday
 Community,Community Wing,12/2/2026,1:00 PM,4:00 PM,Euchre,Wednesday
@@ -1785,7 +1783,7 @@ Court Sports,Basketball Courts,12/4/2026,5:30 AM,8:00 AM,Adult Basketball,Friday
 Court Sports,3 Courts,12/4/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,12/4/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,12/4/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,12/4/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,12/4/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,12/4/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,12/4/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,12/4/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1799,7 +1797,7 @@ Kids Activities,The Zone,12/5/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Satur
 Aquatics,Lap Pool,12/5/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
 Court Sports,Basketball Courts,12/5/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
 Aquatics,Full Pool,12/5/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,12/5/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
+Kids Activities,Little Gym,12/5/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
 Court Sports,Basketball Courts,12/5/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
 Court Sports,Basketball Courts,12/5/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
 Court Sports,Basketball Courts,12/5/2026,8:00 PM,9:00 PM,Adult Volleyball,Saturday
@@ -1815,7 +1813,7 @@ Court Sports,Basketball Courts,12/7/2026,5:30 AM,8:00 AM,Adult Basketball,Monday
 Court Sports,3 Courts,12/7/2026,6:00 AM,11:00 AM,Open Pickleball,Monday
 Kids Activities,Child Watch,12/7/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Monday
 Aquatics,Lap Pool,12/7/2026,9:00 AM,3:30 PM,Lap Swim,Monday
-Kids Activities,Little Gym,12/7/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Monday
+Kids Activities,Little Gym,12/7/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Monday
 Aquatics,Rec Pool & Lazy River,12/7/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,12/7/2026,11:15 AM,1:00 PM,Adult Basketball,Monday
 Community,Community Wing,12/7/2026,1:00 PM,4:00 PM,Euchre,Monday
@@ -1846,7 +1844,7 @@ Court Sports,Basketball Courts,12/9/2026,5:30 AM,8:00 AM,Adult Basketball,Wednes
 Court Sports,3 Courts,12/9/2026,6:00 AM,11:00 AM,Open Pickleball,Wednesday
 Kids Activities,Child Watch,12/9/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Wednesday
 Aquatics,Lap Pool,12/9/2026,9:00 AM,3:30 PM,Lap Swim,Wednesday
-Kids Activities,Little Gym,12/9/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Wednesday
+Kids Activities,Little Gym,12/9/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Wednesday
 Aquatics,Rec Pool & Lazy River,12/9/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Wednesday
 Court Sports,Basketball Courts,12/9/2026,11:15 AM,1:00 PM,Adult Basketball,Wednesday
 Community,Community Wing,12/9/2026,1:00 PM,4:00 PM,Euchre,Wednesday
@@ -1875,7 +1873,7 @@ Court Sports,Basketball Courts,12/11/2026,5:30 AM,8:00 AM,Adult Basketball,Frida
 Court Sports,3 Courts,12/11/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,12/11/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,12/11/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,12/11/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,12/11/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,12/11/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,12/11/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,12/11/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1889,7 +1887,7 @@ Kids Activities,The Zone,12/12/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Satu
 Aquatics,Lap Pool,12/12/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
 Court Sports,Basketball Courts,12/12/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
 Aquatics,Full Pool,12/12/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,12/12/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
+Kids Activities,Little Gym,12/12/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
 Court Sports,Basketball Courts,12/12/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
 Court Sports,Basketball Courts,12/12/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
 Court Sports,Basketball Courts,12/12/2026,8:00 PM,9:00 PM,Adult Volleyball,Saturday
@@ -1905,7 +1903,7 @@ Court Sports,Basketball Courts,12/14/2026,5:30 AM,8:00 AM,Adult Basketball,Monda
 Court Sports,3 Courts,12/14/2026,6:00 AM,11:00 AM,Open Pickleball,Monday
 Kids Activities,Child Watch,12/14/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Monday
 Aquatics,Lap Pool,12/14/2026,9:00 AM,3:30 PM,Lap Swim,Monday
-Kids Activities,Little Gym,12/14/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Monday
+Kids Activities,Little Gym,12/14/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Monday
 Aquatics,Rec Pool & Lazy River,12/14/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Monday
 Court Sports,Basketball Courts,12/14/2026,11:15 AM,1:00 PM,Adult Basketball,Monday
 Community,Community Wing,12/14/2026,1:00 PM,4:00 PM,Euchre,Monday
@@ -1936,7 +1934,7 @@ Court Sports,Basketball Courts,12/16/2026,5:30 AM,8:00 AM,Adult Basketball,Wedne
 Court Sports,3 Courts,12/16/2026,6:00 AM,11:00 AM,Open Pickleball,Wednesday
 Kids Activities,Child Watch,12/16/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Wednesday
 Aquatics,Lap Pool,12/16/2026,9:00 AM,3:30 PM,Lap Swim,Wednesday
-Kids Activities,Little Gym,12/16/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Wednesday
+Kids Activities,Little Gym,12/16/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Wednesday
 Aquatics,Rec Pool & Lazy River,12/16/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Wednesday
 Court Sports,Basketball Courts,12/16/2026,11:15 AM,1:00 PM,Adult Basketball,Wednesday
 Community,Community Wing,12/16/2026,1:00 PM,4:00 PM,Euchre,Wednesday
@@ -1965,7 +1963,7 @@ Court Sports,Basketball Courts,12/18/2026,5:30 AM,8:00 AM,Adult Basketball,Frida
 Court Sports,3 Courts,12/18/2026,6:00 AM,11:00 AM,Open Pickleball,Friday
 Kids Activities,Child Watch,12/18/2026,8:00 AM,12:00 PM,Child Watch (3mo. - 9yr),Friday
 Aquatics,Lap Pool,12/18/2026,9:00 AM,3:30 PM,Lap Swim,Friday
-Kids Activities,Little Gym,12/18/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Friday
+Kids Activities,Little Gym,12/18/2026,10:00 AM,12:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Friday
 Aquatics,Rec Pool & Lazy River,12/18/2026,11:00 AM,3:30 PM,Rec Swim (No Slide),Friday
 Court Sports,Basketball Courts,12/18/2026,11:15 AM,1:00 PM,Adult Basketball,Friday
 Court Sports,Basketball Courts,12/18/2026,1:15 PM,3:15 PM,Open Pickleball,Friday
@@ -1979,7 +1977,7 @@ Kids Activities,The Zone,12/19/2026,8:00 AM,12:00 PM,The Zone (Ages 6 - 12),Satu
 Aquatics,Lap Pool,12/19/2026,8:00 AM,1:00 PM,Lap Swim,Saturday
 Court Sports,Basketball Courts,12/19/2026,12:00 PM,4:00 PM,Youth Basketball,Saturday
 Aquatics,Full Pool,12/19/2026,1:00 PM,7:00 PM,Open Swim (Slide 30m Int.),Saturday
-Kids Activities,Little Gym,12/19/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 8 and under w/ Parent),Saturday
+Kids Activities,Little Gym,12/19/2026,4:00 PM,6:00 PM,Jungle Gym (Ages 6 and under w/ Parent),Saturday
 Court Sports,Basketball Courts,12/19/2026,4:00 PM,8:00 PM,Open Basketball,Saturday
 Court Sports,Basketball Courts,12/19/2026,4:00 PM,8:00 PM,Open Volleyball,Saturday
 Court Sports,Basketball Courts,12/19/2026,8:00 PM,9:00 PM,Adult Volleyball,Saturday
