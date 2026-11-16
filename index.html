@@ -191,10 +191,10 @@
 
   /* =================== State & refs =================== */
   const params = new URLSearchParams(location.search);
-  const START_OF_WEEK = getMonday(new Date());
-  // Week navigation disabled — always show current week; ignore ?w= so the URL can't look ahead/back
+  // Week navigation disabled — show upcoming 7 days starting today; ignore ?w=
+  // const START_OF_WEEK = getMonday(new Date());
   // let weekStart = params.get('w') ? getMonday(parseViewDate(params.get('w'))) : START_OF_WEEK;
-  let weekStart = START_OF_WEEK;
+  let weekStart = parseViewDate(); // start of today
 
   const defaultCenter = Object.keys(CENTERS)[0];
   const centerLocked = params.has('center') && (params.get('center') in CENTERS);
@@ -380,7 +380,8 @@
       const h=document.createElement('div');
       h.className='p-2 border-r border-b border-gray-200 text-center day-head';
       const isToday=ymd(d)===ymd(new Date());
-      h.innerHTML=`<p class="text-sm font-semibold ${isToday?'text-blue-600':'text-gray-600'}">${['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</p>
+      const dayName=d.toLocaleDateString(undefined,{weekday:'short'}).toUpperCase();
+      h.innerHTML=`<p class="text-sm font-semibold ${isToday?'text-blue-600':'text-gray-600'}">${dayName}</p>
                    <p class="text-xs ${isToday?'font-semibold text-blue-600':'text-gray-700'}">${labelDate(d)}</p>`;
       els.gridHeader.appendChild(h);
     }
@@ -480,13 +481,13 @@
   function positionNowLine(startHour,endHour){
     document.querySelectorAll('.now-line').forEach(n=>n.remove());
     const now=new Date();
-    // Check if today is within the currently displayed week
+    // Check if today is within the currently displayed 7-day range
     const weekEnd = addDays(weekStart, 6);
     const todayYmd = ymd(now);
     const weekStartYmd = ymd(weekStart);
     const weekEndYmd = ymd(weekEnd);
     if (todayYmd < weekStartYmd || todayYmd > weekEndYmd) return;
-    // Calculate which day column today falls on (0 = Monday, 6 = Sunday)
+    // Column index relative to range start (0 = leftmost / today when navigation is disabled)
     const dayIndex = Math.floor((now - weekStart) / (1000 * 60 * 60 * 24));
     if (dayIndex < 0 || dayIndex > 6) return;
     const h=now.getHours(), m=now.getMinutes();
@@ -501,7 +502,6 @@
 
   function renderList(){
     els.list.innerHTML='';
-    const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     const events=CURRENT_WEEK[currentType][currentSub].events;
     const byDay=Array.from({length:7},()=>[]);
     events.forEach(e=>byDay[e.dayIndex].push(e));
@@ -509,8 +509,9 @@
       const d=addDays(weekStart,i);
       const header=document.createElement('div');
       const isToday=ymd(d)===ymd(new Date());
+      const dayName=d.toLocaleDateString(undefined,{weekday:'long'});
       header.className='pt-2 pb-2 border-b';
-      header.innerHTML=`<h2 class="text-lg font-bold ${isToday?'text-blue-700':''}">${days[i]}</h2><div class="text-xs text-gray-500">${labelDate(d)}</div>`;
+      header.innerHTML=`<h2 class="text-lg font-bold ${isToday?'text-blue-700':''}">${dayName}</h2><div class="text-xs text-gray-500">${labelDate(d)}</div>`;
       els.list.appendChild(header);
       if (!byDay[i].length){
         const none=document.createElement('div'); none.className='text-sm text-gray-400 pt-2'; none.textContent='No events'; els.list.appendChild(none);

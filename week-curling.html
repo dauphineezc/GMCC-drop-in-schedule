@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>This Week's Curling Schedule</title>
+  <title>Upcoming Curling Schedule</title>
   <meta name="color-scheme" content="light only" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -123,7 +123,7 @@
 <body>
   <div class="today-shell">
     <!-- <div id="dateLabel" class="today-date"></div> -->
-    <div id="status" class="loading">Loading this week's schedule…</div>
+    <div id="status" class="loading">Loading the upcoming schedule…</div>
     <section id="card" class="schedule-card" hidden>
       <div id="centerHeader" class="header-cell"></div>
       <div id="centerBody" class="center-column"></div>
@@ -136,7 +136,7 @@
       CENTERS,
       loadAllCenterData,
       getCenterEventsForWeek,
-      getMonday,
+      // getMonday, // needed when re-enabling Monday-based week navigation
       formatTimeRange,
       formatTimeRangeMultiline,
       labelDate,
@@ -144,11 +144,11 @@
     } = ScheduleData;
 
     const CENTER_KEY = 'curling';
-    // Week navigation disabled — always show current week; ignore ?w=/date= so the URL can't look ahead/back
+    // Week navigation disabled — show upcoming 7 days starting today; ignore ?w=/date=
     // const params = new URLSearchParams(location.search);
     // const viewDate = parseViewDate(params.get('w') || params.get('date'));
     // const weekStart = getMonday(viewDate);
-    const weekStart = getMonday(new Date());
+    const weekStart = parseViewDate(); // start of today
 
     const statusEl = document.getElementById('status');
     const cardEl = document.getElementById('card');
@@ -201,7 +201,7 @@
       if (!events.length) {
         const empty = document.createElement('div');
         empty.className = 'empty-msg';
-        empty.textContent = 'No activities scheduled this week';
+        empty.textContent = 'No activities scheduled in the next 7 days';
         bodyEl.appendChild(empty);
         return;
       }

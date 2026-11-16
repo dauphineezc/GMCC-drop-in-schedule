@@ -422,7 +422,8 @@ const ScheduleData = (() => {
   function getCenterEventsForWeek(allCenterEvents, centerKey, weekStart) {
     const store = allCenterEvents[centerKey];
     if (!store) return [];
-    const week = filterWeek(store, getMonday(weekStart));
+    // Respect the provided range start (e.g. today for a rolling 7-day window)
+    const week = filterWeek(store, startOfDay(weekStart));
     return flattenCenterStore(week)
       .sort((a, b) => a.dayIndex - b.dayIndex || a.start - b.start || a.end - b.end);
   }

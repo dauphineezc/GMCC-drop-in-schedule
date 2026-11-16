@@ -8,9 +8,9 @@ Interactive schedule calendars for Greater Midland Community Center (GMCC) facil
 
 ### Weekly calendar (`index.html`)
 
-Full week grid with day columns, time slots, and sub-calendar tabs (Aquatics, Court Sports, etc.). Users can switch centers via the dropdown.
+7-day grid with day columns, time slots, and sub-calendar tabs (Aquatics, Court Sports, etc.). Users can switch centers via the dropdown.
 
-**Week navigation is currently disabled** — the view always shows the current week (Monday–Sunday). Prev/next arrows and the Today button are hidden, and the `?w=` URL parameter is ignored so visitors cannot browse ahead or back. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
+**Shows the upcoming 7 days** — today is always the leftmost column, followed by the next 6 days. Week prev/next/Today controls are hidden, and the `?w=` URL parameter is ignored. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore Monday–Sunday browsing.
 
 
 | View                             | Link                                                    |
@@ -60,14 +60,14 @@ Single-center daily list with a fixed header. Intended for per-facility embeds.
 
 ### Weekly schedule — Curling Center (`week-curling.html`)
 
-Scrollable list of everything on the Curling Center schedule for the current week (Monday–Sunday). Each row shows the day, date, and time range alongside the activity name. The page is fixed to the Curling Center, so no `center` parameter is needed. It posts its height to the parent window, so it's suited to embedding on the curling page.
+Scrollable list of everything on the Curling Center schedule for the upcoming 7 days (today through +6). Each row shows the day, date, and time range alongside the activity name. The page is fixed to the Curling Center, so no `center` parameter is needed. It posts its height to the parent window, so it's suited to embedding on the curling page.
 
-**Week navigation is currently disabled** — `?w=` / `?date=` are ignored; the page always shows the current week. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore it.
+**`?w=` / `?date=` are ignored** while week navigation is disabled. See [Re-enabling week navigation](#re-enabling-week-navigation) to restore Monday–Sunday browsing.
 
 
-| View                       | Link                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| Curling Center (this week) | [week-curling.html](https://gmcc-drop-in-schedule.vercel.app/week-curling.html) |
+| View                          | Link                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Curling Center (next 7 days)  | [week-curling.html](https://gmcc-drop-in-schedule.vercel.app/week-curling.html) |
 
 
 
@@ -84,7 +84,7 @@ Scrollable list of everything on the Curling Center schedule for the current wee
 | `center`  | `community`, `tennis`, `coleman`, `north` | `community`  | When present and valid, locks the center picker (dropdown hidden)                                                   |
 | `type`    | `dropin`, `fitness`                       | `dropin`     | Primary calendar type. Tennis Center is `fitness` only; Curling Center is `dropin` only                             |
 | `sub`     | See sub-calendars below                   | `aquatics`   | Active sub-calendar tab                                                                                             |
-| `w`       | `YYYY-MM-DD`                              | *(disabled)* | Week start date — **currently ignored**; always shows the current week. Restored when week navigation is re-enabled |
+| `w`       | `YYYY-MM-DD`                              | *(disabled)* | Week start date — **currently ignored**; always shows today + next 6 days. Restored when week navigation is re-enabled |
 
 
 **Drop-in sub-calendars:** `aquatics`, `courtSports`, `community`, `childWatch`
@@ -137,7 +137,8 @@ Week prev/next/Today controls and `?w=` deep-linking were turned off. Search the
   - Uncomment the `prevBtn` / `nextBtn` / `todayBtn` element refs, glyph text setup, click handlers, and `changeWeek`.
   - Restore reading `?w=` when setting `weekStart`, and restore `p.set('w', …)` inside `syncUrl()`.
 2. `week-curling.html`
-  - Restore reading `?w=` / `?date=` for `weekStart` instead of always using `getMonday(new Date())`.
+  - Restore reading `?w=` / `?date=` and `getMonday(...)` for `weekStart` instead of `parseViewDate()` (today).
+3. Optionally switch `index.html` / curling back from the rolling “today + 6” window to Monday–Sunday by restoring the `getMonday(...)` `weekStart` assignment.
 
 After that, the URL parameter tables and examples above apply again as written.
 
